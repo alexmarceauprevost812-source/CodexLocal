@@ -38,13 +38,17 @@ LOGO = Path(__file__).resolve().parents[1] / "app/src/main/res/drawable-nodpi/lo
 def make_prompt(mode: str, history: list[tuple[str, str]], latest: str) -> str:
     """Garde le contexte recent ; le CLI externe est sans session garantie."""
     instructions = CODEX_INSTRUCTIONS if mode == "codex" else CHAT_INSTRUCTIONS
-    parts = [instructions, "", "Historique récent de la conversation :"]
+    lines = []
     for role, value in history[-10:]:
         if value.strip():
             label = "Utilisateur" if role == "user" else "Assistant"
-            parts.append(f"{label}: {value[:3000]}")
-    parts += ["", f"Utilisateur: {latest}", "Assistant:"]
-    return "\n".join(parts)[-15000:]
+            lines.append(f"{label}: {value[:3000]}")
+    recent_context = "\n".join(lines)[-9500:]
+    # Conserver les instructions de securite et de mode meme si le fil est long.
+    return (
+        instructions + "\n\nHistorique récent :\n" + recent_context +
+        "\n\nUtilisateur: " + latest[-3000:] + "\nAssistant:"
+    )
 
 
 class CodexDesktop:
