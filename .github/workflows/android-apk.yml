@@ -42,7 +42,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      # L'image GitHub Ubuntu fournit deja sdkmanager et ANDROID_HOME.
+      # setup-android@v3 tente d'installer un paquet 'tools' obsolete.
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-disabled: true
