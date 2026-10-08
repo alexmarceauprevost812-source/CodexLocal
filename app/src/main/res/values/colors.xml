@@ -8,6 +8,7 @@
     <color name="divider">#FF1F1F1F</color>
 
     <!-- ====== Orange (boutons, accents) ====== -->
+    <color name="sky_blue">#FF38BDF8</color>
     <color name="orange">#FFFF7A00</color>
     <color name="orange_bright">#FFFFA04D</color>
     <color name="orange_dark">#FFB35400</color>
