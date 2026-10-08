@@ -47,6 +47,9 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_settings -> {
                     openSettings(); true
                 }
+                R.id.action_check_update -> {
+                    checkUpdates(); true
+                }
                 else -> false
             }
         }
@@ -63,6 +66,13 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null) {
             val cfg = prefs.config()
             if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
+        }
+
+        // Verification silencieuse des mises a jour au demarrage
+        if (prefs.autoUpdate) {
+            UpdateFlow.verifier(lifecycleScope, this, silencieux = true) { message ->
+                runOnUiThread { binding.status.text = message }
+            }
         }
     }
 
@@ -84,6 +94,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
+
+    private fun checkUpdates() {
+        UpdateFlow.verifier(lifecycleScope, this, silencieux = false) { message ->
+            runOnUiThread { binding.status.text = message }
+        }
+    }
 
     private fun refreshStatus() {
         val cfg = prefs.config()

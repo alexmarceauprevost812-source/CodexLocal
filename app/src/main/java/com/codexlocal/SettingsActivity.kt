@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
@@ -54,6 +55,7 @@ class SettingsActivity : AppCompatActivity() {
 
         setupCommon()
         setupLocal()
+        setupCatalog()
         setupProvider()
 
         binding.btnSave.setOnClickListener { save() }
@@ -139,8 +141,8 @@ class SettingsActivity : AppCompatActivity() {
             it.alpha = if (isLocal) 0.4f else 1f
         }
         listOf<View>(
-            binding.spModels, binding.btnLoad, binding.btnUnload, binding.btnImport,
-            binding.btnDownload, binding.btnRefresh, binding.etDownloadUrl
+            binding.spModels, binding.spCatalog, binding.btnLoad, binding.btnUnload,
+            binding.btnImport, binding.btnDownload, binding.btnRefresh, binding.etDownloadUrl
         ).forEach {
             it.isEnabled = isLocal
             it.alpha = if (isLocal) 1f else 0.4f
@@ -158,6 +160,33 @@ class SettingsActivity : AppCompatActivity() {
             LocalEngine.unload()
             Toast.makeText(this, "Modèle déchargé", Toast.LENGTH_SHORT).show()
             refreshModels()
+        }
+
+        binding.swAutoUpdate.isChecked = prefs.autoUpdate
+        binding.swAutoUpdate.setOnCheckedChangeListener { _, coche -> prefs.autoUpdate = coche }
+        binding.btnCheckUpdate.setOnClickListener {
+            UpdateFlow.verifier(lifecycleScope, this, silencieux = false) { message ->
+                runOnUiThread { binding.tvLocalStatus.text = message }
+            }
+        }
+    }
+
+    /** Liste des modeles telechargeables en un clic. */
+    private fun setupCatalog() {
+        binding.spCatalog.adapter =
+            ArrayAdapter(this, R.layout.item_spinner, ModelCatalog.libelles)
+        binding.spCatalog.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                binding.etDownloadUrl.visibility =
+                    if (position == ModelCatalog.indexAutre) View.VISIBLE else View.GONE
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
     }
 
@@ -231,12 +260,24 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun downloadModel() {
-        val url = binding.etDownloadUrl.text.toString().trim()
-        if (!url.startsWith("http")) {
-            Toast.makeText(this, "URL invalide", Toast.LENGTH_SHORT).show()
-            return
+        val position = binding.spCatalog.selectedItemPosition
+        val url: String
+        val name: String
+
+        if (position == ModelCatalog.indexAutre) {
+            val saisie = binding.etDownloadUrl.text.toString().trim()
+            if (!saisie.startsWith("http")) {
+                Toast.makeText(this, "URL invalide", Toast.LENGTH_SHORT).show()
+                return
+            }
+            url = saisie
+            name = saisie.substringAfterLast('/').substringBefore('?').ifBlank { "modele.gguf" }
+        } else {
+            val modele = ModelCatalog.modeles[position]
+            url = modele.url
+            name = modele.fichier
         }
-        val name = url.substringAfterLast('/').substringBefore('?').ifBlank { "modele.gguf" }
+
         binding.btnDownload.isEnabled = false
 
         busyJob = lifecycleScope.launch {

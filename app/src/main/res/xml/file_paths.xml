@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- L'APK de mise a jour est telecharge dans le cache de l'appli -->
+    <cache-path
+        name="maj"
+        path="." />
+</paths>

@@ -48,4 +48,16 @@
     <string name="msg_copied">Copié dans le presse-papiers</string>
     <string name="msg_new_chat">Nouvelle conversation</string>
     <string name="msg_choose_model">Choisis d\'abord un modèle dans la liste</string>
+
+    <string name="label_choose_model">Choisis un modèle à télécharger :</string>
+    <string name="auto_update">Mises à jour automatiques</string>
+    <string name="check_update_now">Vérifier maintenant</string>
+    <string name="action_check_update">Mises à jour</string>
+    <string name="update_none">Tu as déjà la dernière version (%1$s)</string>
+    <string name="update_available_title">Mise à jour disponible</string>
+    <string name="update_available_msg">Version %1$s disponible — tu as la %2$s.\n\nTélécharger et installer maintenant ?</string>
+    <string name="update_download">Télécharger et installer</string>
+    <string name="update_error">Vérification impossible. Le dépôt GitHub doit être public pour que la mise à jour automatique fonctionne.</string>
+    <string name="update_downloading">Téléchargement de la mise à jour : %1$d %%</string>
+    <string name="update_permission">Autorise CodexLocal à installer des applis, puis relance la vérification.</string>
 </resources>

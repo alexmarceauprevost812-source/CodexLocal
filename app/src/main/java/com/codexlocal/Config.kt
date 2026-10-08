@@ -85,6 +85,13 @@ class Prefs(context: Context) {
             sp.edit().putString(KEY_SYSTEM_PROMPT, v).apply()
         }
 
+    /** Verifier automatiquement les mises a jour au demarrage. */
+    var autoUpdate: Boolean
+        get() = sp.getBoolean(KEY_AUTO_UPDATE, true)
+        set(v) {
+            sp.edit().putBoolean(KEY_AUTO_UPDATE, v).apply()
+        }
+
     fun apiKey(p: ProviderType): String = sp.getString("key_${p.name}", "") ?: ""
 
     fun setApiKey(p: ProviderType, v: String) {
@@ -126,5 +133,6 @@ class Prefs(context: Context) {
         const val KEY_MAX_TOKENS = "maxTokens"
         const val KEY_LOCAL_PATH = "localModelPath"
         const val KEY_SYSTEM_PROMPT = "systemPrompt"
+        const val KEY_AUTO_UPDATE = "autoUpdate"
     }
 }
