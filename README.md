@@ -16,6 +16,28 @@ Gemini, Groq, OpenRouter, DeepSeek, Ollama…** quand il y a du réseau.
 Le mode local est le mode « chalet sans réseau » : une fois le fichier `.gguf`
 copié sur le téléphone, l'appli n'a plus besoin d'internet du tout.
 
+## Créer des fichiers dans l'APK Android
+
+CodexLocal peut maintenant créer et modifier des fichiers de code dans un projet.
+
+1. Ouvrir le menu **☰** et créer un projet (ou choisir un dossier Android autorisé).
+2. Ouvrir le projet, puis appuyer sur **＋ Nouveau fichier**.
+3. Saisir un nom, par exemple `main.py`, `index.html` ou `src/app.js`.
+4. Le fichier est créé puis ouvert automatiquement dans l'éditeur : écrire et **Enregistrer**.
+
+Pour enregistrer du code généré par l'IA, toucher **Créer fichier** sous
+la réponse. CodexLocal propose un nom en fonction du langage du premier bloc
+de code ; si aucun bloc n'existe, la réponse est enregistrée en Markdown.
+L'utilisateur confirme toujours le nom et le projet avant la création.
+
+- Projets internes : `Android/data/com.codexlocal/files/projets/`.
+- Projets externes : accès accordé par le sélecteur de dossiers Android (SAF).
+- Sous-dossiers relatifs acceptés, par exemple `src/main.py`.
+- **Aucun fichier existant n'est remplacé**. Les chemins absolus et `..` sont refusés.
+- Un fichier créé est ensuite modifiable via l'éditeur de code intégré.
+- L'IA ne crée pas de fichiers toute seule sans action explicite de l'utilisateur.
+- Cette fonction nécessite un nouvel APK compilé depuis les dernières sources.
+
 ## Modes d'interface : Codex et Chat
 
 Dans l'ecran principal, le selecteur **Codex | Chat** permet de changer de mode.
