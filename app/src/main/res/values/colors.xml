@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ====== Fonds : noir AMOLED ====== -->
+    <color name="black">#FF000000</color>
+    <color name="surface">#FF000000</color>
+    <color name="surface_raised">#FF0C0C0C</color>
+    <color name="divider">#FF1F1F1F</color>
+
+    <!-- ====== Orange (boutons, accents) ====== -->
+    <color name="orange">#FFFF7A00</color>
+    <color name="orange_bright">#FFFFA04D</color>
+    <color name="orange_dark">#FFB35400</color>
+    <color name="orange_translucent">#33FF7A00</color>
+    <color name="orange_glow">#1AFF7A00</color>
+
+    <!-- ====== Textes ====== -->
+    <color name="white">#FFECECEC</color>
+    <color name="grey">#FF8C8C8C</color>
+    <color name="grey_dark">#FF5A5A5A</color>
+
+    <!-- ====== Coloration syntaxique du code ====== -->
+    <color name="code_bg">#FF070707</color>
+    <color name="code_text">#FFE6E6E6</color>
+    <color name="code_keyword">#FFFF9A3D</color>
+    <color name="code_string">#FF9ECE6A</color>
+    <color name="code_comment">#FF6B7280</color>
+    <color name="code_number">#FFFFC777</color>
+    <color name="code_function">#FF7AA2F7</color>
+    <color name="code_type">#FF2AC3DE</color>
+    <color name="code_annotation">#FFBB9AF7</color>
+    <color name="code_punct">#FF9AA5B1</color>
+    <color name="code_tag">#FFFF7A00</color>
+    <color name="code_attr">#FF2AC3DE</color>
+    <color name="code_inline">#FFFFC777</color>
+
+    <!-- Anciens noms conserves pour ne rien casser -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FFFF7A00</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+
+</resources>

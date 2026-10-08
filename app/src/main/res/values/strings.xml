@@ -1,0 +1,49 @@
+<resources>
+    <string name="app_name">CodexLocal</string>
+
+    <string name="status_init">Prêt. Ouvre les Réglages pour choisir un modèle.</string>
+    <string name="hint_input">Demande du code, une correction, une explication…</string>
+    <string name="send">Envoyer</string>
+    <string name="stop">Arrêter</string>
+    <string name="copy">Copier</string>
+    <string name="insert">Insérer</string>
+
+    <string name="settings_title">Réglages</string>
+    <string name="action_new_chat">Nouvelle conversation</string>
+
+    <string name="section_engine">Moteur d\'IA</string>
+    <string name="provider_local">Local hors-ligne (GGUF sur le téléphone)</string>
+    <string name="provider_openai">API compatible OpenAI (OpenAI, Groq, OpenRouter, DeepSeek, Ollama…)</string>
+    <string name="provider_anthropic">Claude (Anthropic)</string>
+    <string name="provider_gemini">Google Gemini</string>
+
+    <string name="section_local">Modèle local (fichier .gguf)</string>
+    <string name="local_dir_hint">Dossier des modèles :</string>
+    <string name="btn_import">Importer un .gguf</string>
+    <string name="btn_download">Télécharger</string>
+    <string name="hint_download_url">URL directe d\'un .gguf (Hugging Face…)</string>
+    <string name="btn_load">Charger</string>
+    <string name="btn_unload">Décharger</string>
+    <string name="btn_refresh">Rafraîchir</string>
+
+    <string name="section_remote">Connexion au service distant</string>
+    <string name="hint_api_key">Clé API</string>
+    <string name="hint_base_url">URL de base</string>
+    <string name="hint_model">Nom du modèle</string>
+
+    <string name="section_common">Paramètres de génération</string>
+    <string name="label_temperature">Température</string>
+    <string name="hint_max_tokens">Longueur max de la réponse (tokens)</string>
+    <string name="label_system_prompt">Prompt système</string>
+
+    <string name="btn_save">Enregistrer</string>
+    <string name="btn_cancel">Annuler</string>
+
+    <string name="msg_no_model_loaded">Aucun modèle local chargé. Réglages → Modèle local → Charger.</string>
+    <string name="msg_loading_model">Chargement du modèle… (peut prendre 1 à 2 minutes)</string>
+    <string name="msg_model_loaded">Modèle local chargé : %1$s</string>
+    <string name="msg_error">Erreur : %1$s</string>
+    <string name="msg_copied">Copié dans le presse-papiers</string>
+    <string name="msg_new_chat">Nouvelle conversation</string>
+    <string name="msg_choose_model">Choisis d\'abord un modèle dans la liste</string>
+</resources>

@@ -1,0 +1,29 @@
+# --- Gradle / Android ---
+.gradle/
+.kotlin/
+build/
+app/build/
+lib/build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- Signature : ne jamais publier une cle privee ---
+*.keystore
+*.jks
+
+# --- Modeles d'IA (trop volumineux, a telecharger a part) ---
+*.gguf
+models/
+
+# --- Sources llama.cpp : recuperees par recuperer-llama-cpp.ps1 ---
+lib/src/main/cpp/llama.cpp/
+
+# --- Divers ---
+*.log
+*.hprof
+.DS_Store
+Thumbs.db
