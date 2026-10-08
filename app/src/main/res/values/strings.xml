@@ -82,4 +82,12 @@
     <string name="msg_session_supprimee">Conversation supprimée</string>
     <string name="msg_projet_supprime">Projet retiré de la liste</string>
     <string name="msg_acces_refuse">Accès au dossier refusé</string>
+
+    <string name="drawer_espace">Espace projets :</string>
+    <string name="drawer_nouveau_projet">Nouveau projet dans l\'espace CodexLocal</string>
+    <string name="drawer_ouvrir_saf">Ouvrir un dossier existant du téléphone…</string>
+    <string name="dialog_nom_projet">Nom du projet</string>
+    <string name="btn_creer">Créer</string>
+    <string name="msg_projet_cree">Projet créé : %1$s</string>
+    <string name="msg_copie_usb">Copie tes fichiers ici par USB :\n%1$s</string>
 </resources>

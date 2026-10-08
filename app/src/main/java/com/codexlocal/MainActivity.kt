@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +28,7 @@ import com.codexlocal.project.Projet
 import com.codexlocal.project.ProjectStore
 import com.codexlocal.session.Session
 import com.codexlocal.session.SessionStore
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -278,9 +280,45 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val nom = uri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/') ?: "Projet"
-        ProjectStore.ajouter(this, nom, uri)
+        val projet = Projet(nom, uri.toString(), System.currentTimeMillis(), interne = false)
+        ProjectStore.ajouter(this, projet)
         rafraichirTiroir()
-        ouvrirProjet(ProjectStore.lister(this).firstOrNull { it.uri == uri.toString() })
+        ouvrirProjet(projet)
+    }
+
+    /** Cree un projet dans l'espace de l'appli (visible par USB). */
+    private fun dialogNouveauProjet() {
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        val marge = (16 * resources.displayMetrics.density).toInt()
+        val champ = EditText(this).apply {
+            hint = getString(R.string.dialog_nom_projet)
+            setTextColor(0xFFECECEC.toInt())
+            setHintTextColor(0xFF5A5A5A.toInt())
+            setSingleLine()
+            setPadding(marge, marge, marge, marge)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.drawer_nouveau_projet)
+            .setMessage(
+                getString(R.string.msg_copie_usb, ProjectStore.dossierInterne(this).absolutePath)
+            )
+            .setView(champ)
+            .setPositiveButton(R.string.btn_creer) { _, _ ->
+                val nom = champ.text.toString().trim()
+                if (nom.isNotBlank()) {
+                    val projet = ProjectStore.creerProjetInterne(this, nom)
+                    ProjectStore.ajouter(this, projet)
+                    rafraichirTiroir()
+                    ouvrirProjet(projet)
+                    Toast.makeText(
+                        this,
+                        getString(R.string.msg_projet_cree, projet.nom),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
     }
 
     private fun ouvrirProjet(projet: Projet?) {
@@ -307,8 +345,9 @@ class MainActivity : AppCompatActivity() {
         binding.drawerLayout.closeDrawer(binding.tiroir)
         startActivity(
             Intent(this, CodeEditorActivity::class.java)
-                .putExtra(CodeEditorActivity.EXTRA_URI, f.uri)
+                .putExtra(CodeEditorActivity.EXTRA_CHEMIN, f.uri)
                 .putExtra(CodeEditorActivity.EXTRA_NOM, f.chemin)
+                .putExtra(CodeEditorActivity.EXTRA_INTERNE, f.interne)
         )
     }
 
@@ -383,11 +422,16 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }
-        } else {
-            nouveaux.add(
-                DrawerItem.Bouton(getString(R.string.drawer_ouvrir_dossier), CLE_NOUVEAU_PROJET)
-            )
         }
+
+        nouveaux.add(
+            DrawerItem.Bouton(getString(R.string.drawer_nouveau_projet), CLE_NOUVEAU_PROJET)
+        )
+        nouveaux.add(
+            DrawerItem.Bouton(getString(R.string.drawer_ouvrir_saf), CLE_OUVRIR_DOSSIER)
+        )
+        nouveaux.add(DrawerItem.Info(getString(R.string.drawer_espace)))
+        nouveaux.add(DrawerItem.Info(ProjectStore.dossierInterne(this).absolutePath))
 
         if (::tiroirAdapter.isInitialized) tiroirAdapter.remplacer(nouveaux)
     }
@@ -395,8 +439,10 @@ class MainActivity : AppCompatActivity() {
     private fun surLigneTiroir(item: DrawerItem) {
         when (item) {
             is DrawerItem.LigneSession -> basculerSession(item.id)
-            is DrawerItem.LigneFichier ->
-                ouvrirFichier(FichierProjet(item.nom, item.chemin, item.uri, 0L))
+            is DrawerItem.LigneFichier -> {
+                val f = fichiersProjet.firstOrNull { it.uri == item.uri }
+                if (f != null) ouvrirFichier(f)
+            }
             is DrawerItem.LigneProjet ->
                 if (item.uri == projetActif?.uri) {
                     ouvrirProjet(null)
@@ -415,7 +461,8 @@ class MainActivity : AppCompatActivity() {
         }
         when {
             cle == CLE_NOUVELLE_SESSION -> nouvelleSession()
-            cle == CLE_NOUVEAU_PROJET -> choisirDossier.launch(null)
+            cle == CLE_NOUVEAU_PROJET -> dialogNouveauProjet()
+            cle == CLE_OUVRIR_DOSSIER -> choisirDossier.launch(null)
             item is DrawerItem.LigneSession -> supprimerSession(item.id)
             item is DrawerItem.LigneProjet -> supprimerProjet(item.uri)
         }
@@ -510,5 +557,6 @@ class MainActivity : AppCompatActivity() {
 
         private const val CLE_NOUVELLE_SESSION = "nouvelle_session"
         private const val CLE_NOUVEAU_PROJET = "nouveau_projet"
+        private const val CLE_OUVRIR_DOSSIER = "ouvrir_dossier"
     }
 }

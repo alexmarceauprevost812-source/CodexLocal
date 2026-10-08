@@ -251,7 +251,8 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 prefs.localModelPath = dest.absolutePath
                 refreshModels()
-                binding.tvLocalStatus.text = "Importé : ${dest.name} — appuie sur Charger"
+                binding.tvLocalStatus.text = "Importé : ${dest.name} — chargement…"
+                chargerLeModele(dest)
             } catch (e: Exception) {
                 binding.tvLocalStatus.text =
                     getString(R.string.msg_error, e.message ?: e.toString())
@@ -295,13 +296,27 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 prefs.localModelPath = dest.absolutePath
                 refreshModels()
-                binding.tvLocalStatus.text = "Téléchargé : ${dest.name} — appuie sur Charger"
+                binding.tvLocalStatus.text = "Téléchargé : ${dest.name} — chargement…"
+                chargerLeModele(dest)
             } catch (e: Exception) {
                 binding.tvLocalStatus.text =
                     getString(R.string.msg_error, e.message ?: e.toString())
             } finally {
                 binding.btnDownload.isEnabled = true
             }
+        }
+    }
+
+    /** Charge le modele juste apres son installation : un clic et c'est pret. */
+    private suspend fun chargerLeModele(fichier: File) {
+        try {
+            LocalEngine.load(this, fichier.absolutePath, prefs.config()) { msg ->
+                runOnUiThread { binding.tvLocalStatus.text = msg }
+            }
+            binding.tvLocalStatus.text = getString(R.string.msg_model_loaded, fichier.name)
+        } catch (e: Exception) {
+            binding.tvLocalStatus.text =
+                getString(R.string.msg_error, e.message ?: e.toString())
         }
     }
 

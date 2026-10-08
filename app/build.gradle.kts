@@ -11,8 +11,8 @@ android {
         applicationId = "com.codexlocal"
         minSdk = 33
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.3"
+        versionCode = 4
+        versionName = "1.4"
 
         vectorDrawables {
             useSupportLibrary = true
