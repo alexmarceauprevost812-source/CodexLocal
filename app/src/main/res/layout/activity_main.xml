@@ -104,6 +104,38 @@
             android:layout_height="1dp"
             android:background="@color/divider" />
 
+        <!-- Selecteur de mode : Codex pour le code, Chat pour la discussion. -->
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/modeSelector"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            app:singleSelection="true"
+            app:selectionRequired="true"
+            app:checkedButton="@id/modeCodex">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/modeCodex"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:text="@string/mode_codex"
+                android:textAllCaps="false"
+                app:strokeColor="@color/orange"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/modeChat"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:text="@string/mode_chat"
+                android:textAllCaps="false"
+                app:strokeColor="@color/orange"
+                app:strokeWidth="1dp" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
