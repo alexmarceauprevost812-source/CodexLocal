@@ -2,6 +2,7 @@ package com.codexlocal
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.res.ColorStateList
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -48,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private val adapter = MessageAdapter(messages) { copyToClipboard(it) }
     private var job: Job? = null
     private var lastUiUpdate = 0L
+    private var isGenerating = false
+    private var modelSessionId: String? = null
 
     // ----- menu lateral : sessions et projets -----
     private val itemsTiroir = mutableListOf<DrawerItem>()
@@ -98,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         binding.listeTiroir.adapter = tiroirAdapter
         ouvrirSessionOuCreer()
         rafraichirTiroir()
+        setupModeSelector()
 
         binding.send.setOnClickListener {
             if (job?.isActive == true) stopGeneration() else send()
@@ -170,11 +174,85 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setGenerating(on: Boolean) {
-        binding.send.setImageResource(
-            if (on) R.drawable.ic_stop_circle else R.drawable.ic_send_circle
+    /** Theme noir/orange pour Codex ; noir/bleu ciel pour Chat. */
+    private fun setupModeSelector() {
+        binding.modeSelector.check(
+            if (prefs.assistantMode == AssistantMode.CODEX) R.id.modeCodex else R.id.modeChat
         )
+        binding.modeSelector.addOnButtonCheckedListener { _, checkedId, checked ->
+            if (!checked) return@addOnButtonCheckedListener
+            val mode = if (checkedId == R.id.modeChat) AssistantMode.CHAT else AssistantMode.CODEX
+            changeMode(mode)
+        }
+        updateModeTheme()
+    }
+
+    private fun changeMode(mode: AssistantMode) {
+        if (prefs.assistantMode == mode) return
+        if (isGenerating) return
+
+        // Chaque mode demarre une conversation propre pour eviter de melanger
+        // l'historique de chat classique et les instructions de programmation.
+        if (messages.isNotEmpty()) {
+            sauverSession()
+            val nouvelle = SessionStore.creer()
+            SessionStore.enregistrer(this, nouvelle)
+            session = nouvelle
+            appliquerSession()
+            rafraichirTiroir()
+        }
+        prefs.assistantMode = mode
+        updateModeTheme()
+        refreshStatus()
+    }
+
+    private fun updateModeTheme() {
+        val isChat = prefs.assistantMode == AssistantMode.CHAT
+        val accent = getColor(if (isChat) R.color.sky_blue else R.color.orange)
+        val orange = getColor(R.color.orange)
+        val blue = getColor(R.color.sky_blue)
+        val black = getColor(R.color.black)
+
+        binding.toolbar.setTitleTextColor(accent)
+        binding.status.setTextColor(accent)
+        binding.input.backgroundTintList = ColorStateList.valueOf(accent)
+        binding.input.hint = getString(
+            if (isChat) R.string.hint_input_chat else R.string.hint_input
+        )
+
+        binding.modeCodex.backgroundTintList =
+            ColorStateList.valueOf(if (isChat) black else orange)
+        binding.modeCodex.setTextColor(if (isChat) orange else black)
+        binding.modeCodex.strokeColor = ColorStateList.valueOf(orange)
+
+        binding.modeChat.backgroundTintList =
+            ColorStateList.valueOf(if (isChat) blue else black)
+        binding.modeChat.setTextColor(if (isChat) black else blue)
+        binding.modeChat.strokeColor = ColorStateList.valueOf(blue)
+        updateSendIcon()
+    }
+
+    private fun updateSendIcon() {
+        val drawable = when {
+            isGenerating && prefs.assistantMode == AssistantMode.CHAT ->
+                R.drawable.ic_stop_circle_blue
+            isGenerating -> R.drawable.ic_stop_circle
+            prefs.assistantMode == AssistantMode.CHAT -> R.drawable.ic_send_circle_blue
+            else -> R.drawable.ic_codex_circle
+        }
+        binding.send.setImageResource(drawable)
+        binding.send.contentDescription = getString(
+            if (isGenerating) R.string.stop else if (prefs.assistantMode == AssistantMode.CHAT)
+                R.string.send else R.string.send_codex
+        )
+    }
+
+    private fun setGenerating(on: Boolean) {
+        isGenerating = on
+        updateSendIcon()
         binding.input.isEnabled = !on
+        binding.modeCodex.isEnabled = !on
+        binding.modeChat.isEnabled = !on
     }
 
     /** Affiche le logo d'accueil tant qu'aucun message n'existe. */
@@ -471,7 +549,7 @@ class MainActivity : AppCompatActivity() {
     private fun send() {
         val text = binding.input.text.toString().trim()
         if (text.isEmpty()) return
-        val cfg = prefs.config()
+        val cfg = prefs.config().forMode(prefs.assistantMode)
 
         binding.input.setText("")
         messages.add(Message.user(text))
@@ -489,11 +567,17 @@ class MainActivity : AppCompatActivity() {
                         binding.status.text = getString(R.string.msg_no_model_loaded)
                         return@launch
                     }
-                    if (!LocalEngine.isLoadedFor(cfg.localModelPath)) {
-                        binding.status.text = getString(R.string.msg_loading_model)
-                        LocalEngine.load(this@MainActivity, cfg.localModelPath, cfg) { msg ->
-                            runOnUiThread { binding.status.text = msg }
-                        }
+                    // Le chargement ajuste aussi le prompt lors d'un passage Codex/Chat.
+                    val alreadyLoaded = LocalEngine.isLoadedFor(cfg.localModelPath)
+                    if (!alreadyLoaded) binding.status.text = getString(R.string.msg_loading_model)
+                    LocalEngine.load(this@MainActivity, cfg.localModelPath, cfg) { msg ->
+                        runOnUiThread { binding.status.text = msg }
+                    }
+                    if (modelSessionId != session?.id) {
+                        LocalEngine.resetConversation(this@MainActivity, cfg)
+                        modelSessionId = session?.id
+                    }
+                    if (!alreadyLoaded) {
                         binding.status.text =
                             getString(R.string.msg_model_loaded, File(cfg.localModelPath).name)
                     }
