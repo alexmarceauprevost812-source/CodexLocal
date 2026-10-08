@@ -48,8 +48,13 @@ jobs:
 
           root = tk.Tk()
           app = CodexDesktop(root, Path.cwd())
-          root.update_idletasks()
+          # Vérifier un écran PC compact : le compositeur doit rester visible.
+          root.geometry("740x570")
+          root.update()
           assert app.mode == "codex" and app.accent == ORANGE
+          assert app.input.winfo_viewable(), "Zone d'écriture masquée"
+          assert app.input.winfo_height() >= 45, "Champ d'écriture trop petit"
+          assert app.composer_border.winfo_rooty() + app.composer_border.winfo_height() <= root.winfo_rooty() + root.winfo_height(), "Zone d'écriture hors de l'écran"
           app._set_mode("chat")
           root.update_idletasks()
           assert app.mode == "chat" and app.accent == SKY
