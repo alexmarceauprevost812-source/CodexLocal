@@ -16,6 +16,18 @@ Gemini, Groq, OpenRouter, DeepSeek, Ollama…** quand il y a du réseau.
 Le mode local est le mode « chalet sans réseau » : une fois le fichier `.gguf`
 copié sur le téléphone, l'appli n'a plus besoin d'internet du tout.
 
+## Modes d'interface : Codex et Chat
+
+Dans l'ecran principal, le selecteur **Codex | Chat** permet de changer de mode.
+
+- **Codex** : interface noir et orange, bouton d'envoi `</>`, consignes orientees programmation et corrections de code.
+- **Chat** : interface noir et bleu ciel, bulles de discussion bleues, bouton d'envoi classique, consignes de conversation generale.
+- Le modele choisi (GGUF local ou fournisseur API) reste le meme.
+- Le mode choisi est memorise. Lors du changement de mode, une nouvelle session est creee si la conversation en cours contient des messages ; les anciens messages restent dans l'historique du volet lateral.
+- Pendant la generation, le bouton devient un bouton **Arreter** dans la couleur du mode actif.
+
+Ces changements concernent les sources Android ; il faut compiler et installer un nouvel APK pour en profiter.
+
 ## Architecture
 
 ```
