@@ -201,6 +201,100 @@ object ProjectStore {
         }
     }
 
+    /**
+     * Crée un fichier texte dans un projet. Le nom peut inclure des sous-dossiers
+     * relatifs (ex. src/main.py). Pas de chemin absolu, ni de '..', ni d'ecrasement.
+     * Le dossier externe doit avoir ete choisi via ACTION_OPEN_DOCUMENT_TREE.
+     */
+    fun creerFichier(
+        context: Context,
+        projet: Projet,
+        cheminRelatif: String,
+        contenu: String = ""
+    ): FichierProjet {
+        val segments = validerCheminRelatif(cheminRelatif)
+        val nom = segments.last()
+        require(Langages.estTexte(nom)) {
+            "Choisis un fichier texte ou de code (ex. main.py, index.html, README.md)"
+        }
+
+        if (projet.interne) {
+            val racine = File(projet.uri).canonicalFile
+            require(racine.isDirectory) { "Dossier de projet introuvable" }
+            var dossier = racine
+            for (segment in segments.dropLast(1)) {
+                dossier = File(dossier, segment)
+                if (!dossier.isDirectory && !dossier.mkdir()) {
+                    require(dossier.isDirectory) { "Impossible de créer le sous-dossier" }
+                }
+                require(dossier.canonicalFile.toPath().startsWith(racine.toPath())) {
+                    "Chemin de fichier refusé"
+                }
+            }
+            val cible = File(dossier, nom)
+            require(cible.canonicalFile.toPath().startsWith(racine.toPath())) {
+                "Chemin de fichier refusé"
+            }
+            check(cible.createNewFile()) { "Un fichier portant ce nom existe déjà" }
+            try {
+                if (contenu.isNotEmpty()) cible.writeText(contenu, Charsets.UTF_8)
+            } catch (e: Exception) {
+                cible.delete()
+                throw e
+            }
+            return FichierProjet(nom, segments.joinToString("/"), cible.absolutePath,
+                cible.length(), interne = true)
+        }
+
+        var dossier = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri))
+            ?: error("Dossier du téléphone inaccessible")
+        require(dossier.isDirectory && dossier.canWrite()) {
+            "Ce dossier ne permet pas l'écriture : autorise l'accès dans Android"
+        }
+        for (segment in segments.dropLast(1)) {
+            val existant = dossier.findFile(segment)
+            dossier = if (existant == null) {
+                dossier.createDirectory(segment) ?: error("Création du dossier impossible : $segment")
+            } else {
+                require(existant.isDirectory) { "Ce nom est déjà utilisé par un fichier : $segment" }
+                existant
+            }
+        }
+        check(dossier.findFile(nom) == null) { "Un fichier portant ce nom existe déjà" }
+        val document = dossier.createFile("text/plain", nom)
+            ?: error("Création du fichier refusée par Android")
+        try {
+            if (contenu.isNotEmpty()) {
+                context.contentResolver.openOutputStream(document.uri, "wt")?.use {
+                    it.write(contenu.toByteArray(Charsets.UTF_8))
+                } ?: error("Écriture impossible dans ce dossier")
+            }
+        } catch (e: Exception) {
+            document.delete()
+            throw e
+        }
+        return FichierProjet(document.name ?: nom,
+            (segments.dropLast(1) + (document.name ?: nom)).joinToString("/"),
+            document.uri.toString(), document.length(), interne = false)
+    }
+
+    /** Un chemin relatif, sans traversal, caractères de contrôle ni nom caché. */
+    fun validerCheminRelatif(chemin: String): List<String> {
+        val valeur = chemin.trim()
+        require(valeur.isNotEmpty() && valeur.length <= 240) { "Nom du fichier invalide" }
+        require(!valeur.startsWith("/") && !valeur.contains('\\') &&
+            !valeur.contains(':') && !valeur.contains('\u0000')) {
+            "Utilise un chemin relatif, comme src/main.py"
+        }
+        val morceaux = valeur.split('/')
+        require(morceaux.size <= 8 && morceaux.all {
+            it.isNotBlank() && it != "." && it != ".." &&
+                !it.startsWith(".") && it.length <= 90 &&
+                it.none { char -> char.isISOControl() }
+        }) { "Nom interdit : pas de dossier caché, de '..' ou de chemin absolu" }
+        return morceaux
+    }
+
     // ------------------------------------------------------------------- E/S
 
     fun lireTexte(context: Context, fichier: FichierProjet): String =
