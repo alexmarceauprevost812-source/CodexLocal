@@ -24,6 +24,7 @@ object LocalEngine {
 
     private var systemPromptSent = false
     private var appliedTemperature = Float.NaN
+    private var activeSystemPrompt: String? = null
 
     fun engine(context: Context): InferenceEngine =
         engine ?: AiChat.getInferenceEngine(context.applicationContext).also { engine = it }
@@ -43,7 +44,13 @@ object LocalEngine {
     ) {
         val e = engine(context)
         awaitReady(e)
-        if (isLoadedFor(modelPath)) return
+        if (isLoadedFor(modelPath)) {
+            // Un changement Codex/Chat doit aussi modifier le prompt du moteur local.
+            if (activeSystemPrompt != cfg.systemPrompt) {
+                resetConversation(context, cfg)
+            }
+            return
+        }
 
         onStatus("Chargement du modele…")
         e.loadModel(modelPath)
@@ -52,6 +59,7 @@ object LocalEngine {
         appliedTemperature = cfg.temperature
         loadedPath = modelPath
         systemPromptSent = true
+        activeSystemPrompt = cfg.systemPrompt
     }
 
     suspend fun resetConversation(context: Context, cfg: AppConfig) {
@@ -61,6 +69,7 @@ object LocalEngine {
         e.setSystemPrompt(cfg.systemPrompt)
         appliedTemperature = cfg.temperature
         systemPromptSent = true
+        activeSystemPrompt = cfg.systemPrompt
     }
 
     /** Reconstruit le sampler seulement si la temperature a change. */
@@ -76,6 +85,7 @@ object LocalEngine {
         runCatching { e.cleanUp() }
         loadedPath = null
         systemPromptSent = false
+        activeSystemPrompt = null
         appliedTemperature = Float.NaN
     }
 
