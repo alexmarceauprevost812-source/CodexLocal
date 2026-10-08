@@ -6,6 +6,10 @@
     <string name="empty_hint">Réglages → télécharge un modèle .gguf, ou ajoute une clé API\n(Claude, Gemini, OpenAI, OpenRouter…)</string>
     <string name="hint_input">Demande du code, une correction, une explication…</string>
     <string name="send">Envoyer</string>
+    <string name="send_codex">Envoyer en mode Codex</string>
+    <string name="mode_codex">Codex</string>
+    <string name="mode_chat">Chat</string>
+    <string name="hint_input_chat">Écris ton message…</string>
     <string name="stop">Arrêter</string>
     <string name="copy">Copier</string>
     <string name="insert">Insérer</string>
