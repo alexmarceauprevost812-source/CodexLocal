@@ -4,21 +4,38 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.codexlocal.databinding.ActivityMainBinding
+import com.codexlocal.drawer.DrawerAdapter
+import com.codexlocal.drawer.DrawerItem
+import com.codexlocal.editor.CodeEditorActivity
+import com.codexlocal.project.FichierProjet
+import com.codexlocal.project.Langages
+import com.codexlocal.project.Projet
+import com.codexlocal.project.ProjectStore
+import com.codexlocal.session.Session
+import com.codexlocal.session.SessionStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,6 +46,18 @@ class MainActivity : AppCompatActivity() {
     private val adapter = MessageAdapter(messages) { copyToClipboard(it) }
     private var job: Job? = null
     private var lastUiUpdate = 0L
+
+    // ----- menu lateral : sessions et projets -----
+    private val itemsTiroir = mutableListOf<DrawerItem>()
+    private lateinit var tiroirAdapter: DrawerAdapter
+    private var session: Session? = null
+    private var projetActif: Projet? = null
+    private var fichiersProjet: List<FichierProjet> = emptyList()
+
+    private val choisirDossier =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            uri?.let { ajouterProjet(it) }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_new_chat -> {
-                    newChat(); true
+                    nouvelleSession(); true
                 }
                 R.id.action_settings -> {
                     openSettings(); true
@@ -57,6 +86,16 @@ class MainActivity : AppCompatActivity() {
         binding.messages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         binding.messages.adapter = adapter
         updateEmptyState()
+
+        // ----- menu lateral -----
+        binding.toolbar.setNavigationOnClickListener {
+            binding.drawerLayout.openDrawer(binding.tiroir)
+        }
+        tiroirAdapter = DrawerAdapter(itemsTiroir, ::surLigneTiroir, ::surActionTiroir)
+        binding.listeTiroir.layoutManager = LinearLayoutManager(this)
+        binding.listeTiroir.adapter = tiroirAdapter
+        ouvrirSessionOuCreer()
+        rafraichirTiroir()
 
         binding.send.setOnClickListener {
             if (job?.isActive == true) stopGeneration() else send()
@@ -74,11 +113,26 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { binding.status.text = message }
             }
         }
+
+        // Message transmis par l'editeur de code
+        intent?.getStringExtra(EXTRA_MESSAGE)?.let { binding.input.setText(it) }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sauverSession()
     }
 
     override fun onResume() {
         super.onResume()
         refreshStatus()
+    }
+
+    /** Appele quand l'editeur de code renvoie un fichier a analyser. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra(EXTRA_MESSAGE)?.let { binding.input.setText(it) }
     }
 
     // ------------------------------------------------------------------ UI
@@ -139,6 +193,234 @@ class MainActivity : AppCompatActivity() {
 
     // --------------------------------------------------------------- envoi
 
+    // ============================================================ sessions
+
+    private fun ouvrirSessionOuCreer() {
+        val id = prefs.sessionActive
+        session = if (id.isNotBlank()) SessionStore.charger(this, id) else null
+        if (session == null) {
+            session = SessionStore.lister(this).firstOrNull() ?: SessionStore.creer()
+        }
+        appliquerSession()
+    }
+
+    private fun appliquerSession() {
+        val s = session ?: return
+        prefs.sessionActive = s.id
+        messages.clear()
+        messages.addAll(s.messages)
+        adapter.notifyDataSetChanged()
+        updateEmptyState()
+        scrollToEnd()
+    }
+
+    private fun nouvelleSession() {
+        stopGeneration()
+        sauverSession()
+        val s = SessionStore.creer()
+        SessionStore.enregistrer(this, s)
+        session = s
+        appliquerSession()
+        rafraichirTiroir()
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+    }
+
+    private fun basculerSession(id: String) {
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        if (session?.id == id) return
+        stopGeneration()
+        sauverSession()
+        session = SessionStore.charger(this, id)
+        appliquerSession()
+        rafraichirTiroir()
+    }
+
+    private fun sauverSession() {
+        val s = session ?: return
+        s.messages.clear()
+        s.messages.addAll(messages)
+        if (messages.isNotEmpty() && s.titre == "Nouvelle conversation") {
+            s.titre = SessionStore.titreAutomatique(messages.first().content)
+        }
+        SessionStore.enregistrer(this, s)
+    }
+
+    private fun supprimerSession(id: String) {
+        SessionStore.supprimer(this, id)
+        if (session?.id == id) {
+            session = null
+            ouvrirSessionOuCreer()
+        }
+        rafraichirTiroir()
+        Toast.makeText(this, R.string.msg_session_supprimee, Toast.LENGTH_SHORT).show()
+    }
+
+    // ============================================================ projets
+
+    private fun ajouterProjet(uri: Uri) {
+        // On demande lecture + ecriture ; certains fournisseurs n'accordent que la lecture.
+        val ok = runCatching {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            true
+        }.getOrElse {
+            runCatching {
+                contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                true
+            }.getOrDefault(false)
+        }
+        if (!ok) {
+            binding.status.text = getString(R.string.msg_acces_refuse)
+            return
+        }
+        val nom = uri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/') ?: "Projet"
+        ProjectStore.ajouter(this, nom, uri)
+        rafraichirTiroir()
+        ouvrirProjet(ProjectStore.lister(this).firstOrNull { it.uri == uri.toString() })
+    }
+
+    private fun ouvrirProjet(projet: Projet?) {
+        projetActif = projet
+        fichiersProjet = emptyList()
+        binding.titreTiroir.text = projet?.nom ?: getString(R.string.drawer_sous_titre)
+        rafraichirTiroir()
+        if (projet == null) return
+
+        lifecycleScope.launch {
+            val fichiers = withContext(Dispatchers.IO) {
+                runCatching { ProjectStore.listerFichiers(this@MainActivity, projet) }
+                    .getOrDefault(emptyList())
+            }
+            if (projetActif?.uri != projet.uri) return@launch
+            fichiersProjet = fichiers
+            rafraichirTiroir()
+            binding.status.text = getString(R.string.msg_projet_ouvert, projet.nom) + " — " +
+                getString(R.string.msg_fichiers_trouves, fichiers.size)
+        }
+    }
+
+    private fun ouvrirFichier(f: FichierProjet) {
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        startActivity(
+            Intent(this, CodeEditorActivity::class.java)
+                .putExtra(CodeEditorActivity.EXTRA_URI, f.uri)
+                .putExtra(CodeEditorActivity.EXTRA_NOM, f.chemin)
+        )
+    }
+
+    private fun supprimerProjet(uri: String) {
+        ProjectStore.supprimer(this, uri)
+        if (projetActif?.uri == uri) {
+            projetActif = null
+            fichiersProjet = emptyList()
+            binding.titreTiroir.text = getString(R.string.drawer_sous_titre)
+        }
+        rafraichirTiroir()
+        Toast.makeText(this, R.string.msg_projet_supprime, Toast.LENGTH_SHORT).show()
+    }
+
+    // ============================================================== tiroir
+
+    private fun rafraichirTiroir() {
+        val nouveaux = mutableListOf<DrawerItem>()
+
+        nouveaux.add(
+            DrawerItem.Section(getString(R.string.drawer_sessions), "＋", CLE_NOUVELLE_SESSION)
+        )
+        val sessions = SessionStore.lister(this)
+        if (sessions.isEmpty()) {
+            nouveaux.add(DrawerItem.Info("Aucune conversation enregistrée"))
+        } else {
+            val format = SimpleDateFormat("d MMM HH:mm", Locale.CANADA_FRENCH)
+            sessions.forEach { s ->
+                nouveaux.add(
+                    DrawerItem.LigneSession(
+                        id = s.id,
+                        titre = s.titre,
+                        sous = format.format(Date(s.modifie)) + "  ·  " + s.messages.size + " msg",
+                        actif = s.id == session?.id
+                    )
+                )
+            }
+        }
+
+        nouveaux.add(
+            DrawerItem.Section(getString(R.string.drawer_projets), "＋", CLE_NOUVEAU_PROJET)
+        )
+        val projets = ProjectStore.lister(this)
+        if (projets.isEmpty()) {
+            nouveaux.add(DrawerItem.Info(getString(R.string.drawer_aucun_projet)))
+        } else {
+            projets.forEach { p ->
+                val ouvert = p.uri == projetActif?.uri
+                nouveaux.add(
+                    DrawerItem.LigneProjet(
+                        uri = p.uri,
+                        nom = p.nom,
+                        sous = if (ouvert) getString(R.string.drawer_fermer_projet)
+                        else getString(R.string.drawer_ouvrir_dossier),
+                        actif = ouvert
+                    )
+                )
+            }
+        }
+
+        val projet = projetActif
+        if (projet != null) {
+            nouveaux.add(
+                DrawerItem.Section(getString(R.string.drawer_fichiers) + " — " + projet.nom)
+            )
+            if (fichiersProjet.isEmpty()) {
+                nouveaux.add(DrawerItem.Info(getString(R.string.drawer_chargement)))
+            } else {
+                fichiersProjet.forEach {
+                    nouveaux.add(
+                        DrawerItem.LigneFichier(it.nom, it.chemin, it.uri, Langages.pour(it.nom))
+                    )
+                }
+            }
+        } else {
+            nouveaux.add(
+                DrawerItem.Bouton(getString(R.string.drawer_ouvrir_dossier), CLE_NOUVEAU_PROJET)
+            )
+        }
+
+        if (::tiroirAdapter.isInitialized) tiroirAdapter.remplacer(nouveaux)
+    }
+
+    private fun surLigneTiroir(item: DrawerItem) {
+        when (item) {
+            is DrawerItem.LigneSession -> basculerSession(item.id)
+            is DrawerItem.LigneFichier ->
+                ouvrirFichier(FichierProjet(item.nom, item.chemin, item.uri, 0L))
+            is DrawerItem.LigneProjet ->
+                if (item.uri == projetActif?.uri) {
+                    ouvrirProjet(null)
+                } else {
+                    ouvrirProjet(ProjectStore.lister(this).firstOrNull { it.uri == item.uri })
+                }
+            else -> Unit
+        }
+    }
+
+    private fun surActionTiroir(item: DrawerItem) {
+        val cle = when (item) {
+            is DrawerItem.Section -> item.cleAction
+            is DrawerItem.Bouton -> item.cleAction
+            else -> null
+        }
+        when {
+            cle == CLE_NOUVELLE_SESSION -> nouvelleSession()
+            cle == CLE_NOUVEAU_PROJET -> choisirDossier.launch(null)
+            item is DrawerItem.LigneSession -> supprimerSession(item.id)
+            item is DrawerItem.LigneProjet -> supprimerProjet(item.uri)
+        }
+    }
+
     private fun send() {
         val text = binding.input.text.toString().trim()
         if (text.isEmpty()) return
@@ -194,6 +476,8 @@ class MainActivity : AppCompatActivity() {
                 }
             } finally {
                 setGenerating(false)
+                sauverSession()
+                rafraichirTiroir()
             }
         }
     }
@@ -218,5 +502,13 @@ class MainActivity : AppCompatActivity() {
         } else {
             binding.status.text = getString(R.string.msg_new_chat)
         }
+    }
+
+    companion object {
+        /** Message pre-rempli, transmis par l'editeur de code. */
+        const val EXTRA_MESSAGE = "message_initial"
+
+        private const val CLE_NOUVELLE_SESSION = "nouvelle_session"
+        private const val CLE_NOUVEAU_PROJET = "nouveau_projet"
     }
 }

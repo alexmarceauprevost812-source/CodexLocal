@@ -1,7 +1,7 @@
 package com.codexlocal
 
 import android.graphics.Typeface
-import android.text.SpannableStringBuilder
+import android.text.Spannable
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
@@ -123,7 +123,7 @@ object SyntaxHighlighter {
     /**
      * Colore le texte `code` deja present dans [sb] a partir de [offset].
      */
-    fun colorize(sb: SpannableStringBuilder, offset: Int, code: String, lang: String) {
+    fun colorize(sb: Spannable, offset: Int, code: String, lang: String) {
         if (code.length > MAX_LENGTH || code.isEmpty()) return
         val l = lang.trim().lowercase(Locale.US).substringBefore(' ')
 
@@ -138,7 +138,7 @@ object SyntaxHighlighter {
     // ------------------------------------------------------------------ interne
 
     private fun colorizeGeneric(
-        sb: SpannableStringBuilder,
+        sb: Spannable,
         offset: Int,
         code: String,
         regex: Regex,
@@ -168,7 +168,7 @@ object SyntaxHighlighter {
         }
     }
 
-    private fun colorizeMarkup(sb: SpannableStringBuilder, offset: Int, code: String) {
+    private fun colorizeMarkup(sb: Spannable, offset: Int, code: String) {
         for (m in RE_MARKUP.findAll(code)) {
             val g = m.groups
             val start = offset + m.range.first
@@ -190,7 +190,7 @@ object SyntaxHighlighter {
     }
 
     private fun span(
-        sb: SpannableStringBuilder,
+        sb: Spannable,
         start: Int,
         end: Int,
         color: Int,

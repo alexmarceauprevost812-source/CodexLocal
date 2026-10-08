@@ -41,6 +41,14 @@
             android:label="@string/settings_title"
             android:parentActivityName=".MainActivity" />
 
+        <!-- Editeur de code, ouvert depuis le menu lateral quand un projet est choisi -->
+        <activity
+            android:name=".editor.CodeEditorActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
+            android:exported="false"
+            android:label="@string/editor_title"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Permet de passer l'APK telecharge au gestionnaire de paquets Android -->
         <provider
             android:name="androidx.core.content.FileProvider"

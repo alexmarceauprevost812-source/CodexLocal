@@ -60,4 +60,26 @@
     <string name="update_error">Vérification impossible. Le dépôt GitHub doit être public pour que la mise à jour automatique fonctionne.</string>
     <string name="update_downloading">Téléchargement de la mise à jour : %1$d %%</string>
     <string name="update_permission">Autorise CodexLocal à installer des applis, puis relance la vérification.</string>
+
+    <string name="editor_title">Éditeur de code</string>
+    <string name="editor_save">Enregistrer</string>
+    <string name="editor_ask">Demander à l\'IA</string>
+    <string name="editor_lignes">%1$d lignes</string>
+    <string name="editor_error">Erreur : %1$s</string>
+
+    <string name="drawer_sous_titre">Sessions &amp; projets</string>
+    <string name="drawer_sessions">Sessions</string>
+    <string name="drawer_projets">Projets</string>
+    <string name="drawer_fichiers">Fichiers du projet</string>
+    <string name="drawer_ouvrir_dossier">Ouvrir un dossier de code…</string>
+    <string name="drawer_aucun_projet">Aucun projet. Ouvre un dossier pour voir ses fichiers.</string>
+    <string name="drawer_chargement">Lecture du dossier…</string>
+    <string name="drawer_aucun_fichier">Aucun fichier texte trouvé.</string>
+    <string name="drawer_fermer_projet">Fermer le projet</string>
+    <string name="drawer_nouvelle">＋</string>
+    <string name="msg_projet_ouvert">Projet ouvert : %1$s</string>
+    <string name="msg_fichiers_trouves">%1$d fichiers</string>
+    <string name="msg_session_supprimee">Conversation supprimée</string>
+    <string name="msg_projet_supprime">Projet retiré de la liste</string>
+    <string name="msg_acces_refuse">Accès au dossier refusé</string>
 </resources>

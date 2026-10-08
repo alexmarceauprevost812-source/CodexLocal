@@ -92,6 +92,13 @@ class Prefs(context: Context) {
             sp.edit().putBoolean(KEY_AUTO_UPDATE, v).apply()
         }
 
+    /** Conversation en cours, pour la retrouver au prochain lancement. */
+    var sessionActive: String
+        get() = sp.getString(KEY_SESSION, "") ?: ""
+        set(v) {
+            sp.edit().putString(KEY_SESSION, v).apply()
+        }
+
     fun apiKey(p: ProviderType): String = sp.getString("key_${p.name}", "") ?: ""
 
     fun setApiKey(p: ProviderType, v: String) {
@@ -134,5 +141,6 @@ class Prefs(context: Context) {
         const val KEY_LOCAL_PATH = "localModelPath"
         const val KEY_SYSTEM_PROMPT = "systemPrompt"
         const val KEY_AUTO_UPDATE = "autoUpdate"
+        const val KEY_SESSION = "sessionActive"
     }
 }

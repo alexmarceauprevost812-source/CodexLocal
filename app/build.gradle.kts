@@ -11,8 +11,8 @@ android {
         applicationId = "com.codexlocal"
         minSdk = 33
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.2"
+        versionCode = 3
+        versionName = "1.3"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.documentfile)
     implementation(libs.material)
     implementation(libs.kotlinx.coroutines.android)
 
