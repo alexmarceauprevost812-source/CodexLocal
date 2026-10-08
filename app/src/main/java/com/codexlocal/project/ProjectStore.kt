@@ -290,7 +290,7 @@ object ProjectStore {
         require(morceaux.size <= 8 && morceaux.all {
             it.isNotBlank() && it != "." && it != ".." &&
                 !it.startsWith(".") && it.length <= 90 &&
-                it.none { char -> char.isISOControl() }
+                it.none { char -> Character.isISOControl(char) }
         }) { "Nom interdit : pas de dossier caché, de '..' ou de chemin absolu" }
         return morceaux
     }
