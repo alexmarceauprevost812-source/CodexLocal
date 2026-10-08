@@ -9,6 +9,8 @@
 
     <!-- ====== Orange (boutons, accents) ====== -->
     <color name="sky_blue">#FF38BDF8</color>
+    <color name="sky_blue_glow">#2238BDF8</color>
+    <color name="sky_blue_dark">#FF226582</color>
     <color name="orange">#FFFF7A00</color>
     <color name="orange_bright">#FFFFA04D</color>
     <color name="orange_dark">#FFB35400</color>
