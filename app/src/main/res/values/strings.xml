@@ -13,6 +13,7 @@
     <string name="stop">Arrêter</string>
     <string name="copy">Copier</string>
     <string name="insert">Insérer</string>
+    <string name="btn_save_as_file">Créer fichier</string>
 
     <string name="settings_title">Réglages</string>
     <string name="action_new_chat">Nouvelle conversation</string>
@@ -89,6 +90,12 @@
 
     <string name="drawer_espace">Espace projets :</string>
     <string name="drawer_nouveau_projet">Nouveau projet dans l\'espace CodexLocal</string>
+    <string name="drawer_nouveau_fichier">＋ Nouveau fichier</string>
+    <string name="hint_nom_fichier">main.py ou src/main.py</string>
+    <string name="msg_choisir_projet">Ouvre ou crée d\'abord un projet pour enregistrer des fichiers.</string>
+    <string name="msg_creer_fichier">Nom du fichier dans le projet actif (ex. main.py, src/app.js). Un fichier existant ne sera jamais écrasé.</string>
+    <string name="msg_fichier_cree">Fichier créé : %1$s</string>
+    <string name="msg_echec_creation">Impossible de créer le fichier</string>
     <string name="drawer_ouvrir_saf">Ouvrir un dossier existant du téléphone…</string>
     <string name="dialog_nom_projet">Nom du projet</string>
     <string name="btn_creer">Créer</string>
