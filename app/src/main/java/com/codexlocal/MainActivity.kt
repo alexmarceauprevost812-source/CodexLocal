@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.codexlocal.databinding.ActivityMainBinding
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.messages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         binding.messages.adapter = adapter
+        updateEmptyState()
 
         binding.send.setOnClickListener {
             if (job?.isActive == true) stopGeneration() else send()
@@ -103,6 +105,11 @@ class MainActivity : AppCompatActivity() {
         binding.input.isEnabled = !on
     }
 
+    /** Affiche le logo d'accueil tant qu'aucun message n'existe. */
+    private fun updateEmptyState() {
+        binding.emptyState.isVisible = messages.isEmpty()
+    }
+
     private fun scrollToEnd() {
         val count = adapter.itemCount
         if (count > 0) binding.messages.scrollToPosition(count - 1)
@@ -126,6 +133,7 @@ class MainActivity : AppCompatActivity() {
         val assistant = Message.assistant()
         messages.add(assistant)
         adapter.notifyItemRangeInserted(messages.size - 2, 2)
+        updateEmptyState()
         scrollToEnd()
         setGenerating(true)
 
@@ -184,6 +192,7 @@ class MainActivity : AppCompatActivity() {
         stopGeneration()
         messages.clear()
         adapter.notifyDataSetChanged()
+        updateEmptyState()
         val cfg = prefs.config()
         if (cfg.provider == ProviderType.LOCAL && LocalEngine.isLoadedFor(cfg.localModelPath)) {
             lifecycleScope.launch {

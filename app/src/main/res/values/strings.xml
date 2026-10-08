@@ -2,6 +2,8 @@
     <string name="app_name">CodexLocal</string>
 
     <string name="status_init">Prêt. Ouvre les Réglages pour choisir un modèle.</string>
+    <string name="empty_subtitle">Assistant de code avec IA locale — fonctionne sans réseau</string>
+    <string name="empty_hint">Réglages → télécharge un modèle .gguf, ou ajoute une clé API\n(Claude, Gemini, OpenAI, OpenRouter…)</string>
     <string name="hint_input">Demande du code, une correction, une explication…</string>
     <string name="send">Envoyer</string>
     <string name="stop">Arrêter</string>

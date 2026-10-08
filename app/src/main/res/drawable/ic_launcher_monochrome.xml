@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Version monochrome (icones thematiques Android 13+).
+  Un simple M stylise : le systeme le teinte avec les couleurs de l'utilisateur.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M32,76 L32,32 L44,32 L54,58 L64,32 L76,32 L76,76 L64,76 L64,52 L56,72 L52,72 L44,52 L44,76 Z" />
+</vector>
