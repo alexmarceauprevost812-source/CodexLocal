@@ -86,4 +86,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(project(":lib"))
+
+    testImplementation(libs.junit)
 }
