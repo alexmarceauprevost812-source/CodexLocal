@@ -8,7 +8,8 @@ import com.codexlocal.databinding.ItemMessageUserBinding
 
 class MessageAdapter(
     private val items: List<Message>,
-    private val onCopy: (Message) -> Unit
+    private val onCopy: (Message) -> Unit,
+    private val onSaveFile: (Message) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     /** Appelé depuis MainActivity quand le thème Chat/Codex change. */
@@ -46,6 +47,13 @@ class MessageAdapter(
                     )
                 )
                 holder.binding.copy.setOnClickListener { onCopy(msg) }
+                holder.binding.btnSaveFile.setTextColor(
+                    holder.itemView.context.getColor(
+                        if (chatMode) R.color.sky_blue else R.color.orange
+                    )
+                )
+                holder.binding.btnSaveFile.isEnabled = msg.content.isNotBlank()
+                holder.binding.btnSaveFile.setOnClickListener { onSaveFile(msg) }
             }
         }
     }
