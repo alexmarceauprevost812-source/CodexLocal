@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
 
     private val messages = mutableListOf<Message>()
-    private val adapter = MessageAdapter(messages) { copyToClipboard(it) }
+    private val adapter = MessageAdapter(messages, ::copyToClipboard, ::enregistrerReponseCommeFichier)
     private var job: Job? = null
     private var lastUiUpdate = 0L
     private var isGenerating = false
@@ -421,6 +421,99 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Création dans le projet actif, avec sauvegarde puis ouverture dans l'éditeur. */
+    private fun dialogNouveauFichier(
+        contenuInitial: String = "",
+        nomSuggere: String = "main.py"
+    ) {
+        val projet = projetActif
+        if (projet == null) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.drawer_nouveau_fichier)
+                .setMessage(R.string.msg_choisir_projet)
+                .setPositiveButton(R.string.drawer_nouveau_projet) { _, _ -> dialogNouveauProjet() }
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show()
+            return
+        }
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        val marge = (16 * resources.displayMetrics.density).toInt()
+        val champ = EditText(this).apply {
+            hint = getString(R.string.hint_nom_fichier)
+            setText(nomSuggere)
+            setSelection(text.length)
+            setSingleLine()
+            setTextColor(0xFFECECEC.toInt())
+            setHintTextColor(0xFF8C8C8C.toInt())
+            setPadding(marge, marge, marge, marge)
+        }
+        val fenetre = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.drawer_nouveau_fichier)
+            .setMessage(R.string.msg_creer_fichier)
+            .setView(champ)
+            .setPositiveButton(R.string.btn_creer, null)
+            .setNegativeButton(R.string.btn_cancel, null)
+            .create()
+        fenetre.setOnShowListener {
+            fenetre.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
+                .setOnClickListener {
+                    val chemin = champ.text.toString().trim()
+                    try {
+                        ProjectStore.validerCheminRelatif(chemin)
+                    } catch (e: IllegalArgumentException) {
+                        champ.error = e.message
+                        return@setOnClickListener
+                    }
+                    fenetre.dismiss()
+                    lifecycleScope.launch {
+                        try {
+                            val fichier = withContext(Dispatchers.IO) {
+                                ProjectStore.creerFichier(
+                                    this@MainActivity, projet, chemin, contenuInitial
+                                )
+                            }
+                            Toast.makeText(this@MainActivity,
+                                getString(R.string.msg_fichier_cree, fichier.chemin),
+                                Toast.LENGTH_SHORT).show()
+                            if (projetActif?.uri == projet.uri) ouvrirProjet(projet)
+                            ouvrirFichier(fichier)
+                        } catch (e: Exception) {
+                            MaterialAlertDialogBuilder(this@MainActivity)
+                                .setTitle(R.string.msg_echec_creation)
+                                .setMessage(e.message ?: e.toString())
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show()
+                        }
+                    }
+                }
+        }
+        fenetre.show()
+    }
+
+    /** Extrait un bloc de code de l'IA. L'utilisateur choisit le nom avant enregistrement. */
+    private fun enregistrerReponseCommeFichier(message: Message) {
+        if (message.content.isBlank()) return
+        val bloc = Regex("(?s)`{3}([^\\n`]*)\\r?\\n(.*?)\\r?\\n?`{3}").find(message.content)
+        val langage = bloc?.groupValues?.get(1)?.trim()?.lowercase()?.substringBefore(' ') ?: ""
+        val extension = when (langage) {
+            "python", "py" -> "py"
+            "javascript", "js" -> "js"
+            "typescript", "ts" -> "ts"
+            "html" -> "html"
+            "css" -> "css"
+            "json" -> "json"
+            "java" -> "java"
+            "kotlin", "kt" -> "kt"
+            "bash", "sh", "shell" -> "sh"
+            "xml" -> "xml"
+            "sql" -> "sql"
+            else -> "md"
+        }
+        val contenu = if (bloc == null) message.content else
+            bloc.groupValues[2].trimEnd() + "\n"
+        dialogNouveauFichier(contenu, if (bloc == null) "reponse.md" else "code.$extension")
+    }
+
     private fun ouvrirFichier(f: FichierProjet) {
         binding.drawerLayout.closeDrawer(binding.tiroir)
         startActivity(
@@ -491,7 +584,10 @@ class MainActivity : AppCompatActivity() {
         val projet = projetActif
         if (projet != null) {
             nouveaux.add(
-                DrawerItem.Section(getString(R.string.drawer_fichiers) + " — " + projet.nom)
+                DrawerItem.Section(
+                    getString(R.string.drawer_fichiers) + " — " + projet.nom,
+                    "＋", CLE_NOUVEAU_FICHIER
+                )
             )
             if (fichiersProjet.isEmpty()) {
                 nouveaux.add(DrawerItem.Info(getString(R.string.drawer_chargement)))
@@ -504,6 +600,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        if (projetActif != null) {
+            nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_nouveau_fichier), CLE_NOUVEAU_FICHIER))
+        }
         nouveaux.add(
             DrawerItem.Bouton(getString(R.string.drawer_nouveau_projet), CLE_NOUVEAU_PROJET)
         )
@@ -542,6 +641,7 @@ class MainActivity : AppCompatActivity() {
         when {
             cle == CLE_NOUVELLE_SESSION -> nouvelleSession()
             cle == CLE_NOUVEAU_PROJET -> dialogNouveauProjet()
+            cle == CLE_NOUVEAU_FICHIER -> dialogNouveauFichier()
             cle == CLE_OUVRIR_DOSSIER -> choisirDossier.launch(null)
             item is DrawerItem.LigneSession -> supprimerSession(item.id)
             item is DrawerItem.LigneProjet -> supprimerProjet(item.uri)
@@ -643,6 +743,7 @@ class MainActivity : AppCompatActivity() {
 
         private const val CLE_NOUVELLE_SESSION = "nouvelle_session"
         private const val CLE_NOUVEAU_PROJET = "nouveau_projet"
+        private const val CLE_NOUVEAU_FICHIER = "nouveau_fichier"
         private const val CLE_OUVRIR_DOSSIER = "ouvrir_dossier"
     }
 }
