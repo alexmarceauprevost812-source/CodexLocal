@@ -24,6 +24,12 @@ object ModelCatalog {
 
     val modeles = listOf(
         CatalogModel(
+            "Qwen2.5-Coder 7B Q6_K — qualité MAX (plus lent)",
+            "6,25 Go",
+            "$QWEN25/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q6_k.gguf",
+            "qwen2.5-coder-7b-instruct-q6_k.gguf"
+        ),
+        CatalogModel(
             "Qwen2.5-Coder 3B — recommandé pour le code",
             "2,0 Go",
             "$QWEN25/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf",
