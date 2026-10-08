@@ -76,8 +76,13 @@ class CodexDesktop:
 
     def _build(self) -> None:
         self.root.title("MARCEAU — CodexLocal PC")
-        self.root.geometry("1100x780")
-        self.root.minsize(740, 560)
+        # Éviter une fenêtre plus haute que l'écran (barre de tâches comprise).
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        width = min(1100, max(680, screen_w - 90))
+        height = min(780, max(510, screen_h - 125))
+        self.root.minsize(680, 510)
+        self.root.geometry(f"{width}x{height}")
         self.root.configure(bg=BLACK)
 
         header = tk.Frame(self.root, bg=BLACK, height=100, padx=22, pady=12)
@@ -158,10 +163,15 @@ class CodexDesktop:
         # Ecran recentré ; marges gauche/droite identiques.
         body = tk.Frame(self.root, bg=BLACK, padx=24, pady=10)
         body.pack(fill="both", expand=True)
+        # La grille réserve toujours la rangée du champ de saisie.
+        # Une conversation très longue ne peut donc pas repousser l'écriture hors écran.
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_rowconfigure(0, weight=1, minsize=75)
+        body.grid_rowconfigure(1, weight=0)
         self.conversation_border = tk.Frame(
             body, bg=PANEL, highlightbackground=ORANGE, highlightthickness=1
         )
-        self.conversation_border.pack(fill="both", expand=True)
+        self.conversation_border.grid(row=0, column=0, sticky="nsew")
         self.conversation = tk.Text(
             self.conversation_border, bg=PANEL, fg=TEXT,
             insertbackground=TEXT, bd=0, highlightthickness=0,
@@ -193,11 +203,16 @@ class CodexDesktop:
         self.composer_border = tk.Frame(
             body, bg=SURFACE, highlightbackground=ORANGE, highlightthickness=2
         )
-        self.composer_border.pack(fill="x", pady=(15, 12))
+        self.composer_border.grid(row=1, column=0, sticky="ew", pady=(10, 4))
+        tk.Label(
+            self.composer_border, text="✎  ESPACE D'ÉCRITURE",
+            fg=ORANGE, bg=SURFACE, font=(FONT, 10, "bold"), anchor="w",
+        ).pack(fill="x", padx=20, pady=(10, 0))
+        self.composer_label = self.composer_border.winfo_children()[-1]
         compose_top = tk.Frame(self.composer_border, bg=SURFACE)
         compose_top.pack(fill="x", padx=14, pady=(12, 5))
         self.input = tk.Text(
-            compose_top, height=4, wrap="word", bg=SURFACE, fg=TEXT,
+            compose_top, height=5, wrap="word", bg=SURFACE, fg=TEXT,
             insertbackground=ORANGE, selectbackground="#604020",
             font=(FONT, 12), relief="flat", bd=0, highlightthickness=0,
             undo=True, padx=8, pady=6,
@@ -290,6 +305,7 @@ class CodexDesktop:
         self.separator.configure(bg=self.accent)
         self.conversation_border.configure(highlightbackground=self.accent)
         self.composer_border.configure(highlightbackground=self.accent)
+        self.composer_label.configure(fg=self.accent)
         self.input.configure(insertbackground=self.accent)
         self.send_button.configure(
             text="➤" if self.mode == "chat" else "</>", bg=self.accent,
