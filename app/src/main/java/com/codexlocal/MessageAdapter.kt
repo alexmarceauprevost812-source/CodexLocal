@@ -11,6 +11,9 @@ class MessageAdapter(
     private val onCopy: (Message) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
+    /** Appelé depuis MainActivity quand le thème Chat/Codex change. */
+    var chatMode: Boolean = false
+
     override fun getItemViewType(position: Int) = if (items[position].isUser) TYPE_USER else TYPE_ASSISTANT
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
@@ -25,10 +28,23 @@ class MessageAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val msg = items[position]
         when (holder) {
-            is UserHolder -> holder.binding.bubble.text = msg.content
+            is UserHolder -> {
+                holder.binding.bubble.text = msg.content
+                holder.binding.bubble.setBackgroundResource(
+                    if (chatMode) R.drawable.bg_user_chat else R.drawable.bg_user
+                )
+            }
             is AssistantHolder -> {
                 holder.binding.bubble.text =
                     if (msg.content.isEmpty()) "…" else MarkdownLite.format(msg.content)
+                holder.binding.bubble.setBackgroundResource(
+                    if (chatMode) R.drawable.bg_assistant_chat else R.drawable.bg_assistant
+                )
+                holder.binding.copy.setTextColor(
+                    holder.itemView.context.getColor(
+                        if (chatMode) R.color.sky_blue else R.color.orange
+                    )
+                )
                 holder.binding.copy.setOnClickListener { onCopy(msg) }
             }
         }
