@@ -28,6 +28,44 @@ Dans l'ecran principal, le selecteur **Codex | Chat** permet de changer de mode.
 
 Ces changements concernent les sources Android ; il faut compiler et installer un nouvel APK pour en profiter.
 
+## Fenêtre graphique MARCEAU PC (même design que l'APK)
+
+Une interface bureau Python/Tkinter est fournie dans `pc/codexlocal_gui.py`.
+Elle **n'est pas un terminal plein écran** : elle ouvre une vraie fenêtre
+redimensionnable, inspirée de l'application Android.
+
+- En **Codex** : noir/orange, envoi `</>`, instructions de programmation.
+- En **Chat** : noir/bleu ciel, bouton `➤`, conversation générale.
+- Logo MARCEAU provenant des ressources Android du même dépôt.
+- Écran de conversation centré ; champ de saisie plus grand et remonté.
+- Sélection d'un agent déjà installé (Ollama, Codex CLI, Claude Code, Gemini CLI).
+- Changement de dossier de travail, arrêt d'une réponse, copie du résultat.
+- Les deux modes ont un historique distinct **en mémoire pendant l'exécution**.
+- Les agents en ligne dépendent de leur propre connexion/authentification.
+- Aucune synchronisation automatique avec les conversations de l'APK.
+
+### Lancer l'interface graphique
+
+```powershell
+# Windows PowerShell, depuis le dossier CodexLocal :
+python pc/codexlocal_gui.py
+```
+
+```bash
+# Ubuntu ou Kali, depuis le dossier CodexLocal :
+python3 pc/codexlocal_gui.py
+```
+
+Pour Linux, Tkinter doit être installé : `sudo apt install python3-tk`.
+Sous Windows, Tkinter est généralement inclus avec l'installateur Python
+officiel. `Ctrl+Entrée` envoie le message et `Entrée` ajoute une ligne.
+
+**Sécurité :** l'application lance les outils CLI via leurs commandes
+installées, sans interprétation shell. Codex CLI utilise une sandbox
+`read-only`, et Claude Code est lancé en mode `plan`.
+Chaque CLI conserve néanmoins ses propres autorisations et peut utiliser
+Internet. Ne fournis pas de secrets à un agent distant.
+
 ## CodexLocal PC (terminal Python, Windows et Linux)
 
 Cette version utilise les **agents CLI deja installes** sur l'ordinateur.
