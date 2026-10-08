@@ -95,8 +95,11 @@ jobs:
           git clone --depth 1 --branch v0.6.0 https://github.com/ggml-org/llama.cpp.git lib/src/main/cpp/llama.cpp
       - name: Compiler APK arm64-v8a (debug)
         run: |
+          # La propriété org.gradle.java.home du projet pointe vers le PC Windows.
+          # Elle n'est valable que localement, pas sur le runner Linux.
+          sed -i '/^[[:space:]]*org.gradle.java.home[[:space:]]*=/d' gradle.properties
           chmod +x gradlew
-          ./gradlew :app:assembleDebug --stacktrace --no-daemon
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
       - name: Publier APK telechargeable
         uses: actions/upload-artifact@v4
         with:
