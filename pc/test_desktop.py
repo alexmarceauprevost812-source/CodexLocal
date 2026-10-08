@@ -1,8 +1,19 @@
 """Tests headless pour l'interface PC, sans ouvrir une fenetre Tk."""
 import unittest
+from unittest.mock import patch
 
 from codexlocal_gui import make_prompt
-from codexlocal import build_command
+from codexlocal import build_command, compose_multiline
+
+
+class TerminalComposerTests(unittest.TestCase):
+    def test_multiline_compose_preserves_lines(self):
+        with patch("builtins.input", side_effect=["ligne un", "", "ligne trois", "/envoyer"]):
+            self.assertEqual(compose_multiline(), "ligne un\n\nligne trois")
+
+    def test_multiline_compose_can_cancel(self):
+        with patch("builtins.input", side_effect=["annuler", "/annuler"]):
+            self.assertEqual(compose_multiline(), "")
 
 
 class DesktopPromptTests(unittest.TestCase):
