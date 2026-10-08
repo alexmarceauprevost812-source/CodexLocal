@@ -28,6 +28,58 @@ Dans l'ecran principal, le selecteur **Codex | Chat** permet de changer de mode.
 
 Ces changements concernent les sources Android ; il faut compiler et installer un nouvel APK pour en profiter.
 
+## CodexLocal PC (terminal Python, Windows et Linux)
+
+Cette version utilise les **agents CLI deja installes** sur l'ordinateur.
+Elle ne les telecharge pas et ne partage pas automatiquement les conversations
+avec l'APK Android.
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/alexmarceauprevost812-source/CodexLocal.git
+cd CodexLocal
+python pc/codexlocal.py --list-agents
+python pc/codexlocal.py
+```
+
+### Kali Linux / Ubuntu
+
+```bash
+git clone https://github.com/alexmarceauprevost812-source/CodexLocal.git
+cd CodexLocal
+python3 pc/codexlocal.py --list-agents
+python3 pc/codexlocal.py
+```
+
+Commandes : `/agents`, `/use ollama`, `/use codex`,
+`/use claude`, `/use gemini`, `/mode chat`, `/mode codex`,
+`/model qwen2.5-coder:7b`, `/help`, `/quit`.
+
+Pour une question unique :
+```bash
+python3 pc/codexlocal.py --agent ollama --model qwen2.5-coder:7b --once "Explique ce script Python"
+```
+
+- **Ollama** : le modele doit etre deja installe ; utilisation locale apres installation.
+- **Codex CLI** : le lancement utilise une sandbox de lecture seule par defaut.
+- **Claude Code** : le lancement utilise le mode plan par defaut.
+- **Gemini CLI** : utilise la configuration et les autorisations propres a Gemini.
+- Ces agents peuvent demander connexion, compte ou abonnement selon la configuration.
+- Les dossiers et fichiers ne sont jamais partages automatiquement avec l'APK.
+
+### APK Android (compilation sur GitHub)
+
+Le workflow [CodexLocal Android APK + PC checks](.github/workflows/android-apk.yml)
+compile l'application Android en **APK debug** pour processeurs arm64.
+Dans GitHub → **Actions**, ouvrir le dernier lancement reussi, puis
+telecharger l'artefact `CodexLocal-Android-Debug-APK` et extraire
+`app-debug.apk`. L'APK est signe avec la cle de test Android (debug),
+ce n'est pas une version destinee a la publication sur Play Store.
+
+Une compilation reussie ne garantit pas que le moteur GGUF puisse charger
+un gros modele sur chaque telephone ; tester sur l'appareil cible.
+
 ## Architecture
 
 ```
