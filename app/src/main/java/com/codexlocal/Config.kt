@@ -10,12 +10,32 @@ enum class ProviderType(val label: String) {
     GEMINI("Google Gemini")
 }
 
+/** Le mode est independant du fournisseur local ou distant. */
+enum class AssistantMode {
+    CODEX, CHAT
+}
+
+const val CHAT_SYSTEM_PROMPT =
+    "Tu es MARCEAU, un assistant conversationnel utile et naturel. " +
+        "Reponds en francais, clairement, sans imposer de code. " +
+        "Ecris du code uniquement si l'utilisateur le demande."
+
 const val DEFAULT_SYSTEM_PROMPT =
     "Tu es CodexLocal, un assistant de programmation qui tourne sur le telephone, " +
         "souvent sans internet. Reponds en francais, de facon concise et concrete. " +
         "Quand tu donnes du code, mets-le dans un bloc cloture par trois backquotes " +
         "avec le langage indique. Verifie que le code est complet et correct, " +
         "et signale les pieges ou les erreurs probables."
+
+/** Instructions adaptees sans changer les parametres API ni le modele choisi. */
+fun AppConfig.forMode(mode: AssistantMode): AppConfig = when (mode) {
+    AssistantMode.CODEX -> copy(
+        systemPrompt = systemPrompt +
+            "\n\nMode Codex : privilegie les solutions de programmation completes, " +
+            "les corrections expliquees et les blocs de code utilisables."
+    )
+    AssistantMode.CHAT -> copy(systemPrompt = CHAT_SYSTEM_PROMPT)
+}
 
 object Defaults {
     fun baseUrl(p: ProviderType): String = when (p) {
@@ -52,6 +72,15 @@ class Prefs(context: Context) {
 
     private val sp = context.applicationContext
         .getSharedPreferences("codexlocal", Context.MODE_PRIVATE)
+
+    /** Choix persistant entre assistant de code et discussion classique. */
+    var assistantMode: AssistantMode
+        get() = runCatching {
+            AssistantMode.valueOf(sp.getString(KEY_ASSISTANT_MODE, AssistantMode.CODEX.name)!!)
+        }.getOrDefault(AssistantMode.CODEX)
+        set(v) {
+            sp.edit().putString(KEY_ASSISTANT_MODE, v.name).apply()
+        }
 
     var provider: ProviderType
         get() = runCatching {
@@ -135,6 +164,7 @@ class Prefs(context: Context) {
     }
 
     private companion object {
+        const val KEY_ASSISTANT_MODE = "assistantMode"
         const val KEY_PROVIDER = "provider"
         const val KEY_TEMP = "temperature"
         const val KEY_MAX_TOKENS = "maxTokens"
