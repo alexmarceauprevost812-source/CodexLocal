@@ -26,7 +26,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Syntaxe Python
-        run: python -m py_compile pc/codexlocal.py
+        run: python -m py_compile pc/codexlocal.py pc/codexlocal_gui.py pc/test_desktop.py
+      - name: Tests du mode Codex/Chat PC (sans fenêtre graphique)
+        run: python -m unittest discover -s pc -p "test_*.py" -v
       - name: Aide et detection (sans agent obligatoire)
         run: |
           python pc/codexlocal.py --help
@@ -49,8 +51,15 @@ jobs:
           cache-disabled: true
       - name: Installer SDK, NDK et CMake compatibles
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.13113456" "cmake;3.31.6"
+          ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDK_MANAGER="$(find "$ANDROID_SDK" -type f -name sdkmanager -print -quit)"
+          if [ -z "$SDK_MANAGER" ]; then
+            echo "::error::sdkmanager absent du runner GitHub ($ANDROID_SDK)"
+            exit 1
+          fi
+          echo "Utilisation de $SDK_MANAGER"
+          yes | "$SDK_MANAGER" --licenses >/dev/null || true
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.13113456" "cmake;3.31.6"
       - name: Recuperer llama.cpp v0.6.0 (code source natif)
         run: |
           git clone --depth 1 --branch v0.6.0 https://github.com/ggml-org/llama.cpp.git lib/src/main/cpp/llama.cpp
