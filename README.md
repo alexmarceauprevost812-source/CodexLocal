@@ -60,6 +60,20 @@ Pour Linux, Tkinter doit être installé : `sudo apt install python3-tk`.
 Sous Windows, Tkinter est généralement inclus avec l'installateur Python
 officiel. `Ctrl+Entrée` envoie le message et `Entrée` ajoute une ligne.
 
+**Important :** lancer `python pc/codexlocal.py` sans option ouvre aussi
+la fenêtre graphique. Le champ **ESPACE D'ÉCRITURE** est en bas de la fenêtre,
+avec une hauteur fixe minimale et une place réservée, même sur un petit écran.
+La fenêtre s'adapte automatiquement à la résolution du moniteur.
+
+Pour forcer le vrai terminal texte, utiliser :
+```powershell
+python pc/codexlocal.py --terminal
+```
+
+Puis saisir `/ecrire` pour ouvrir un **espace d'écriture multiligne**.
+Terminer par `/envoyer` pour envoyer à l'agent, ou `/annuler`.
+
+
 **Sécurité :** l'application lance les outils CLI via leurs commandes
 installées, sans interprétation shell. Codex CLI utilise une sandbox
 `read-only`, et Claude Code est lancé en mode `plan`.
