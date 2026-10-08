@@ -91,10 +91,31 @@ Sorties :
 |---|---|---|---|
 | `qwen2.5-coder-1.5b-instruct-q4_k_m.gguf` | ~1,0 Go | très rapide | correcte |
 | `qwen2.5-coder-3b-instruct-q4_k_m.gguf` | ~2,0 Go | rapide | **recommandé** |
-| `qwen2.5-coder-7b-instruct-q4_k_m.gguf` | ~4,5 Go | lente | la meilleure |
+| `qwen2.5-coder-7b-instruct-q4_k_m.gguf` | ~4,7 Go | lente | élevée |
+| `qwen2.5-coder-7b-instruct-q6_k.gguf` | ~6,25 Go | très lente | **qualité maximale du catalogue pour le code** |
 
 Tous sous licence Apache-2.0, téléchargeables sans compte :
 <https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF>
+
+## Mode code haute qualité (7B Q6_K)
+
+Pour privilégier la précision du code sur la vitesse, le catalogue propose maintenant
+**Qwen2.5-Coder 7B Instruct Q6_K** en premier (environ **6,25 Go**).
+
+1. Mettre à jour CodexLocal vers une version de l'APK compilée avec ce catalogue.
+2. Ouvrir **Réglages → Local (hors-ligne)**.
+3. Choisir **Qwen2.5-Coder 7B Q6_K — qualité MAX (plus lent)**.
+4. Appuyer sur **Télécharger** : l'application télécharge le fichier GGUF puis tente de le charger.
+
+Sur une version plus ancienne de l'APK, choisir **Autre adresse (URL personnalisée)**
+et coller cette adresse officielle :
+
+`https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q6_k.gguf`
+
+Prévoir au moins 8 Go d'espace disponible et environ 12 Go de RAM sur le téléphone,
+sans garantie de fonctionnement selon la mémoire disponible et les applis ouvertes.
+Le téléchargement nécessite du réseau une seule fois ; l'inférence est ensuite locale.
+Si le chargement échoue, essayer la version **7B Q4_K_M** (4,7 Go) ou **3B Q4_K_M**.
 
 ## Installer le modèle sur le téléphone
 
