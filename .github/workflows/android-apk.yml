@@ -33,6 +33,31 @@ jobs:
         run: |
           python pc/codexlocal.py --help
           python pc/codexlocal.py --list-agents
+      - name: Demarrer la fenetre graphique sur ecran virtuel
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            echo "::error::xvfb-run absent du runner"
+            exit 1
+          fi
+          xvfb-run -a python - <<'PY'
+          import sys
+          import tkinter as tk
+          from pathlib import Path
+          sys.path.insert(0, "pc")
+          from codexlocal_gui import CodexDesktop, SKY, ORANGE
+
+          root = tk.Tk()
+          app = CodexDesktop(root, Path.cwd())
+          root.update_idletasks()
+          assert app.mode == "codex" and app.accent == ORANGE
+          app._set_mode("chat")
+          root.update_idletasks()
+          assert app.mode == "chat" and app.accent == SKY
+          app._set_mode("codex")
+          assert app.mode == "codex"
+          root.destroy()
+          print("OK : fenetre MARCEAU, modes Codex et Chat")
+          PY
 
   apk-debug:
     name: Compiler APK Android de test
