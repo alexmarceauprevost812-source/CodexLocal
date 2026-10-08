@@ -229,6 +229,8 @@ class MainActivity : AppCompatActivity() {
             ColorStateList.valueOf(if (isChat) blue else black)
         binding.modeChat.setTextColor(if (isChat) black else blue)
         binding.modeChat.strokeColor = ColorStateList.valueOf(blue)
+        adapter.chatMode = isChat
+        adapter.notifyDataSetChanged()
         updateSendIcon()
     }
 
