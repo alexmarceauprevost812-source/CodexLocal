@@ -121,6 +121,26 @@ def show_agents(selected: str, model: str) -> None:
     print("Les agents en ligne ont besoin de leur authentification habituelle.")
 
 
+def compose_multiline() -> str:
+    """Zone de saisie multi-ligne pour les vrais terminaux sans GUI."""
+    print("\n╭──────── ESPACE D'ÉCRITURE MARCEAU ────────╮")
+    print("│ Écris sur plusieurs lignes. Commandes :")
+    print("│ /envoyer pour envoyer ; /annuler pour annuler.")
+    print("╰────────────────────────────────────────────╯")
+    lines: list[str] = []
+    while True:
+        try:
+            line = input("│ ")
+        except (EOFError, KeyboardInterrupt):
+            print("\nÉcriture annulée.")
+            return ""
+        if line.strip() == "/annuler":
+            return ""
+        if line.strip() == "/envoyer":
+            return "\n".join(lines).strip()
+        lines.append(line)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="MARCEAU CodexLocal — assistant terminal PC")
     parser.add_argument("--agent", choices=("auto",) + AGENTS, default="auto")
@@ -129,12 +149,34 @@ def main() -> int:
     parser.add_argument("--workdir", type=Path, default=Path.cwd())
     parser.add_argument("--once", default="", help="Une seule question, sans boucle interactive")
     parser.add_argument("--list-agents", action="store_true")
+    parser.add_argument(
+        "--terminal", action="store_true",
+        help="Forcer le mode texte dans le terminal (avec /ecrire pour plusieurs lignes)"
+    )
+    parser.add_argument(
+        "--gui", action="store_true",
+        help="Ouvrir la fenêtre graphique avec la grande zone d'écriture"
+    )
     args = parser.parse_args()
     if not args.workdir.is_dir():
         parser.error("--workdir doit pointer vers un dossier existant")
     if args.list_agents:
         show_agents("aucun", args.model)
         return 0
+
+    # Lancement sans argument : la fenêtre graphique est le choix par défaut.
+    # --terminal conserve la ligne de commande historique pour SSH ou un PC sans écran.
+    auto_gui = len(sys.argv) == 1
+    if args.gui or (auto_gui and not args.terminal):
+        window = Path(__file__).with_name("codexlocal_gui.py")
+        result = subprocess.run(
+            [sys.executable, str(window), "--workdir", str(args.workdir)],
+            check=False,
+        )
+        if result.returncode == 0 or args.gui:
+            return result.returncode
+        print("Fenêtre graphique indisponible : retour au terminal.", file=sys.stderr)
+
     try:
         agent = choose_agent(args.agent)
     except RuntimeError as exc:
@@ -158,7 +200,8 @@ def main() -> int:
     print("║   MARCEAU CODEXLOCAL PC     ║")
     print(f"╚══════════════════════════════╝{reset}")
     print("Mode Codex </> = orange | Chat = bleu ciel")
-    print("Commandes : /agents, /use NOM, /model NOM, /mode chat|codex, /help, /quit")
+    print("Pour écrire plusieurs lignes : /ecrire (terminer par /envoyer)")
+    print("Commandes : /ecrire, /agents, /use NOM, /model NOM, /mode chat|codex, /help, /quit")
     show_agents(agent, model)
     while True:
         accent = blue if mode == "chat" else orange
@@ -172,9 +215,14 @@ def main() -> int:
         if message in ("/quit", "/exit", "/q"):
             return 0
         if message == "/help":
+            print("/ecrire : zone d'écriture multiligne, /envoyer pour terminer")
             print("/agents : detection | /use agent : choisir | /model nom : choisir Ollama")
             print("/mode chat ou /mode codex : changer | /quit : quitter")
             continue
+        if message in ("/ecrire", "/compose"):
+            message = compose_multiline()
+            if not message:
+                continue
         if message == "/agents":
             show_agents(agent, model)
             continue
