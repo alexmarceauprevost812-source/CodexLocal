@@ -10,12 +10,10 @@ import android.os.Bundle
 import android.view.View
 import android.widget.EditText
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -66,10 +64,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Laisser Android reserver les barres systeme et redimensionner le contenu avec le clavier.
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applyInsets(binding.root)
         prefs = Prefs(this)
 
         binding.toolbar.inflateMenu(R.menu.main)
@@ -142,16 +140,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ------------------------------------------------------------------ UI
-
-    private fun applyInsets(root: View) {
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()
-            )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
-    }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
 
