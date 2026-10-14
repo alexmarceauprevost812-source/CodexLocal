@@ -38,6 +38,16 @@ class SettingsActivity : AppCompatActivity() {
             uri?.let { importModel(it) }
         }
 
+    // Android interdit l'accès direct depuis Termux au dossier privé de CodexLocal.
+    // SAF permet d'exporter un GGUF à l'endroit explicitement choisi par l'utilisateur.
+    private var modelToExport: File? = null
+    private val chooseExportDestination =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+            val file = modelToExport
+            modelToExport = null
+            if (uri != null && file != null) exportModel(file, uri)
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -161,6 +171,15 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnImport.setOnClickListener { pickModel.launch(arrayOf("*/*")) }
         binding.btnImportTermux.setOnClickListener { showTermuxImporter() }
         binding.btnModelDetails.setOnClickListener { showModelDetails() }
+        binding.btnExportTermux.setOnClickListener {
+            val index = binding.spModels.selectedItemPosition
+            if (index !in modelFiles.indices) {
+                Toast.makeText(this, R.string.msg_choose_model, Toast.LENGTH_SHORT).show()
+            } else {
+                modelToExport = modelFiles[index]
+                chooseExportDestination.launch(modelFiles[index].name)
+            }
+        }
         binding.btnDownload.setOnClickListener { downloadModel() }
         binding.btnLoad.setOnClickListener { loadModel() }
         binding.btnUnload.setOnClickListener {
@@ -254,6 +273,34 @@ class SettingsActivity : AppCompatActivity() {
             }
             .setNegativeButton("Fermer", null)
             .show()
+    }
+
+    private fun exportModel(file: File, uri: Uri) {
+        binding.btnExportTermux.isEnabled = false
+        binding.tvLocalStatus.text = "Export en cours : " + file.name
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val output = contentResolver.openOutputStream(uri)
+                        ?: error("Impossible d'ouvrir la destination sélectionnée")
+                    output.use { dest ->
+                        file.inputStream().buffered().use { source ->
+                            source.copyTo(dest, 64 * 1024)
+                        }
+                    }
+                }
+                binding.tvLocalStatus.text = "Modèle exporté : " + file.name
+                MaterialAlertDialogBuilder(this@SettingsActivity)
+                    .setTitle("GGUF exporté")
+                    .setMessage(R.string.help_export_termux)
+                    .setPositiveButton("OK", null)
+                    .show()
+            } catch (e: Exception) {
+                binding.tvLocalStatus.text = getString(R.string.msg_error, e.message ?: e.toString())
+            } finally {
+                binding.btnExportTermux.isEnabled = true
+            }
+        }
     }
 
     /** Affiche les metadonnées GGUF sans charger le modèle en mémoire vive. */
