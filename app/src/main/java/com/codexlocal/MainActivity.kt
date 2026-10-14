@@ -155,8 +155,10 @@ class MainActivity : AppCompatActivity() {
             if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
         }
 
-        // Verification silencieuse des mises a jour au demarrage
-        if (prefs.autoUpdate) {
+        // Toujours rechercher une nouvelle version à l'ouverture.
+        // Le contrôle manuel reste accessible dans le menu.
+        // Ne pas lancer de téléchargement sans confirmation de l'utilisateur.
+        if (savedInstanceState == null) {
             UpdateFlow.verifier(lifecycleScope, this, silencieux = true) { message ->
                 runOnUiThread { binding.status.text = message }
             }
