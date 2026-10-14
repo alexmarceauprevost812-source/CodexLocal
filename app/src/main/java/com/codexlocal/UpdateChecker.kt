@@ -42,6 +42,10 @@ object UpdateChecker {
         }.getOrNull() ?: return@withContext null
 
         try {
+            // Un dépôt privé renvoie souvent 404 sans authentification.
+            // Ne jamais inclure de jeton GitHub privé dans l'APK.
+            // Le canal de distribution doit exposer une Release APK accessible
+            // publiquement (ou un service authentifié dédié) pour fonctionner.
             if (conn.responseCode != 200) return@withContext null
             val texte = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(texte)

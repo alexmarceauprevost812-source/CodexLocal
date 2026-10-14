@@ -11,6 +11,16 @@ on:
       - "gradlew"
       - "*.gradle.kts"
       - ".github/workflows/android-apk.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "lib/**"
+      - "pc/**"
+      - "gradle/**"
+      - "gradlew"
+      - "*.gradle.kts"
+      - ".github/workflows/android-apk.yml"
   workflow_dispatch:
 
 permissions:

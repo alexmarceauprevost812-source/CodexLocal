@@ -35,6 +35,11 @@
         </activity>
 
         <activity
+            android:name=".MediaStudioActivity"
+            android:exported="false"
+            android:label="MARCEAU Studio multimédia" />
+
+        <activity
             android:name=".SettingsActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
             android:exported="false"

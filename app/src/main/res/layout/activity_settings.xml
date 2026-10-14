@@ -12,6 +12,27 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="APPARENCE · MARCEAU"
+            android:textColor="@color/orange"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnFontPreference"
+            style="@style/OrangeTextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Police d'écriture : Police du système (par défaut)" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginVertical="14dp"
+            android:background="@color/divider" />
+
         <!-- ================= MOTEUR ================= -->
         <TextView
             style="@style/TextAppearance.Material3.TitleMedium"
@@ -174,6 +195,40 @@
                 android:text="@string/btn_import" />
         </LinearLayout>
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/help_termux"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnImportTermux"
+                style="@style/OrangeTextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_import_termux" />
+
+            <Button
+                android:id="@+id/btnModelDetails"
+                style="@style/OrangeTextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_model_details" />
+        </LinearLayout>
+        <Button
+            android:id="@+id/btnExportTermux"
+            style="@style/OrangeTextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_export_termux" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -266,6 +321,98 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="@string/help_max_tokens"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
+
+        <TextView
+            style="@style/TextAppearance.Material3.TitleMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/section_modify_ai"
+            android:textColor="@color/orange" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/help_temperature"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/label_top_p"
+            android:textColor="@color/white" />
+
+        <EditText
+            android:id="@+id/etTopP"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="0.95"
+            android:inputType="numberDecimal"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/help_top_p"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/label_top_k"
+            android:textColor="@color/white" />
+
+        <EditText
+            android:id="@+id/etTopK"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="40"
+            android:inputType="number"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/help_top_k"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swDirectResponse"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/label_direct_response"
+            android:textColor="@color/white" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/help_direct_response"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/help_heretic"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:text="@string/label_system_prompt"
             android:textColor="@color/white" />
@@ -281,6 +428,14 @@
             android:textColor="@color/white"
             android:textColorHint="@color/grey_dark"
             android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/help_system_prompt"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swAutoUpdate"

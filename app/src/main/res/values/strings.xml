@@ -30,6 +30,24 @@
     <string name="btn_download">Télécharger</string>
     <string name="hint_download_url">URL directe d\'un .gguf (Hugging Face…)</string>
     <string name="btn_load">Charger</string>
+    <string name="btn_import_termux">Depuis Termux</string>
+    <string name="btn_model_details">Infos du modèle</string>
+    <string name="btn_export_termux">Envoyer le GGUF vers Termux</string>
+    <string name="help_export_termux">Pour lire un modèle CodexLocal dans Termux, exporte-le vers Téléchargements/CodexLocal avec le sélecteur Android. Puis, dans Termux : termux-setup-storage et ls ~/storage/shared/Download/CodexLocal. Le fichier d origine reste intact.</string>
+    <string name="help_termux">Partage bidirectionnel GGUF : importe un modèle Termux depuis Téléchargements ou exporte un modèle CodexLocal vers ce dossier. Chaque transfert crée une copie.</string>
+    <string name="guide_termux_models">Android ne peut pas lire directement le dossier privé de Termux. Dans Termux, lance :\n\ntermux-setup-storage\nmkdir -p ~/storage/shared/Download/CodexLocal\ncp /chemin/vers/modele.gguf ~/storage/shared/Download/CodexLocal/\n\nRemplace /chemin/vers/modele.gguf par le chemin réel de ton fichier. Dans le sélecteur Android, ouvre Téléchargements / CodexLocal et choisis le modèle. Prévois assez de stockage pour une deuxième copie.</string>
+    <string name="btn_browse_model">Parcourir les fichiers</string>
+    <string name="section_modify_ai">Modifier mon IA (contrôles locaux)</string>
+    <string name="label_top_p">Top-P (0,05 à 1,00)</string>
+    <string name="label_top_k">Top-K (1 à 200)</string>
+    <string name="label_direct_response">Réponse directe</string>
+    <string name="help_max_tokens">Nombre maximal de tokens générés, pas le nombre de calculs internes. 256 : court ; 1024 : normal ; 4096 : réponses et code plus longs.</string>
+    <string name="help_temperature">Température : basse = résultats généralement plus prévisibles ; haute = davantage de variation. Ne garantit pas la justesse.</string>
+    <string name="help_top_p">Top-P : sélectionne un noyau de probabilités pour les prochains tokens ; 0,95 est un bon point de départ. Modifie seulement la génération GGUF locale.</string>
+    <string name="help_top_k">Top-K : limite les tokens candidats à chaque étape. 40 est la valeur initiale. Un faible nombre peut rendre les réponses répétitives ; concerne le GGUF local.</string>
+    <string name="help_direct_response">Demande de commencer par la solution, sans longues introductions. Ne change pas les poids du modèle et ne garantit pas une réponse instantanée.</string>
+    <string name="help_heretic">Personnalisation de style Heretic : ces réglages ajustent le comportement, pas les poids du modèle. La modification des poids, le fine-tuning et les adaptateurs LoRA ne sont pas intégrés dans cet APK.</string>
+    <string name="help_system_prompt">Instructions personnalisées : influencent le style et les priorités. Le texte est également pris en compte en mode Chat.</string>
     <string name="btn_unload">Décharger</string>
     <string name="btn_refresh">Rafraîchir</string>
 

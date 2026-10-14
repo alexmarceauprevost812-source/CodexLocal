@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.view.View
 import android.widget.EditText
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
@@ -66,15 +65,55 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Android 15/16 impose parfois l'affichage bord-a-bord.
+        // Gerer explicitement les barres systeme ET le clavier Samsung.
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applyInsets(binding.root)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(
+                bars.left,
+                bars.top,
+                bars.right,
+                maxOf(bars.bottom, keyboard.bottom)
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(binding.root)
         prefs = Prefs(this)
 
         binding.toolbar.inflateMenu(R.menu.main)
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
+                R.id.action_studio -> {
+                    showStudioDashboard(); true
+                }
+                R.id.action_recent -> {
+                    rafraichirTiroir()
+                    binding.drawerLayout.openDrawer(binding.tiroir)
+                    Toast.makeText(this, "Sessions et projets récents", Toast.LENGTH_SHORT).show()
+                    true
+                }
+                R.id.action_termux -> {
+                    val launch = packageManager.getLaunchIntentForPackage("com.termux")
+                    if (launch != null) startActivity(launch)
+                    else MaterialAlertDialogBuilder(this)
+                        .setTitle("Terminal Termux")
+                        .setMessage("Termux n'est pas installé ou n'est pas accessible. Le terminal intégré sera développé séparément.")
+                        .setPositiveButton("OK", null).show()
+                    true
+                }
+                R.id.action_button_color -> {
+                    showButtonColorPicker()
+                    true
+                }
+                R.id.action_usb_lexia -> {
+                    choisirDossier.launch(null)
+                    Toast.makeText(this, "Sélectionne un dossier de ta clé USB Lex-IA", Toast.LENGTH_LONG).show()
+                    true
+                }
                 R.id.action_new_chat -> {
                     nouvelleSession(); true
                 }
@@ -102,6 +141,9 @@ class MainActivity : AppCompatActivity() {
         ouvrirSessionOuCreer()
         rafraichirTiroir()
         setupModeSelector()
+        applyButtonAccent()
+
+        binding.btnStudio.setOnClickListener { showStudioDashboard() }
 
         binding.send.setOnClickListener {
             if (job?.isActive == true) stopGeneration() else send()
@@ -113,8 +155,10 @@ class MainActivity : AppCompatActivity() {
             if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
         }
 
-        // Verification silencieuse des mises a jour au demarrage
-        if (prefs.autoUpdate) {
+        // Toujours rechercher une nouvelle version à l'ouverture.
+        // Le contrôle manuel reste accessible dans le menu.
+        // Ne pas lancer de téléchargement sans confirmation de l'utilisateur.
+        if (savedInstanceState == null) {
             UpdateFlow.verifier(lifecycleScope, this, silencieux = true) { message ->
                 runOnUiThread { binding.status.text = message }
             }
@@ -132,6 +176,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        applyButtonAccent()
     }
 
     /** Appele quand l'editeur de code renvoie un fichier a analyser. */
@@ -143,14 +188,73 @@ class MainActivity : AppCompatActivity() {
 
     // ------------------------------------------------------------------ UI
 
-    private fun applyInsets(root: View) {
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()
-            )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
+    /**
+     * Tableau de bord MARCEAU STUDIO.
+     * Les fonctions de compilation et de signature restent explicitement à développer.
+     */
+    private fun showStudioDashboard() {
+        val options = arrayOf(
+            "📁  Projets — ouvrir ou ajouter un dossier",
+            "💻  Éditeur — choisir un fichier de projet",
+            "👁  Aperçu — évolution visuelle (à développer)",
+            "🧠  IA locale — modèles et personnalisation",
+            "🔨  Compiler — chaîne Android (à développer)",
+            "🔑  Signature APK — coffre de clés (à développer)",
+            "🎨  Studio multimédia — images, vidéos et fichiers"
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle("MARCEAU STUDIO")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> choisirDossier.launch(null)
+                    1 -> {
+                        binding.drawerLayout.openDrawer(binding.tiroir)
+                        Toast.makeText(this, "Choisis un fichier dans ton projet", Toast.LENGTH_LONG).show()
+                    }
+                    3 -> openSettings()
+                    6 -> startActivity(Intent(this, MediaStudioActivity::class.java))
+                    else -> MaterialAlertDialogBuilder(this)
+                        .setTitle(options[which].substringBefore(" —"))
+                        .setMessage(
+                            "Module prévu pour une prochaine version. " +
+                            "Aucune compilation, signature ou prévisualisation n'est encore exécutée."
+                        )
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+            .setNegativeButton("Fermer", null)
+            .show()
+    }
+
+    private fun showButtonColorPicker() {
+        val labels = arrayOf("Orange MARCEAU (défaut)", "Bleu ciel", "Vert néon", "Violet")
+        val storage = getSharedPreferences("marceau_appearance", MODE_PRIVATE)
+        val selected = storage.getInt("button_accent", 0).coerceIn(0, labels.lastIndex)
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Couleur des boutons")
+            .setSingleChoiceItems(labels, selected) { dialog, index ->
+                storage.edit().putInt("button_accent", index).apply()
+                applyButtonAccent()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    private fun applyButtonAccent() {
+        val selected = getSharedPreferences("marceau_appearance", MODE_PRIVATE)
+            .getInt("button_accent", 0).coerceIn(0, 3)
+        val accent = when (selected) {
+            1 -> android.graphics.Color.rgb(54, 188, 255)
+            2 -> android.graphics.Color.rgb(57, 255, 136)
+            3 -> android.graphics.Color.rgb(190, 110, 255)
+            else -> getColor(R.color.orange)
         }
+        binding.btnStudio.setTextColor(accent)
+        binding.btnStudio.strokeColor = ColorStateList.valueOf(accent)
+        binding.send.imageTintList = null
+        // Les autres contrôles gardent leur contraste propre (Chat bleu / Codex orange).
     }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
@@ -687,15 +791,21 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val history = messages.dropLast(1)
+                // TURBO : assembler les tokens sans recopier toute la réponse à chaque fragment.
+                // Limiter les rafraîchissements RecyclerView à environ 10 images/seconde.
+                val responseBuffer = StringBuilder()
+                lastUiUpdate = 0L
                 ChatRepository.stream(history, cfg).collect { chunk ->
-                    assistant.content += chunk
-                    val now = System.currentTimeMillis()
-                    if (now - lastUiUpdate > 60) {
+                    responseBuffer.append(chunk)
+                    val now = android.os.SystemClock.uptimeMillis()
+                    if (now - lastUiUpdate >= 100L) {
                         lastUiUpdate = now
+                        assistant.content = responseBuffer.toString()
                         adapter.notifyItemChanged(messages.size - 1)
                         scrollToEnd()
                     }
                 }
+                assistant.content = responseBuffer.toString()
                 adapter.notifyItemChanged(messages.size - 1)
                 scrollToEnd()
             } catch (e: CancellationException) {

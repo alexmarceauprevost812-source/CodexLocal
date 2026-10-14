@@ -34,7 +34,14 @@ fun AppConfig.forMode(mode: AssistantMode): AppConfig = when (mode) {
             "\n\nMode Codex : privilegie les solutions de programmation completes, " +
             "les corrections expliquees et les blocs de code utilisables."
     )
-    AssistantMode.CHAT -> copy(systemPrompt = CHAT_SYSTEM_PROMPT)
+    AssistantMode.CHAT -> copy(systemPrompt = CHAT_SYSTEM_PROMPT +
+        (if (systemPrompt == DEFAULT_SYSTEM_PROMPT) "" else "\n\n" + systemPrompt))
+}.let { config ->
+    if (config.directResponse) config.copy(
+        systemPrompt = config.systemPrompt +
+            "\n\nStyle : commence par la réponse directe. Evite les détours et les répétitions. " +
+            "Reste exact, indique les limites et conserve les précautions importantes."
+    ) else config
 }
 
 object Defaults {
@@ -57,6 +64,9 @@ data class AppConfig(
     val provider: ProviderType = ProviderType.LOCAL,
     val temperature: Float = 0.3f,
     val maxTokens: Int = 1024,
+    val topP: Float = 0.95f,
+    val topK: Int = 40,
+    val directResponse: Boolean = true,
     val localModelPath: String = "",
     val apiKey: String = "",
     val baseUrl: String = "",
@@ -101,6 +111,19 @@ class Prefs(context: Context) {
         set(v) {
             sp.edit().putInt(KEY_MAX_TOKENS, v).apply()
         }
+
+    /** Reglages avancés appliqués par le moteur GGUF local. */
+    var topP: Float
+        get() = sp.getFloat("topP", 0.95f)
+        set(v) { sp.edit().putFloat("topP", v).apply() }
+
+    var topK: Int
+        get() = sp.getInt("topK", 40)
+        set(v) { sp.edit().putInt("topK", v).apply() }
+
+    var directResponse: Boolean
+        get() = sp.getBoolean("directResponse", true)
+        set(v) { sp.edit().putBoolean("directResponse", v).apply() }
 
     var localModelPath: String
         get() = sp.getString(KEY_LOCAL_PATH, "") ?: ""
@@ -155,6 +178,9 @@ class Prefs(context: Context) {
             provider = p,
             temperature = temperature,
             maxTokens = maxTokens,
+            topP = topP,
+            topK = topK,
+            directResponse = directResponse,
             localModelPath = localModelPath,
             apiKey = apiKey(p),
             baseUrl = baseUrl(p),
