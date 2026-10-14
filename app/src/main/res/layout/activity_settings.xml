@@ -201,6 +201,12 @@
                 android:layout_height="wrap_content"
                 android:text="@string/btn_model_details" />
         </LinearLayout>
+        <Button
+            android:id="@+id/btnExportTermux"
+            style="@style/OrangeTextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_export_termux" />
 
         <View
             android:layout_width="match_parent"
