@@ -18,24 +18,30 @@
     <color name="orange_glow">#1AFF7A00</color>
 
     <!-- ====== Textes ====== -->
-    <color name="white">#FFECECEC</color>
+    <color name="white">#FFFFFFFF</color>
     <color name="grey">#FF8C8C8C</color>
     <color name="grey_dark">#FF5A5A5A</color>
 
     <!-- ====== Coloration syntaxique du code ====== -->
     <color name="code_bg">#FF070707</color>
-    <color name="code_text">#FFE6E6E6</color>
-    <color name="code_keyword">#FFFF9A3D</color>
-    <color name="code_string">#FF9ECE6A</color>
+    <color name="code_text">#FFFFFFFF</color>
+    <color name="code_keyword">#FFFF7900</color>
+    <color name="code_string">#FF39FF88</color>
     <color name="code_comment">#FF6B7280</color>
-    <color name="code_number">#FFFFC777</color>
-    <color name="code_function">#FF7AA2F7</color>
-    <color name="code_type">#FF2AC3DE</color>
-    <color name="code_annotation">#FFBB9AF7</color>
+    <color name="code_number">#FFFFD700</color>
+    <color name="code_function">#FFFF79C6</color>
+    <color name="code_type">#FFC77DFF</color>
+    <color name="code_annotation">#FFC77DFF</color>
     <color name="code_punct">#FF9AA5B1</color>
     <color name="code_tag">#FFFF7A00</color>
-    <color name="code_attr">#FF2AC3DE</color>
-    <color name="code_inline">#FFFFC777</color>
+    <color name="code_attr">#FF39FF88</color>
+    <color name="code_inline">#FFFFD700</color>
+
+    <!-- Palette gamer neon officielle -->
+    <color name="neon_green">#FF39FF88</color>
+    <color name="neon_pink">#FFFF79C6</color>
+    <color name="neon_purple">#FFC77DFF</color>
+    <color name="neon_gold">#FFFFD700</color>
 
     <!-- Anciens noms conserves pour ne rien casser -->
     <color name="purple_200">#FFBB86FC</color>
