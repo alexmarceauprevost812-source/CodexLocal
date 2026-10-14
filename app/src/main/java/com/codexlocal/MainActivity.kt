@@ -789,15 +789,21 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val history = messages.dropLast(1)
+                // TURBO : assembler les tokens sans recopier toute la réponse à chaque fragment.
+                // Limiter les rafraîchissements RecyclerView à environ 10 images/seconde.
+                val responseBuffer = StringBuilder()
+                lastUiUpdate = 0L
                 ChatRepository.stream(history, cfg).collect { chunk ->
-                    assistant.content += chunk
-                    val now = System.currentTimeMillis()
-                    if (now - lastUiUpdate > 60) {
+                    responseBuffer.append(chunk)
+                    val now = android.os.SystemClock.uptimeMillis()
+                    if (now - lastUiUpdate >= 100L) {
                         lastUiUpdate = now
+                        assistant.content = responseBuffer.toString()
                         adapter.notifyItemChanged(messages.size - 1)
                         scrollToEnd()
                     }
                 }
+                assistant.content = responseBuffer.toString()
                 adapter.notifyItemChanged(messages.size - 1)
                 scrollToEnd()
             } catch (e: CancellationException) {
