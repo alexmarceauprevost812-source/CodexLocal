@@ -65,15 +65,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Laisser Android reserver les barres systeme et redimensionner le contenu avec le clavier.
-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
+        // Android 15/16 impose parfois l'affichage bord-a-bord.
+        // Gerer explicitement les barres systeme ET le clavier Samsung.
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        // Garder le champ de saisie au-dessus de la barre de navigation Samsung.
-        // adjustResize dans le manifeste s'occupe de l'espace du clavier.
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val navigation = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            view.setPadding(navigation.left, 0, navigation.right, navigation.bottom)
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(
+                bars.left,
+                bars.top,
+                bars.right,
+                maxOf(bars.bottom, keyboard.bottom)
+            )
             insets
         }
         ViewCompat.requestApplyInsets(binding.root)
