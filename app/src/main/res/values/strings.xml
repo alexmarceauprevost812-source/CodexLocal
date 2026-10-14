@@ -32,7 +32,9 @@
     <string name="btn_load">Charger</string>
     <string name="btn_import_termux">Depuis Termux</string>
     <string name="btn_model_details">Infos du modèle</string>
-    <string name="help_termux">Retrouve ton modèle GGUF depuis Termux en le plaçant dans un dossier Android partagé. L import crée une copie locale.</string>
+    <string name="btn_export_termux">Envoyer le GGUF vers Termux</string>
+    <string name="help_export_termux">Pour lire un modèle CodexLocal dans Termux, exporte-le vers Téléchargements/CodexLocal avec le sélecteur Android. Puis, dans Termux : termux-setup-storage et ls ~/storage/shared/Download/CodexLocal. Le fichier d origine reste intact.</string>
+    <string name="help_termux">Partage bidirectionnel GGUF : importe un modèle Termux depuis Téléchargements ou exporte un modèle CodexLocal vers ce dossier. Chaque transfert crée une copie.</string>
     <string name="guide_termux_models">Android ne peut pas lire directement le dossier privé de Termux. Dans Termux, lance :\n\ntermux-setup-storage\nmkdir -p ~/storage/shared/Download/CodexLocal\ncp /chemin/vers/modele.gguf ~/storage/shared/Download/CodexLocal/\n\nRemplace /chemin/vers/modele.gguf par le chemin réel de ton fichier. Dans le sélecteur Android, ouvre Téléchargements / CodexLocal et choisis le modèle. Prévois assez de stockage pour une deuxième copie.</string>
     <string name="btn_browse_model">Parcourir les fichiers</string>
     <string name="section_modify_ai">Modifier mon IA (contrôles locaux)</string>
