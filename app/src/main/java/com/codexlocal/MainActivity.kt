@@ -82,6 +82,9 @@ class MainActivity : AppCompatActivity() {
         binding.toolbar.inflateMenu(R.menu.main)
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
+                R.id.action_studio -> {
+                    showStudioDashboard(); true
+                }
                 R.id.action_new_chat -> {
                     nouvelleSession(); true
                 }
