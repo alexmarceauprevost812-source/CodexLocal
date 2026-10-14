@@ -24,6 +24,8 @@ object LocalEngine {
 
     private var systemPromptSent = false
     private var appliedTemperature = Float.NaN
+    private var appliedTopP = Float.NaN
+    private var appliedTopK = -1
     private var activeSystemPrompt: String? = null
 
     fun engine(context: Context): InferenceEngine =
@@ -54,9 +56,11 @@ object LocalEngine {
 
         onStatus("Chargement du modele…")
         e.loadModel(modelPath)
-        e.setSamplingParams(cfg.temperature, 0.95f, 40)
+        e.setSamplingParams(cfg.temperature, cfg.topP, cfg.topK)
         e.setSystemPrompt(cfg.systemPrompt)
         appliedTemperature = cfg.temperature
+        appliedTopP = cfg.topP
+        appliedTopK = cfg.topK
         loadedPath = modelPath
         systemPromptSent = true
         activeSystemPrompt = cfg.systemPrompt
@@ -65,9 +69,11 @@ object LocalEngine {
     suspend fun resetConversation(context: Context, cfg: AppConfig) {
         val e = engine ?: return
         e.resetConversation()
-        e.setSamplingParams(cfg.temperature, 0.95f, 40)
+        e.setSamplingParams(cfg.temperature, cfg.topP, cfg.topK)
         e.setSystemPrompt(cfg.systemPrompt)
         appliedTemperature = cfg.temperature
+        appliedTopP = cfg.topP
+        appliedTopK = cfg.topK
         systemPromptSent = true
         activeSystemPrompt = cfg.systemPrompt
     }
@@ -75,9 +81,12 @@ object LocalEngine {
     /** Reconstruit le sampler seulement si la temperature a change. */
     suspend fun applySampling(cfg: AppConfig) {
         val e = engine ?: return
-        if (appliedTemperature == cfg.temperature) return
-        e.setSamplingParams(cfg.temperature, 0.95f, 40)
+        if (appliedTemperature == cfg.temperature &&
+            appliedTopP == cfg.topP && appliedTopK == cfg.topK) return
+        e.setSamplingParams(cfg.temperature, cfg.topP, cfg.topK)
         appliedTemperature = cfg.temperature
+        appliedTopP = cfg.topP
+        appliedTopK = cfg.topK
     }
 
     fun unload() {
@@ -87,6 +96,8 @@ object LocalEngine {
         systemPromptSent = false
         activeSystemPrompt = null
         appliedTemperature = Float.NaN
+        appliedTopP = Float.NaN
+        appliedTopK = -1
     }
 
     fun isLoadedFor(path: String): Boolean = path.isNotBlank() && loadedPath == path && systemPromptSent
