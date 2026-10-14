@@ -25,6 +25,19 @@
             app:logoAdjustViewBounds="true"
             app:navigationIcon="@drawable/ic_menu_24" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnStudio"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginVertical="4dp"
+            android:text="⚙  MARCEAU STUDIO  ·  Ouvrir le tableau de bord"
+            android:textAllCaps="false"
+            android:textColor="@color/orange"
+            app:strokeColor="@color/orange"
+            app:strokeWidth="1dp" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
