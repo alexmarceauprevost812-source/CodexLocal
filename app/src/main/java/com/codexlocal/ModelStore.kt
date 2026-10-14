@@ -38,14 +38,46 @@ object ModelStore {
         displayName: String,
         onProgress: (Long) -> Unit
     ): File {
-        val safeName = displayName.ifBlank { "modele.gguf" }.replace('/', '_')
-        val target = File(modelsDir(context), safeName)
-        val input = context.contentResolver.openInputStream(uri)
-            ?: error("Impossible d'ouvrir le fichier selectionne")
-        input.use { source ->
-            target.outputStream().use { output -> pump(source, output, onProgress) }
+        // Le sélecteur Android est le seul pont fiable avec le stockage partagé de Termux.
+        val safeName = displayName.substringAfterLast('/').substringAfterLast('\\')
+            .ifBlank { "modele.gguf" }
+            .replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        require(safeName.endsWith(".gguf", ignoreCase = true)) {
+            "Sélectionne un fichier de modèle .gguf"
         }
-        return target
+
+        // Ne jamais écraser un modèle existant : choisir un nom libre.
+        val dir = modelsDir(context)
+        val baseName = safeName.dropLast(5)
+        var target = File(dir, safeName)
+        var suffix = 2
+        while (target.exists()) {
+            target = File(dir, "$baseName-$suffix.gguf")
+            suffix++
+        }
+
+        // Une copie incomplète ne doit pas apparaître comme un modèle disponible.
+        val partial = File(dir, ".${target.name}.${System.nanoTime()}.partial")
+        try {
+            val input = context.contentResolver.openInputStream(uri)
+                ?: error("Impossible d'ouvrir le fichier sélectionné")
+            input.buffered().use { source ->
+                source.mark(4)
+                val magic = ByteArray(4)
+                require(source.read(magic) == 4 &&
+                    magic.contentEquals(byteArrayOf(0x47, 0x47, 0x55, 0x46))) {
+                    "Ce fichier n'est pas un GGUF valide"
+                }
+                source.reset()
+                partial.outputStream().use { output ->
+                    pump(source, output, onProgress)
+                }
+            }
+            check(partial.renameTo(target)) { "Impossible de finaliser la copie du modèle" }
+            return target
+        } finally {
+            partial.delete()
+        }
     }
 
     fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {
