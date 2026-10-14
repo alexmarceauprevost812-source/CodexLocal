@@ -145,7 +145,12 @@ class CodeEditorActivity : AppCompatActivity() {
             append(Langages.pourColoration(fichier.nom))
             append('\n')
             append(extrait)
-            append("\n```\n\nExplique-le et propose des améliorations.")
+            append("\n```\n\nTu es MARCEAU Codex, assistant de programmation. ")
+            append("Analyse ce fichier, identifie les problèmes et propose une version corrigée COMPLÈTE ")
+            append("dans un seul bloc de code avec le langage approprié. ")
+            append("Ne prétends pas avoir modifié le projet : le résultat doit être vérifié ")
+            append("et enregistré manuellement par l'utilisateur. ")
+            append("Conserve les fonctions existantes sauf si leur modification est nécessaire.")
         }
         startActivity(
             Intent(this, MainActivity::class.java).apply {
