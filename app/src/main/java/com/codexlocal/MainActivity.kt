@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -68,6 +69,14 @@ class MainActivity : AppCompatActivity() {
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        // Garder le champ de saisie au-dessus de la barre de navigation Samsung.
+        // adjustResize dans le manifeste s'occupe de l'espace du clavier.
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val navigation = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            view.setPadding(navigation.left, 0, navigation.right, navigation.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(binding.root)
         prefs = Prefs(this)
 
         binding.toolbar.inflateMenu(R.menu.main)
