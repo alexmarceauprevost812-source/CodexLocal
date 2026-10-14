@@ -7,6 +7,10 @@
         android:title="MARCEAU STUDIO · Tableau de bord"
         app:showAsAction="never" />
 
+    <item android:id="@+id/action_recent" android:title="Écrans récents · Sessions et projets" app:showAsAction="never" />
+    <item android:id="@+id/action_termux" android:title="Terminal · Ouvrir Termux" app:showAsAction="never" />
+    <item android:id="@+id/action_button_color" android:title="Apparence · Couleur des boutons" app:showAsAction="never" />
+
     <item
         android:id="@+id/action_new_chat"
         android:title="@string/action_new_chat"
