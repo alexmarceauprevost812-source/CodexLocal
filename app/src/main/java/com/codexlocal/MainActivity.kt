@@ -109,6 +109,11 @@ class MainActivity : AppCompatActivity() {
                     showButtonColorPicker()
                     true
                 }
+                R.id.action_usb_lexia -> {
+                    choisirDossier.launch(null)
+                    Toast.makeText(this, "Sélectionne un dossier de ta clé USB Lex-IA", Toast.LENGTH_LONG).show()
+                    true
+                }
                 R.id.action_new_chat -> {
                     nouvelleSession(); true
                 }
