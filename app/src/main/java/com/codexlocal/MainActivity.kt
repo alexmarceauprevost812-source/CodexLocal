@@ -101,6 +101,8 @@ class MainActivity : AppCompatActivity() {
         rafraichirTiroir()
         setupModeSelector()
 
+        binding.btnStudio.setOnClickListener { showStudioDashboard() }
+
         binding.send.setOnClickListener {
             if (job?.isActive == true) stopGeneration() else send()
         }
@@ -140,6 +142,43 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ------------------------------------------------------------------ UI
+
+    /**
+     * Tableau de bord MARCEAU STUDIO.
+     * Les fonctions de compilation et de signature restent explicitement à développer.
+     */
+    private fun showStudioDashboard() {
+        val options = arrayOf(
+            "📁  Projets — ouvrir ou ajouter un dossier",
+            "💻  Éditeur — choisir un fichier de projet",
+            "👁  Aperçu — évolution visuelle (à développer)",
+            "🧠  IA locale — modèles et personnalisation",
+            "🔨  Compiler — chaîne Android (à développer)",
+            "🔑  Signature APK — coffre de clés (à développer)"
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle("MARCEAU STUDIO")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> choisirDossier.launch(null)
+                    1 -> {
+                        binding.drawerLayout.openDrawer(binding.tiroir)
+                        Toast.makeText(this, "Choisis un fichier dans ton projet", Toast.LENGTH_LONG).show()
+                    }
+                    3 -> openSettings()
+                    else -> MaterialAlertDialogBuilder(this)
+                        .setTitle(options[which].substringBefore(" —"))
+                        .setMessage(
+                            "Module prévu pour une prochaine version. " +
+                            "Aucune compilation, signature ou prévisualisation n'est encore exécutée."
+                        )
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+            .setNegativeButton("Fermer", null)
+            .show()
+    }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
 
