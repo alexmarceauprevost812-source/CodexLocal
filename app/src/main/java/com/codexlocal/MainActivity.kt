@@ -154,7 +154,8 @@ class MainActivity : AppCompatActivity() {
             "👁  Aperçu — évolution visuelle (à développer)",
             "🧠  IA locale — modèles et personnalisation",
             "🔨  Compiler — chaîne Android (à développer)",
-            "🔑  Signature APK — coffre de clés (à développer)"
+            "🔑  Signature APK — coffre de clés (à développer)",
+            "🎨  Studio multimédia — images, vidéos et fichiers"
         )
         MaterialAlertDialogBuilder(this)
             .setTitle("MARCEAU STUDIO")
@@ -166,6 +167,7 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this, "Choisis un fichier dans ton projet", Toast.LENGTH_LONG).show()
                     }
                     3 -> openSettings()
+                    6 -> startActivity(Intent(this, MediaStudioActivity::class.java))
                     else -> MaterialAlertDialogBuilder(this)
                         .setTitle(options[which].substringBefore(" —"))
                         .setMessage(
