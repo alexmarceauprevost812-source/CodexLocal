@@ -85,6 +85,25 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_studio -> {
                     showStudioDashboard(); true
                 }
+                R.id.action_recent -> {
+                    rafraichirTiroir()
+                    binding.drawerLayout.openDrawer(binding.tiroir)
+                    Toast.makeText(this, "Sessions et projets récents", Toast.LENGTH_SHORT).show()
+                    true
+                }
+                R.id.action_termux -> {
+                    val launch = packageManager.getLaunchIntentForPackage("com.termux")
+                    if (launch != null) startActivity(launch)
+                    else MaterialAlertDialogBuilder(this)
+                        .setTitle("Terminal Termux")
+                        .setMessage("Termux n'est pas installé ou n'est pas accessible. Le terminal intégré sera développé séparément.")
+                        .setPositiveButton("OK", null).show()
+                    true
+                }
+                R.id.action_button_color -> {
+                    showButtonColorPicker()
+                    true
+                }
                 R.id.action_new_chat -> {
                     nouvelleSession(); true
                 }
@@ -112,6 +131,7 @@ class MainActivity : AppCompatActivity() {
         ouvrirSessionOuCreer()
         rafraichirTiroir()
         setupModeSelector()
+        applyButtonAccent()
 
         binding.btnStudio.setOnClickListener { showStudioDashboard() }
 
@@ -144,6 +164,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        applyButtonAccent()
     }
 
     /** Appele quand l'editeur de code renvoie un fichier a analyser. */
@@ -192,6 +213,36 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton("Fermer", null)
             .show()
+    }
+
+    private fun showButtonColorPicker() {
+        val labels = arrayOf("Orange MARCEAU (défaut)", "Bleu ciel", "Vert néon", "Violet")
+        val storage = getSharedPreferences("marceau_appearance", MODE_PRIVATE)
+        val selected = storage.getInt("button_accent", 0).coerceIn(0, labels.lastIndex)
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Couleur des boutons")
+            .setSingleChoiceItems(labels, selected) { dialog, index ->
+                storage.edit().putInt("button_accent", index).apply()
+                applyButtonAccent()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    private fun applyButtonAccent() {
+        val selected = getSharedPreferences("marceau_appearance", MODE_PRIVATE)
+            .getInt("button_accent", 0).coerceIn(0, 3)
+        val accent = when (selected) {
+            1 -> android.graphics.Color.rgb(54, 188, 255)
+            2 -> android.graphics.Color.rgb(57, 255, 136)
+            3 -> android.graphics.Color.rgb(190, 110, 255)
+            else -> getColor(R.color.orange)
+        }
+        binding.btnStudio.setTextColor(accent)
+        binding.btnStudio.strokeColor = ColorStateList.valueOf(accent)
+        binding.send.imageTintList = null
+        // Les autres contrôles gardent leur contraste propre (Chat bleu / Codex orange).
     }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
