@@ -15,6 +15,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.codexlocal.databinding.ActivitySettingsBinding
+import com.codexlocal.engine.gguf.GgufMetadataReader
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -83,6 +85,9 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
         binding.etMaxTokens.setText(prefs.maxTokens.toString())
+        binding.etTopP.setText(String.format(Locale.US, "%.2f", prefs.topP))
+        binding.etTopK.setText(prefs.topK.toString())
+        binding.swDirectResponse.isChecked = prefs.directResponse
         binding.etSystemPrompt.setText(prefs.systemPrompt)
     }
 
@@ -154,6 +159,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupLocal() {
         binding.btnRefresh.setOnClickListener { refreshModels() }
         binding.btnImport.setOnClickListener { pickModel.launch(arrayOf("*/*")) }
+        binding.btnImportTermux.setOnClickListener { showTermuxImporter() }
+        binding.btnModelDetails.setOnClickListener { showModelDetails() }
         binding.btnDownload.setOnClickListener { downloadModel() }
         binding.btnLoad.setOnClickListener { loadModel() }
         binding.btnUnload.setOnClickListener {
@@ -233,6 +240,64 @@ class SettingsActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 binding.tvLocalStatus.text =
                     getString(R.string.msg_error, e.message ?: e.toString())
+            }
+        }
+    }
+
+    /** Termux est isolé par Android : passage via un dossier partagé et SAF. */
+    private fun showTermuxImporter() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Retrouver un modèle depuis Termux")
+            .setMessage(R.string.guide_termux_models)
+            .setPositiveButton(R.string.btn_browse_model) { _, _ ->
+                pickModel.launch(arrayOf("*/*"))
+            }
+            .setNegativeButton("Fermer", null)
+            .show()
+    }
+
+    /** Affiche les metadonnées GGUF sans charger le modèle en mémoire vive. */
+    private fun showModelDetails() {
+        val index = binding.spModels.selectedItemPosition
+        if (index !in modelFiles.indices) {
+            Toast.makeText(this, R.string.msg_choose_model, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val file = modelFiles[index]
+        binding.btnModelDetails.isEnabled = false
+        lifecycleScope.launch {
+            try {
+                val description = withContext(Dispatchers.IO) {
+                    val m = file.inputStream().buffered().use { input ->
+                        GgufMetadataReader.create().readStructuredMetadata(input)
+                    }
+                    listOf(
+                        "Fichier : " + file.name,
+                        "Taille : " + String.format(Locale.US, "%.2f Go", file.length() / 1_073_741_824.0),
+                        "Nom : " + (m.basic.nameLabel ?: m.basic.name ?: "non indiqué"),
+                        "Architecture : " + (m.architecture?.architecture ?: "non indiquée"),
+                        "Paramètres : " + (m.basic.sizeLabel ?: "non indiqués"),
+                        "Quantification (type GGUF) : " + (m.architecture?.fileType?.toString() ?: "inconnue"),
+                        "Contexte annoncé : " + (m.dimensions?.contextLength?.toString() ?: "non indiqué"),
+                        "Version GGUF : " + m.version.label,
+                        "Tenseurs : " + m.tensorCount,
+                        "",
+                        "Ces informations sont lues dans le fichier. Elles ne constituent pas une modification des poids."
+                    ).joinToString("\n")
+                }
+                MaterialAlertDialogBuilder(this@SettingsActivity)
+                    .setTitle("Informations du modèle")
+                    .setMessage(description)
+                    .setPositiveButton("OK", null)
+                    .show()
+            } catch (e: Exception) {
+                MaterialAlertDialogBuilder(this@SettingsActivity)
+                    .setTitle("Lecture GGUF impossible")
+                    .setMessage(e.message ?: "Fichier non reconnu")
+                    .setPositiveButton("OK", null)
+                    .show()
+            } finally {
+                binding.btnModelDetails.isEnabled = true
             }
         }
     }
@@ -341,6 +406,11 @@ class SettingsActivity : AppCompatActivity() {
         prefs.temperature = currentTemp()
         prefs.maxTokens = binding.etMaxTokens.text.toString().trim()
             .toIntOrNull()?.coerceIn(64, 8192) ?: 1024
+        prefs.topP = binding.etTopP.text.toString().trim().replace(',', '.')
+            .toFloatOrNull()?.coerceIn(0.05f, 1.0f) ?: 0.95f
+        prefs.topK = binding.etTopK.text.toString().trim()
+            .toIntOrNull()?.coerceIn(1, 200) ?: 40
+        prefs.directResponse = binding.swDirectResponse.isChecked
         prefs.systemPrompt = binding.etSystemPrompt.text.toString().ifBlank { DEFAULT_SYSTEM_PROMPT }
         Toast.makeText(this, "Enregistré", Toast.LENGTH_SHORT).show()
         finish()
