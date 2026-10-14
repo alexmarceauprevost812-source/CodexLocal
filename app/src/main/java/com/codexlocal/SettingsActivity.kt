@@ -66,6 +66,7 @@ class SettingsActivity : AppCompatActivity() {
             "\n" + ModelStore.modelsDir(this).absolutePath
 
         setupCommon()
+        setupFontPreference()
         setupLocal()
         setupCatalog()
         setupProvider()
@@ -99,6 +100,26 @@ class SettingsActivity : AppCompatActivity() {
         binding.etTopK.setText(prefs.topK.toString())
         binding.swDirectResponse.isChecked = prefs.directResponse
         binding.etSystemPrompt.setText(prefs.systemPrompt)
+    }
+
+    private fun setupFontPreference() {
+        val choices = arrayOf("Police du système (par défaut)", "Sans serif", "Monospace", "Serif")
+        val storage = getSharedPreferences("marceau_appearance", MODE_PRIVATE)
+        val current = storage.getInt("font_choice", 0).coerceIn(0, choices.lastIndex)
+        binding.btnFontPreference.text = "Police d'écriture : " + choices[current]
+        binding.btnFontPreference.setOnClickListener {
+            val selected = storage.getInt("font_choice", 0).coerceIn(0, choices.lastIndex)
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Police d'écriture")
+                .setSingleChoiceItems(choices, selected) { dialog, index ->
+                    storage.edit().putInt("font_choice", index).apply()
+                    binding.btnFontPreference.text = "Police d'écriture : " + choices[index]
+                    dialog.dismiss()
+                    Toast.makeText(this, "Police enregistrée", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Annuler", null)
+                .show()
+        }
     }
 
     private fun currentTemp(): Float = binding.sbTemperature.progress / 10f
