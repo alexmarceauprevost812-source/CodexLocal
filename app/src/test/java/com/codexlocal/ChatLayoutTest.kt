@@ -75,6 +75,7 @@ class ChatLayoutTest {
         assertTrue(rect.left >= 40 && rect.right <= 776)
         assertTrue(rect.top >= 24 && rect.bottom <= 200)
         assertEquals(2, b.input.maxLines)
+        assertTrue(b.messages.height > 0)
     }
 
     @Test fun repeatedInsetsAndRotationDoNotAccumulatePadding() {

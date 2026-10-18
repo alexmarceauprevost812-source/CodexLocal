@@ -21,10 +21,10 @@ internal object ChatWindowInsets {
             binding.tiroir.setPadding(safe.left, safe.top, safe.right, safe.bottom)
 
             val typing = insets.isVisible(WindowInsetsCompat.Type.ime())
+            val landscape = binding.root.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
             binding.status.isVisible = !typing
-            binding.input.maxLines = if (!typing) 6 else if (
-                binding.root.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-            ) 2 else 3
+            binding.modeSelector.isVisible = !(typing && landscape)
+            binding.input.maxLines = if (!typing) 6 else if (landscape) 2 else 3
             // This screen handles insets once; descendants must not add them again.
             WindowInsetsCompat.CONSUMED
         }
