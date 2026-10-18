@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/black"
+        android:title="@string/studio_titre"
+        app:navigationIcon="@drawable/ic_back_24"
+        app:titleTextColor="@color/orange" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/divider" />
+
+    <TextView
+        android:id="@+id/projetActuel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/surface_raised"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        android:textColor="@color/grey"
+        android:textSize="13sp" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="6dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnChanger"
+                style="@style/OrangeTextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/studio_btn_changer" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnProjet"
+                style="@style/OrangeTextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/studio_btn_projet" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDossier"
+                style="@style/OrangeTextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/studio_btn_dossier" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFichier"
+                style="@style/OrangeTextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/studio_btn_fichier" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/modes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginVertical="6dp"
+        app:selectionRequired="true"
+        app:singleSelection="true">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/modeEspace"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="@string/studio_mode_espace"
+            android:textAllCaps="false"
+            app:strokeColor="@color/orange" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/modeCode"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="@string/studio_mode_code"
+            android:textAllCaps="false"
+            app:strokeColor="@color/orange" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/modeCrea"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="@string/studio_mode_crea"
+            android:textAllCaps="false"
+            app:strokeColor="@color/orange" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- ================= Espace : dossiers et fichiers ================= -->
+        <LinearLayout
+            android:id="@+id/panneauEspace"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <ListView
+                android:id="@+id/listeEspace"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:cacheColorHint="@android:color/transparent"
+                android:divider="@color/divider"
+                android:dividerHeight="1dp" />
+        </LinearLayout>
+
+        <!-- ================= Code IA ================= -->
+        <LinearLayout
+            android:id="@+id/panneauCode"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/demandeCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:backgroundTint="@color/orange"
+                android:gravity="top"
+                android:hint="@string/studio_hint_code"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLines="5"
+                android:minLines="2"
+                android:textColor="@color/white"
+                android:textColorHint="@color/grey_dark"
+                android:textSize="15sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnGenererCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/studio_generer" />
+
+            <TextView
+                android:id="@+id/statutCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/orange_bright"
+                android:textSize="12sp" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="6dp"
+                android:layout_weight="1"
+                android:background="@color/code_bg">
+
+                <TextView
+                    android:id="@+id/sortieCode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:padding="10dp"
+                    android:textColor="@color/code_text"
+                    android:textIsSelectable="true"
+                    android:textSize="12sp" />
+            </ScrollView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCreerFichiers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:enabled="false"
+                android:text="@string/studio_creer_fichiers" />
+        </LinearLayout>
+
+        <!-- ================= Créatif ================= -->
+        <LinearLayout
+            android:id="@+id/panneauCrea"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/demandeCrea"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:backgroundTint="@color/orange"
+                android:gravity="top"
+                android:hint="@string/studio_hint_crea"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLines="5"
+                android:minLines="2"
+                android:textColor="@color/white"
+                android:textColorHint="@color/grey_dark"
+                android:textSize="15sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnGenererCrea"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/studio_generer" />
+
+            <TextView
+                android:id="@+id/statutCrea"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/orange_bright"
+                android:textSize="12sp" />
+
+            <WebView
+                android:id="@+id/apercu"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="6dp"
+                android:layout_weight="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEnregistrerSvg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:enabled="false"
+                android:text="@string/studio_enregistrer_svg" />
+        </LinearLayout>
+    </FrameLayout>
+</LinearLayout>

@@ -21,9 +21,11 @@ import com.codexlocal.databinding.ActivityMainBinding
 import com.codexlocal.drawer.DrawerAdapter
 import com.codexlocal.drawer.DrawerItem
 import com.codexlocal.editor.CodeEditorActivity
+import com.codexlocal.project.Dialogues
 import com.codexlocal.project.FichierProjet
 import com.codexlocal.project.Langages
 import com.codexlocal.project.Projet
+import com.codexlocal.studio.StudioActivity
 import com.codexlocal.project.ProjectStore
 import com.codexlocal.session.Session
 import com.codexlocal.session.SessionStore
@@ -56,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private var session: Session? = null
     private var projetActif: Projet? = null
     private var fichiersProjet: List<FichierProjet> = emptyList()
+    private var dossiersProjet: List<String> = emptyList()
 
     private val choisirDossier =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -69,6 +72,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         ChatWindowInsets.install(binding)
         prefs = Prefs(this)
+        appliquerFond()
 
         binding.toolbar.inflateMenu(R.menu.main)
         binding.toolbar.setOnMenuItemClickListener { item ->
@@ -130,7 +134,15 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         Updater.reprendreInstallation(this)
+        appliquerFond()
         refreshStatus()
+    }
+
+    /** Fond d'ecran (35 % par defaut) ; le logo d'accueil n'est repete que sur une image perso. */
+    private fun appliquerFond() {
+        val opacite = prefs.fondOpacite
+        FondEcran.appliquer(this, binding.fondEcran, opacite)
+        binding.logoAccueil.isVisible = FondEcran.estPersonnalise(this) || opacite == 0
     }
 
     /** Appele quand l'editeur de code renvoie un fichier a analyser. */
@@ -393,6 +405,7 @@ class MainActivity : AppCompatActivity() {
     private fun ouvrirProjet(projet: Projet?) {
         projetActif = projet
         fichiersProjet = emptyList()
+        dossiersProjet = emptyList()
         binding.titreTiroir.text = projet?.nom ?: getString(R.string.drawer_sous_titre)
         rafraichirTiroir()
         if (projet == null) return
@@ -402,8 +415,13 @@ class MainActivity : AppCompatActivity() {
                 runCatching { ProjectStore.listerFichiers(this@MainActivity, projet) }
                     .getOrDefault(emptyList())
             }
+            val dossiers = withContext(Dispatchers.IO) {
+                runCatching { ProjectStore.listerDossiers(this@MainActivity, projet) }
+                    .getOrDefault(emptyList())
+            }
             if (projetActif?.uri != projet.uri) return@launch
             fichiersProjet = fichiers
+            dossiersProjet = dossiers
             rafraichirTiroir()
             binding.status.text = getString(R.string.msg_projet_ouvert, projet.nom) + " — " +
                 getString(R.string.msg_fichiers_trouves, fichiers.size)
@@ -503,6 +521,51 @@ class MainActivity : AppCompatActivity() {
         dialogNouveauFichier(contenu, if (bloc == null) "reponse.md" else "code.$extension")
     }
 
+    /** Cree un dossier (ou une arborescence src/utils) dans le projet actif. */
+    private fun dialogNouveauDossier() {
+        val projet = projetActif
+        if (projet == null) {
+            Toast.makeText(this, R.string.studio_besoin_projet, Toast.LENGTH_SHORT).show()
+            return
+        }
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        Dialogues.saisir(
+            activity = this,
+            titre = getString(R.string.drawer_nouveau_dossier),
+            message = getString(R.string.msg_creer_dossier),
+            hint = getString(R.string.hint_nom_dossier),
+            valider = { Dialogues.erreurChemin(it) }
+        ) { chemin ->
+            lifecycleScope.launch {
+                try {
+                    val cree = withContext(Dispatchers.IO) {
+                        ProjectStore.creerDossier(this@MainActivity, projet, chemin)
+                    }
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.msg_dossier_cree, cree),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    if (projetActif?.uri == projet.uri) ouvrirProjet(projet)
+                } catch (e: Exception) {
+                    MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle(R.string.msg_echec_dossier)
+                        .setMessage(e.message ?: e.toString())
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun ouvrirStudio() {
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        startActivity(
+            Intent(this, StudioActivity::class.java)
+                .putExtra(StudioActivity.EXTRA_PROJET_URI, projetActif?.uri)
+        )
+    }
+
     private fun ouvrirFichier(f: FichierProjet) {
         binding.drawerLayout.closeDrawer(binding.tiroir)
         startActivity(
@@ -518,6 +581,7 @@ class MainActivity : AppCompatActivity() {
         if (projetActif?.uri == uri) {
             projetActif = null
             fichiersProjet = emptyList()
+            dossiersProjet = emptyList()
             binding.titreTiroir.text = getString(R.string.drawer_sous_titre)
         }
         rafraichirTiroir()
@@ -529,6 +593,7 @@ class MainActivity : AppCompatActivity() {
     private fun rafraichirTiroir() {
         val nouveaux = mutableListOf<DrawerItem>()
 
+        nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_studio), CLE_STUDIO))
         nouveaux.add(
             DrawerItem.Section(getString(R.string.drawer_sessions), "＋", CLE_NOUVELLE_SESSION)
         )
@@ -578,8 +643,16 @@ class MainActivity : AppCompatActivity() {
                     "＋", CLE_NOUVEAU_FICHIER
                 )
             )
+            dossiersProjet.forEach { nouveaux.add(DrawerItem.Info("📁 $it/")) }
             if (fichiersProjet.isEmpty()) {
-                nouveaux.add(DrawerItem.Info(getString(R.string.drawer_chargement)))
+                nouveaux.add(
+                    DrawerItem.Info(
+                        getString(
+                            if (dossiersProjet.isEmpty()) R.string.drawer_chargement
+                            else R.string.drawer_aucun_fichier
+                        )
+                    )
+                )
             } else {
                 fichiersProjet.forEach {
                     nouveaux.add(
@@ -591,6 +664,7 @@ class MainActivity : AppCompatActivity() {
 
         if (projetActif != null) {
             nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_nouveau_fichier), CLE_NOUVEAU_FICHIER))
+            nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_nouveau_dossier), CLE_NOUVEAU_DOSSIER))
         }
         nouveaux.add(
             DrawerItem.Bouton(getString(R.string.drawer_nouveau_projet), CLE_NOUVEAU_PROJET)
@@ -631,6 +705,8 @@ class MainActivity : AppCompatActivity() {
             cle == CLE_NOUVELLE_SESSION -> nouvelleSession()
             cle == CLE_NOUVEAU_PROJET -> dialogNouveauProjet()
             cle == CLE_NOUVEAU_FICHIER -> dialogNouveauFichier()
+            cle == CLE_NOUVEAU_DOSSIER -> dialogNouveauDossier()
+            cle == CLE_STUDIO -> ouvrirStudio()
             cle == CLE_OUVRIR_DOSSIER -> choisirDossier.launch(null)
             item is DrawerItem.LigneSession -> supprimerSession(item.id)
             item is DrawerItem.LigneProjet -> supprimerProjet(item.uri)
@@ -733,6 +809,8 @@ class MainActivity : AppCompatActivity() {
         private const val CLE_NOUVELLE_SESSION = "nouvelle_session"
         private const val CLE_NOUVEAU_PROJET = "nouveau_projet"
         private const val CLE_NOUVEAU_FICHIER = "nouveau_fichier"
+        private const val CLE_NOUVEAU_DOSSIER = "nouveau_dossier"
+        private const val CLE_STUDIO = "studio"
         private const val CLE_OUVRIR_DOSSIER = "ouvrir_dossier"
     }
 }
