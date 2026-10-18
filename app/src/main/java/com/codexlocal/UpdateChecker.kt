@@ -17,9 +17,9 @@ data class UpdateInfo(
 /**
  * Cherche une nouvelle version dans les releases GitHub du projet.
  *
- * ATTENTION : l'API GitHub ne renvoie rien pour un depot prive sans
- * authentification. Le depot doit donc etre public pour que la mise a jour
- * automatique fonctionne depuis l'appli.
+ * Le depot doit rester public pour que la mise a jour automatique
+ * fonctionne sans authentification. Les releases sont creees par le workflow
+ * GitHub Actions (job publier-release).
  */
 object UpdateChecker {
 
@@ -43,7 +43,7 @@ object UpdateChecker {
 
         try {
             when (conn.responseCode) {
-                404 -> throw IOException("Versions inaccessibles ou absentes. Pour le dépôt privé, téléchargez l’APK sur GitHub puis utilisez « Installer un APK téléchargé » dans les réglages.")
+                404 -> throw IOException("Aucune version publiée pour le moment. Vous pouvez aussi utiliser « Installer un APK téléchargé » dans les réglages.")
                 200 -> Unit
                 else -> throw IOException("Vérification impossible : HTTP ${conn.responseCode}")
             }
