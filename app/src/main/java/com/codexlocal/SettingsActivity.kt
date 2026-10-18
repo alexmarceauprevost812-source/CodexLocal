@@ -36,6 +36,22 @@ class SettingsActivity : AppCompatActivity() {
             uri?.let { importModel(it) }
         }
 
+    private val pickUpdate =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) lifecycleScope.launch {
+                try {
+                    val apk = Updater.importer(this@SettingsActivity, uri)
+                    val launched = Updater.installer(this@SettingsActivity, apk)
+                    binding.tvLocalStatus.text = if (launched) "Installation lancée…"
+                        else getString(R.string.update_permission)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    binding.tvLocalStatus.text = "Installation impossible : ${e.message}"
+                }
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -64,6 +80,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        Updater.reprendreInstallation(this)
         refreshModels()
     }
 
@@ -169,6 +186,7 @@ class SettingsActivity : AppCompatActivity() {
                 runOnUiThread { binding.tvLocalStatus.text = message }
             }
         }
+        binding.btnInstallApk.setOnClickListener { pickUpdate.launch(arrayOf("*/*")) }
     }
 
     /** Liste des modeles telechargeables en un clic. */

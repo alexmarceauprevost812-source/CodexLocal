@@ -14,8 +14,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -69,7 +67,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applyInsets(binding.root)
+        ChatWindowInsets.install(binding)
         prefs = Prefs(this)
 
         binding.toolbar.inflateMenu(R.menu.main)
@@ -131,6 +129,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        Updater.reprendreInstallation(this)
         refreshStatus()
     }
 
@@ -142,16 +141,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ------------------------------------------------------------------ UI
-
-    private fun applyInsets(root: View) {
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()
-            )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
-    }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
 

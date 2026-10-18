@@ -8,9 +8,21 @@
     android:background="@color/black">
 
     <!-- ==================== Contenu principal ==================== -->
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/mainContent"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@color/black">
+
+    <LinearLayout
+        android:id="@+id/chatContent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintWidth_max="840dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
         android:background="@color/black"
         android:orientation="vertical">
 
@@ -46,10 +58,16 @@
             android:layout_height="0dp"
             android:layout_weight="1">
 
-            <LinearLayout
+            <ScrollView
                 android:id="@+id/emptyState"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:clipToPadding="false">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:paddingHorizontal="32dp">
@@ -89,6 +107,7 @@
                     android:textColor="@color/grey_dark"
                     android:textSize="12sp" />
             </LinearLayout>
+            </ScrollView>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/messages"
@@ -171,6 +190,7 @@
                 android:tint="@null" />
         </LinearLayout>
     </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- ==================== Tiroir gauche ==================== -->
     <LinearLayout

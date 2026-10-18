@@ -14,6 +14,40 @@ import java.net.URL
 /** Telecharge l'APK d'une nouvelle version et lance son installation. */
 object Updater {
 
+    private const val PENDING = "installation_en_attente"
+
+    /** Android verifies the signing certificate before replacing the installed app. */
+    private fun valider(context: Context, apk: File) {
+        val archive = requireNotNull(context.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)) {
+            "Cet APK est invalide ou incomplet."
+        }
+        require(archive.packageName == context.packageName) { "Cet APK n’est pas une mise à jour de CodexLocal." }
+        val installed = context.packageManager.getPackageInfo(context.packageName, 0)
+        require(archive.longVersionCode > installed.longVersionCode) {
+            "Choisissez un APK plus récent que la version installée."
+        }
+    }
+
+    suspend fun importer(context: Context, uri: Uri): File = withContext(Dispatchers.IO) {
+        val destination = File(context.cacheDir, "mise-a-jour.apk")
+        context.contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "Impossible d’ouvrir cet APK." }
+            destination.outputStream().use { input.copyTo(it) }
+        }
+        valider(context, destination)
+        destination
+    }
+
+    /** Resume after the user grants Android's installation permission. */
+    fun reprendreInstallation(context: Context) {
+        val prefs = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
+        if (prefs.getBoolean(PENDING, false) && context.packageManager.canRequestPackageInstalls()) {
+            prefs.edit().remove(PENDING).apply()
+            val apk = File(context.cacheDir, "mise-a-jour.apk")
+            if (apk.exists()) runCatching { installer(context, apk) }
+        }
+    }
+
     suspend fun telecharger(
         context: Context,
         url: String,
@@ -64,7 +98,10 @@ object Updater {
      *         (auquel cas l'ecran de reglage est ouvert).
      */
     fun installer(context: Context, apk: File): Boolean {
+        valider(context, apk)
         if (!context.packageManager.canRequestPackageInstalls()) {
+            context.getSharedPreferences("updates", Context.MODE_PRIVATE)
+                .edit().putBoolean(PENDING, true).apply()
             runCatching {
                 context.startActivity(
                     Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)

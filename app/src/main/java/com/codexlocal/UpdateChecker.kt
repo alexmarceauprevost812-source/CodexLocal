@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.io.IOException
 
 data class UpdateInfo(
     val version: String,
@@ -30,24 +31,27 @@ object UpdateChecker {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull() ?: "0"
 
-    /** @return la mise a jour disponible, ou null si on est a jour / injoignable. */
+    /** null signifie uniquement qu'aucune version plus recente n'est disponible. */
     suspend fun verifier(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
-        val conn = runCatching {
+        val conn =
             (URL(API).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 15_000
                 readTimeout = 20_000
                 setRequestProperty("Accept", "application/vnd.github+json")
                 setRequestProperty("User-Agent", "CodexLocal")
             }
-        }.getOrNull() ?: return@withContext null
 
         try {
-            if (conn.responseCode != 200) return@withContext null
+            when (conn.responseCode) {
+                404 -> throw IOException("Versions inaccessibles ou absentes. Pour le dépôt privé, téléchargez l’APK sur GitHub puis utilisez « Installer un APK téléchargé » dans les réglages.")
+                200 -> Unit
+                else -> throw IOException("Vérification impossible : HTTP ${conn.responseCode}")
+            }
             val texte = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(texte)
 
             val tag = json.optString("tag_name").removePrefix("v").removePrefix("V")
-            val assets = json.optJSONArray("assets") ?: return@withContext null
+            val assets = json.optJSONArray("assets") ?: throw IOException("Aucun APK dans cette version.")
             var apk: String? = null
             for (i in 0 until assets.length()) {
                 val a = assets.optJSONObject(i) ?: continue
@@ -56,15 +60,13 @@ object UpdateChecker {
                     break
                 }
             }
-            val urlApk = apk ?: return@withContext null
+            val urlApk = apk ?: throw IOException("Aucun APK dans cette version.")
 
             if (plusRecente(tag, versionInstallee(context))) {
                 UpdateInfo(tag, urlApk, json.optString("body", ""))
             } else {
                 null
             }
-        } catch (e: Exception) {
-            null
         } finally {
             conn.disconnect()
         }

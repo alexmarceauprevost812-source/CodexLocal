@@ -11,8 +11,8 @@ android {
         applicationId = "com.codexlocal"
         minSdk = 33
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.4"
+        versionCode = 5
+        versionName = "1.5"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -35,6 +35,10 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
+            // Reuse the existing installation key when supplied by the owner.
+            if (file("codexlocal.keystore").exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             isMinifyEnabled = false
@@ -63,6 +67,10 @@ android {
         viewBinding = true
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     packaging {
         // obligatoire : les backends GGML sont charges dynamiquement depuis nativeLibraryDir
         jniLibs {
@@ -88,4 +96,5 @@ dependencies {
     implementation(project(":lib"))
 
     testImplementation(libs.junit)
+    testImplementation("org.robolectric:robolectric:4.16.1")
 }
