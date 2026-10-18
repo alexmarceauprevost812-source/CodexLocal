@@ -278,6 +278,91 @@ object ProjectStore {
             document.uri.toString(), document.length(), interne = false)
     }
 
+    /**
+     * Crée un dossier (et ses parents) dans un projet. Même règles de chemin que
+     * pour les fichiers : relatif, sans '..', sans nom caché. Renvoie le chemin créé.
+     */
+    fun creerDossier(context: Context, projet: Projet, cheminRelatif: String): String {
+        val segments = validerCheminRelatif(cheminRelatif)
+        var existaitDeja = true
+
+        if (projet.interne) {
+            val racine = File(projet.uri).canonicalFile
+            require(racine.isDirectory) { "Dossier de projet introuvable" }
+            var dossier = racine
+            for (segment in segments) {
+                dossier = File(dossier, segment)
+                require(dossier.canonicalFile.toPath().startsWith(racine.toPath())) {
+                    "Chemin de dossier refusé"
+                }
+                if (!dossier.isDirectory) {
+                    require(!dossier.exists()) { "Ce nom est déjà utilisé par un fichier : $segment" }
+                    check(dossier.mkdir()) { "Impossible de créer le dossier : $segment" }
+                    existaitDeja = false
+                }
+            }
+        } else {
+            var dossier = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri))
+                ?: error("Dossier du téléphone inaccessible")
+            require(dossier.isDirectory && dossier.canWrite()) {
+                "Ce dossier ne permet pas l'écriture : autorise l'accès dans Android"
+            }
+            for (segment in segments) {
+                val existant = dossier.findFile(segment)
+                dossier = if (existant == null) {
+                    existaitDeja = false
+                    dossier.createDirectory(segment)
+                        ?: error("Création du dossier impossible : $segment")
+                } else {
+                    require(existant.isDirectory) { "Ce nom est déjà utilisé par un fichier : $segment" }
+                    existant
+                }
+            }
+        }
+        check(!existaitDeja) { "Ce dossier existe déjà" }
+        return segments.joinToString("/")
+    }
+
+    /** Chemins relatifs de tous les dossiers du projet, y compris les dossiers vides. */
+    fun listerDossiers(context: Context, projet: Projet): List<String> {
+        val resultat = ArrayList<String>()
+        if (projet.interne) {
+            parcourirDossiers(File(projet.uri), "", resultat, 0)
+        } else {
+            val racine = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri))
+                ?: return emptyList()
+            parcourirDocumentsDossiers(racine, "", resultat, 0)
+        }
+        return resultat.sortedBy { it.lowercase() }
+    }
+
+    private fun parcourirDossiers(
+        dossier: File, prefixe: String, sortie: MutableList<String>, profondeur: Int
+    ) {
+        if (profondeur > PROFONDEUR_MAX || sortie.size >= MAX_FICHIERS) return
+        val enfants = dossier.listFiles() ?: return
+        for (d in enfants) {
+            if (!d.isDirectory || d.name.startsWith(".") || d.name in ignores) continue
+            val chemin = if (prefixe.isEmpty()) d.name else "$prefixe/${d.name}"
+            sortie.add(chemin)
+            parcourirDossiers(d, chemin, sortie, profondeur + 1)
+        }
+    }
+
+    private fun parcourirDocumentsDossiers(
+        dossier: DocumentFile, prefixe: String, sortie: MutableList<String>, profondeur: Int
+    ) {
+        if (profondeur > PROFONDEUR_MAX || sortie.size >= MAX_FICHIERS) return
+        val enfants = runCatching { dossier.listFiles() }.getOrNull() ?: return
+        for (d in enfants) {
+            val nom = d.name ?: continue
+            if (!d.isDirectory || nom.startsWith(".") || nom in ignores) continue
+            val chemin = if (prefixe.isEmpty()) nom else "$prefixe/$nom"
+            sortie.add(chemin)
+            parcourirDocumentsDossiers(d, chemin, sortie, profondeur + 1)
+        }
+    }
+
     /** Un chemin relatif, sans traversal, caractères de contrôle ni nom caché. */
     fun validerCheminRelatif(chemin: String): List<String> {
         val valeur = chemin.trim()

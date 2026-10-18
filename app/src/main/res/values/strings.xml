@@ -102,4 +102,54 @@
     <string name="msg_projet_cree">Projet créé : %1$s</string>
     <string name="msg_copie_usb">Copie tes fichiers ici par USB :\n%1$s</string>
     <string name="update_install_apk">Installer un APK téléchargé</string>
+
+    <!-- ====== Dossiers ====== -->
+    <string name="drawer_nouveau_dossier">＋ Nouveau dossier</string>
+    <string name="drawer_dossiers">Dossiers</string>
+    <string name="hint_nom_dossier">src ou assets/images</string>
+    <string name="msg_creer_dossier">Nom du dossier dans le projet actif (ex. src, assets/images). Un dossier existant est conservé.</string>
+    <string name="msg_dossier_cree">Dossier créé : %1$s</string>
+    <string name="msg_echec_dossier">Impossible de créer le dossier</string>
+
+    <!-- ====== Fond d\'écran ====== -->
+    <string name="section_fond">Fond d\'écran</string>
+    <string name="fond_choisir">Choisir une image</string>
+    <string name="fond_defaut">Fond par défaut</string>
+    <string name="fond_visibilite">Visibilité du fond : %1$d %%</string>
+    <string name="fond_applique">Fond d\'écran mis à jour</string>
+    <string name="fond_erreur">Image illisible : %1$s</string>
+
+    <!-- ====== Studio ====== -->
+    <string name="drawer_studio">Studio — projets, IA et création</string>
+    <string name="studio_titre">Studio</string>
+    <string name="studio_projet_actuel">Projet : %1$s</string>
+    <string name="studio_aucun_projet">Aucun projet. Crée-en un avec « ＋ Projet ».</string>
+    <string name="studio_btn_changer">Changer</string>
+    <string name="studio_btn_projet">＋ Projet</string>
+    <string name="studio_btn_dossier">＋ Dossier</string>
+    <string name="studio_btn_fichier">＋ Fichier</string>
+    <string name="studio_mode_espace">Espace</string>
+    <string name="studio_mode_code">Code IA</string>
+    <string name="studio_mode_crea">Créatif</string>
+    <string name="studio_choisir_projet">Choisir un projet</string>
+    <string name="studio_besoin_projet">Choisis ou crée d\'abord un projet.</string>
+    <string name="studio_espace_vide">Le projet est vide. Ajoute un dossier ou un fichier.</string>
+    <string name="studio_hint_code">Décris ce que l\'IA doit créer (ex. une page web avec un chronomètre)</string>
+    <string name="studio_hint_crea">Décris un logo ou une illustration (ex. un lion orange sur fond noir)</string>
+    <string name="studio_generer">Générer</string>
+    <string name="studio_arreter">Arrêter</string>
+    <string name="studio_creer_fichiers">Créer les fichiers dans le projet</string>
+    <string name="studio_enregistrer_svg">Enregistrer dans le projet</string>
+    <string name="studio_fichiers_proposes">%1$d fichier(s) proposé(s) : %2$s</string>
+    <string name="studio_aucun_fichier">Aucun fichier reconnu dans la réponse. Reformule ta demande.</string>
+    <string name="studio_resultat_titre">Création des fichiers</string>
+    <string name="studio_resultat_msg">%1$d créé(s), %2$d ignoré(s).</string>
+    <string name="studio_svg_absent">Aucune image SVG valide dans la réponse. Reformule ta demande.</string>
+    <string name="studio_svg_pret">Image prête. Enregistre-la dans le projet.</string>
+    <string name="studio_svg_titre">Enregistrer l\'image</string>
+    <string name="studio_svg_hint">assets/logo.svg</string>
+    <string name="studio_svg_msg">Chemin du fichier .svg dans le projet. Un fichier existant n\'est jamais écrasé.</string>
+    <string name="studio_svg_extension">Le nom doit finir par .svg</string>
+    <string name="studio_enregistre">Enregistré : %1$s</string>
+
 </resources>

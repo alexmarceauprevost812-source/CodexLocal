@@ -49,6 +49,14 @@
             android:label="@string/editor_title"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- Studio : projets, dossiers, IA qui cree des fichiers, images SVG -->
+        <activity
+            android:name=".studio.StudioActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
+            android:exported="false"
+            android:label="@string/studio_titre"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Permet de passer l'APK telecharge au gestionnaire de paquets Android -->
         <provider
             android:name="androidx.core.content.FileProvider"

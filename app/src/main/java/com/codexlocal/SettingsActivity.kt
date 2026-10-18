@@ -36,6 +36,25 @@ class SettingsActivity : AppCompatActivity() {
             uri?.let { importModel(it) }
         }
 
+    private val pickFond =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            lifecycleScope.launch {
+                try {
+                    withContext(Dispatchers.IO) { FondEcran.enregistrer(this@SettingsActivity, uri) }
+                    Toast.makeText(this@SettingsActivity, R.string.fond_applique, Toast.LENGTH_SHORT).show()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        getString(R.string.fond_erreur, e.message ?: ""),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
     private val pickUpdate =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) lifecycleScope.launch {
@@ -70,6 +89,7 @@ class SettingsActivity : AppCompatActivity() {
             "\n" + ModelStore.modelsDir(this).absolutePath
 
         setupCommon()
+        setupFond()
         setupLocal()
         setupCatalog()
         setupProvider()
@@ -163,6 +183,23 @@ class SettingsActivity : AppCompatActivity() {
         ).forEach {
             it.isEnabled = isLocal
             it.alpha = if (isLocal) 1f else 0.4f
+        }
+    }
+
+    // ---------------------------------------------------------- fond d'ecran
+
+    private fun setupFond() {
+        binding.btnFondChoisir.setOnClickListener { pickFond.launch("image/*") }
+        binding.btnFondDefaut.setOnClickListener {
+            FondEcran.reinitialiser(this)
+            Toast.makeText(this, R.string.fond_applique, Toast.LENGTH_SHORT).show()
+        }
+        binding.slFondOpacite.value = prefs.fondOpacite.toFloat()
+        binding.tvFondOpacite.text = getString(R.string.fond_visibilite, prefs.fondOpacite)
+        binding.slFondOpacite.addOnChangeListener { _, valeur, _ ->
+            val pourcent = valeur.toInt()
+            prefs.fondOpacite = pourcent
+            binding.tvFondOpacite.text = getString(R.string.fond_visibilite, pourcent)
         }
     }
 

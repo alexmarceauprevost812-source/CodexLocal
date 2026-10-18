@@ -114,6 +114,13 @@ class Prefs(context: Context) {
             sp.edit().putString(KEY_SYSTEM_PROMPT, v).apply()
         }
 
+    /** Visibilite du fond d'ecran, de 0 a 100 %. */
+    var fondOpacite: Int
+        get() = sp.getInt(KEY_FOND_OPACITE, FondEcran.OPACITE_DEFAUT)
+        set(v) {
+            sp.edit().putInt(KEY_FOND_OPACITE, v.coerceIn(0, 100)).apply()
+        }
+
     /** Verifier automatiquement les mises a jour au demarrage. */
     var autoUpdate: Boolean
         get() = sp.getBoolean(KEY_AUTO_UPDATE, true)
@@ -171,6 +178,7 @@ class Prefs(context: Context) {
         const val KEY_LOCAL_PATH = "localModelPath"
         const val KEY_SYSTEM_PROMPT = "systemPrompt"
         const val KEY_AUTO_UPDATE = "autoUpdate"
+        const val KEY_FOND_OPACITE = "fondOpacite"
         const val KEY_SESSION = "sessionActive"
     }
 }
