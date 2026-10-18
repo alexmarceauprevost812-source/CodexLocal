@@ -4,6 +4,7 @@ import android.app.Activity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /**
  * Enchainement complet d'une mise a jour : verification, dialogue,
@@ -23,7 +24,14 @@ object UpdateFlow {
     ) {
         scope.launch {
             if (!silencieux) onStatus("Recherche d'une mise à jour…")
-            val info = UpdateChecker.verifier(activity)
+            val info = try {
+                UpdateChecker.verifier(activity)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (!silencieux) onStatus(e.message ?: "Vérification impossible.")
+                return@launch
+            }
             when {
                 info != null -> proposer(scope, activity, info, onStatus)
                 silencieux -> Unit
@@ -69,6 +77,8 @@ object UpdateFlow {
                         } else {
                             onStatus("Installation lancée…")
                         }
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         onStatus("Échec du téléchargement : ${e.message}")
                     }

@@ -1,6 +1,8 @@
 name: CodexLocal Android APK + PC checks
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -94,7 +96,15 @@ jobs:
         run: |
           git clone --depth 1 --branch v0.6.0 https://github.com/ggml-org/llama.cpp.git lib/src/main/cpp/llama.cpp
       - name: Compiler APK arm64-v8a (debug)
+        env:
+          CODEXLOCAL_KEYSTORE_BASE64: ${{ secrets.CODEXLOCAL_KEYSTORE_BASE64 }}
         run: |
+          # The same key is needed on every build for Android to allow an update.
+          if [ -n "$CODEXLOCAL_KEYSTORE_BASE64" ]; then
+            printf '%s' "$CODEXLOCAL_KEYSTORE_BASE64" | base64 --decode > app/codexlocal.keystore
+          else
+            echo "::warning::CODEXLOCAL_KEYSTORE_BASE64 absent : APK de test, mise à jour d'une installation précédente non garantie."
+          fi
           # La propriété org.gradle.java.home du projet pointe vers le PC Windows.
           # Elle n'est valable que localement, pas sur le runner Linux.
           sed -i '/^[[:space:]]*org.gradle.java.home[[:space:]]*=/d' gradle.properties

@@ -297,6 +297,13 @@
             android:layout_height="wrap_content"
             android:text="@string/check_update_now" />
 
+        <Button
+            android:id="@+id/btnInstallApk"
+            style="@style/OrangeTextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/update_install_apk" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

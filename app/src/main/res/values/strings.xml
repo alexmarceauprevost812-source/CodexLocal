@@ -101,4 +101,5 @@
     <string name="btn_creer">Créer</string>
     <string name="msg_projet_cree">Projet créé : %1$s</string>
     <string name="msg_copie_usb">Copie tes fichiers ici par USB :\n%1$s</string>
+    <string name="update_install_apk">Installer un APK téléchargé</string>
 </resources>
