@@ -38,8 +38,8 @@ class ProjectFoldersTest {
             try {
                 ProjectStore.creerDossier(ctx, p, chemin)
                 fail("Aurait dû refuser : $chemin")
-            } catch (_: IllegalArgumentException) {
-            } catch (_: IllegalStateException) {
+            } catch (e: IllegalArgumentException) {
+            } catch (e: IllegalStateException) {
             }
         }
         assertEquals(listOf("src"), ProjectStore.listerDossiers(ctx, p))
