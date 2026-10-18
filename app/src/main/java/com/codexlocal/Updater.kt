@@ -18,8 +18,10 @@ object Updater {
 
     /** Android verifies the signing certificate before replacing the installed app. */
     private fun valider(context: Context, apk: File) {
-        val archive = context.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)
-        require(archive?.packageName == context.packageName) { "Cet APK n’est pas une mise à jour de CodexLocal." }
+        val archive = requireNotNull(context.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)) {
+            "Cet APK est invalide ou incomplet."
+        }
+        require(archive.packageName == context.packageName) { "Cet APK n’est pas une mise à jour de CodexLocal." }
         val installed = context.packageManager.getPackageInfo(context.packageName, 0)
         require(archive.longVersionCode > installed.longVersionCode) {
             "Choisissez un APK plus récent que la version installée."
