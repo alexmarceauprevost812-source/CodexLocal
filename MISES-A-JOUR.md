@@ -13,9 +13,9 @@ l'APK, puis le job **publier-release** crée une release `v<versionName>` avec l
 Au démarrage, CodexLocal interroge `releases/latest` et propose la mise à jour
 (option « Vérifier automatiquement » dans les réglages, activée par défaut).
 
-Pour publier une nouvelle version : augmenter `versionCode` et `versionName` dans
-`app/build.gradle.kts`, puis fusionner dans `main`. Si la version n'a pas changé,
-aucune release n'est créée.
+Rien à modifier à la main : la version suit le numéro de compilation GitHub
+(`1.5.<numéro>`, `versionCode` = 100 + numéro). Chaque fusion dans `main` produit
+donc une nouvelle release plus récente que la précédente, et l'appli la propose.
 
 ## Condition nécessaire : garder la même clé de signature
 
@@ -35,6 +35,3 @@ nécessite d’adapter la configuration de signature.
 Sans ce secret, le workflow produit un APK de test et affiche un avertissement;
 sa capacité à remplacer une installation précédente n’est pas garantie.
 Une nouvelle clé ne remplace pas celle d’une ancienne installation.
-
-Pour chaque version suivante, augmenter `versionCode` et `versionName` dans
-`app/build.gradle.kts`, puis laisser GitHub compiler et tester l’APK.

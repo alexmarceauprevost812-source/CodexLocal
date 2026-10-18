@@ -119,39 +119,31 @@ jobs:
           retention-days: 14
 
   # Publie l'APK dans une release GitHub : l'appli la detecte toute seule
-  # (UpdateChecker -> releases/latest). Le tag vient de versionName ; il faut
-  # donc augmenter versionName/versionCode dans app/build.gradle.kts pour
-  # chaque nouvelle version.
+  # (UpdateChecker -> releases/latest). La version suit automatiquement le
+  # numero de compilation (1.5.<numero>), voir app/build.gradle.kts.
   publier-release:
     name: Publier la release (mise a jour automatique)
     needs: apk-debug
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: CodexLocal-Android-Debug-APK
           path: apk
-      - name: Creer la release si cette version n'existe pas encore
+      - name: Creer la release de cette compilation
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="$(sed -n 's/.*versionName *= *"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
-          if [ -z "$VERSION" ]; then
-            echo "::error::versionName introuvable dans app/build.gradle.kts"
-            exit 1
-          fi
+          VERSION="1.5.${GITHUB_RUN_NUMBER}"
           TAG="v$VERSION"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "::notice::La release $TAG existe deja : augmenter versionName/versionCode pour publier une mise a jour."
-            exit 0
-          fi
           APK="$(ls apk/*.apk | head -n1)"
           cp "$APK" "CodexLocal-$VERSION.apk"
           gh release create "$TAG" "CodexLocal-$VERSION.apk" \
+            --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
+            --latest \
             --title "CodexLocal $VERSION" \
             --notes "Version $VERSION, compilee automatiquement. L'appli propose cette mise a jour au demarrage."
