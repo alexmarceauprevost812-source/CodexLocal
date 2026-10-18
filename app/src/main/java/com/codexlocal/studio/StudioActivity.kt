@@ -1,11 +1,17 @@
 package com.codexlocal.studio
 
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -25,6 +31,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.DateFormat
 
 /**
  * Studio : un seul endroit pour gérer le projet (dossiers, fichiers), faire créer
@@ -45,6 +53,19 @@ class StudioActivity : AppCompatActivity() {
     private var jobCrea: Job? = null
     private var propositions: List<FichierPropose> = emptyList()
     private var svgCourant: String? = null
+
+    private var apkSigne: File? = null
+
+    private val choisirApk =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) signerApk(uri)
+        }
+    private val enregistrerApk = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
+    ) { uri -> if (uri != null) copierApkSigne(uri) }
+    private val enregistrerCle = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/x-pkcs12")
+    ) { uri -> if (uri != null) exporterCleVers(uri) }
 
     private data class Ligne(val texte: String, val fichier: FichierProjet?)
 
@@ -91,6 +112,10 @@ class StudioActivity : AppCompatActivity() {
         binding.btnCreerFichiers.setOnClickListener { creerFichiersProposes() }
         binding.btnGenererCrea.setOnClickListener { lancerCrea() }
         binding.btnEnregistrerSvg.setOnClickListener { enregistrerSvg() }
+        binding.btnCreerCle.setOnClickListener { creerCle() }
+        binding.btnExporterCle.setOnClickListener { enregistrerCle.launch("codexlocal-studio.p12") }
+        binding.btnSignerApk.setOnClickListener { choisirApk.launch(arrayOf("*/*")) }
+        rafraichirCle()
 
         val tous = ProjectStore.lister(this)
         val demande = intent.getStringExtra(EXTRA_PROJET_URI)
@@ -111,6 +136,7 @@ class StudioActivity : AppCompatActivity() {
         binding.panneauEspace.isVisible = id == R.id.modeEspace
         binding.panneauCode.isVisible = id == R.id.modeCode
         binding.panneauCrea.isVisible = id == R.id.modeCrea
+        binding.panneauSign.isVisible = id == R.id.modeSign
     }
 
     // ------------------------------------------------------------------ projet
@@ -438,6 +464,134 @@ class StudioActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     erreur(R.string.msg_echec_creation, e)
                 }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------- signature
+
+    private fun rafraichirCle() {
+        val info = CleStudio.info(this)
+        binding.statutCle.text = if (info == null) getString(R.string.sign_aucune_cle)
+        else getString(
+            R.string.sign_cle_info, info.nom, info.empreinte,
+            DateFormat.getDateInstance().format(info.expire)
+        )
+        binding.btnExporterCle.isEnabled = info != null
+        binding.btnSignerApk.isEnabled = info != null
+    }
+
+    private fun creerCle() {
+        val demander = {
+            Dialogues.saisir(
+                activity = this,
+                titre = getString(R.string.sign_creer_titre),
+                message = getString(R.string.sign_creer_msg),
+                hint = getString(R.string.sign_creer_hint),
+                initial = "CodexLocal",
+                valider = {
+                    try {
+                        CleStudio.nomValide(it)
+                        null
+                    } catch (e: IllegalArgumentException) {
+                        e.message
+                    }
+                }
+            ) { nom ->
+                lifecycleScope.launch {
+                    try {
+                        withContext(Dispatchers.IO) { CleStudio.creer(this@StudioActivity, nom) }
+                        rafraichirCle()
+                        Toast.makeText(this@StudioActivity, R.string.sign_cle_creee, Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        erreur(R.string.sign_echec, e)
+                    }
+                }
+            }
+        }
+        if (CleStudio.existe(this)) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.sign_remplacer_titre)
+                .setMessage(R.string.sign_remplacer_msg)
+                .setPositiveButton(R.string.sign_remplacer_ok) { _, _ -> demander() }
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show()
+        } else {
+            demander()
+        }
+    }
+
+    private fun exporterCleVers(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    contentResolver.openOutputStream(uri)?.use {
+                        CleStudio.copierVers(this@StudioActivity, it)
+                    } ?: error("Écriture impossible")
+                }
+                val mdp = CleStudio.motDePasse(this@StudioActivity) ?: ""
+                MaterialAlertDialogBuilder(this@StudioActivity)
+                    .setTitle(R.string.sign_export_titre)
+                    .setMessage(getString(R.string.sign_export_msg, CleStudio.ALIAS, mdp))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setNeutralButton(R.string.sign_copier) { _, _ -> copierSecret(mdp) }
+                    .show()
+            } catch (e: Exception) {
+                erreur(R.string.sign_echec, e)
+            }
+        }
+    }
+
+    /** Copie le mot de passe en le marquant « sensible » pour que le clavier ne l'affiche pas. */
+    private fun copierSecret(texte: String) {
+        val presse = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = ClipData.newPlainText("mot de passe", texte)
+        clip.description.extras = PersistableBundle().apply {
+            putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+        }
+        presse.setPrimaryClip(clip)
+    }
+
+    private fun signerApk(uri: Uri) {
+        binding.statutSignature.text = getString(R.string.sign_en_cours)
+        lifecycleScope.launch {
+            try {
+                val empreinte = withContext(Dispatchers.IO) {
+                    val entree = File(cacheDir, "a_signer.apk")
+                    val sortie = File(cacheDir, "signe.apk")
+                    try {
+                        contentResolver.openInputStream(uri)?.use { source ->
+                            entree.outputStream().use { source.copyTo(it) }
+                        } ?: error("APK illisible")
+                        val resultat = SignateurApk.signer(this@StudioActivity, entree, sortie)
+                        apkSigne = sortie
+                        resultat
+                    } finally {
+                        entree.delete()
+                    }
+                }
+                binding.statutSignature.text = getString(R.string.sign_ok, empreinte)
+                enregistrerApk.launch("app-signee.apk")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                binding.statutSignature.text = getString(R.string.msg_error, e.message ?: e.toString())
+            }
+        }
+    }
+
+    private fun copierApkSigne(uri: Uri) {
+        val source = apkSigne ?: return
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    contentResolver.openOutputStream(uri)?.use { sortie ->
+                        source.inputStream().use { it.copyTo(sortie) }
+                    } ?: error("Écriture impossible")
+                }
+                Toast.makeText(this@StudioActivity, R.string.sign_enregistre, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                erreur(R.string.sign_echec, e)
             }
         }
     }

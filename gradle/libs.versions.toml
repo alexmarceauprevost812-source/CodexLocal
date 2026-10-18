@@ -14,6 +14,10 @@ recyclerview = "1.4.0"
 lifecycle = "2.8.7"
 documentfile = "1.0.1"
 
+# Signature d'APK sur le telephone
+apksig = "8.13.2"
+bouncycastle = "1.78.1"
+
 # Material
 material = "1.13.0"
 
@@ -43,6 +47,10 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+
+# Signature
+apksig = { group = "com.android.tools.build", name = "apksig", version.ref = "apksig" }
+bouncycastle-pkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
 
 # Coroutines
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }

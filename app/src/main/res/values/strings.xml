@@ -152,4 +152,28 @@
     <string name="studio_svg_extension">Le nom doit finir par .svg</string>
     <string name="studio_enregistre">Enregistré : %1$s</string>
 
+
+    <!-- ====== Studio : signature d\'APK ====== -->
+    <string name="studio_mode_sign">Signature</string>
+    <string name="sign_intro">Crée une clé sur ce téléphone puis signe des APK avec elle. Sauvegarde la clé : sans elle, Android refuse les mises à jour des applis déjà signées.</string>
+    <string name="sign_aucune_cle">Aucune clé. Appuie sur « Créer une clé ».</string>
+    <string name="sign_cle_info">Clé : %1$s\nEmpreinte SHA-256 :\n%2$s\nValide jusqu\'au %3$s</string>
+    <string name="sign_creer_cle">Créer une clé</string>
+    <string name="sign_exporter_cle">Sauvegarder la clé (.p12)</string>
+    <string name="sign_signer_apk">Signer un APK</string>
+    <string name="sign_creer_titre">Nouvelle clé de signature</string>
+    <string name="sign_creer_msg">Nom affiché dans la clé (lettres, chiffres, espaces).</string>
+    <string name="sign_creer_hint">Nom de la clé</string>
+    <string name="sign_remplacer_titre">Remplacer la clé ?</string>
+    <string name="sign_remplacer_msg">Les applis signées avec l\'ancienne clé ne pourront pas être mises à jour avec la nouvelle. Sauvegarde l\'ancienne clé d\'abord si tu en as besoin.</string>
+    <string name="sign_remplacer_ok">Remplacer</string>
+    <string name="sign_cle_creee">Clé créée</string>
+    <string name="sign_echec">Opération impossible</string>
+    <string name="sign_en_cours">Signature en cours…</string>
+    <string name="sign_ok">APK signé et vérifié.\nEmpreinte : %1$s\nChoisis où l\'enregistrer.</string>
+    <string name="sign_enregistre">APK signé enregistré</string>
+    <string name="sign_export_titre">Clé sauvegardée</string>
+    <string name="sign_export_msg">Alias : %1$s\nMot de passe : %2$s\n\nNote-le : il faut les deux pour réutiliser ce fichier.</string>
+    <string name="sign_copier">Copier le mot de passe</string>
+
 </resources>

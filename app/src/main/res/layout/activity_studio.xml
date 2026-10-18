@@ -85,6 +85,8 @@
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="44dp"
+            android:paddingHorizontal="8dp"
+            android:textSize="13sp"
             android:text="@string/studio_mode_espace"
             android:textAllCaps="false"
             app:strokeColor="@color/orange" />
@@ -94,6 +96,8 @@
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="44dp"
+            android:paddingHorizontal="8dp"
+            android:textSize="13sp"
             android:text="@string/studio_mode_code"
             android:textAllCaps="false"
             app:strokeColor="@color/orange" />
@@ -103,7 +107,20 @@
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="44dp"
+            android:paddingHorizontal="8dp"
+            android:textSize="13sp"
             android:text="@string/studio_mode_crea"
+            android:textAllCaps="false"
+            app:strokeColor="@color/orange" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/modeSign"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:paddingHorizontal="8dp"
+            android:textSize="13sp"
+            android:text="@string/studio_mode_sign"
             android:textAllCaps="false"
             app:strokeColor="@color/orange" />
     </com.google.android.material.button.MaterialButtonToggleGroup>
@@ -247,5 +264,70 @@
                 android:enabled="false"
                 android:text="@string/studio_enregistrer_svg" />
         </LinearLayout>
+
+        <!-- ================= Signature ================= -->
+        <ScrollView
+            android:id="@+id/panneauSign"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/sign_intro"
+                    android:textColor="@color/grey"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/statutCle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@color/surface_raised"
+                    android:padding="10dp"
+                    android:textColor="@color/white"
+                    android:textIsSelectable="true"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCreerCle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/sign_creer_cle" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnExporterCle"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/sign_exporter_cle"
+                    app:strokeColor="@color/orange" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSignerApk"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/sign_signer_apk" />
+
+                <TextView
+                    android:id="@+id/statutSignature"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/orange_bright"
+                    android:textIsSelectable="true"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </ScrollView>
     </FrameLayout>
 </LinearLayout>

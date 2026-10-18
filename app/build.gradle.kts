@@ -83,6 +83,8 @@ android {
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            excludes += "META-INF/DEPENDENCIES"
         }
     }
 }
@@ -97,6 +99,8 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.material)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.apksig)
+    implementation(libs.bouncycastle.pkix)
 
     implementation(project(":lib"))
 
