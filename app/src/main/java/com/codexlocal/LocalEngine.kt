@@ -3,8 +3,11 @@ package com.codexlocal
 import android.content.Context
 import com.codexlocal.engine.AiChat
 import com.codexlocal.engine.InferenceEngine
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 
 /**
  * Enveloppe autour du moteur llama.cpp (module :lib).
@@ -33,29 +36,52 @@ object LocalEngine {
         val state = e.state.first {
             it !is InferenceEngine.State.Uninitialized && it !is InferenceEngine.State.Initializing
         }
-        if (state is InferenceEngine.State.Error) throw state.exception
+        // Un echec precedent (chargement ou generation) ne doit pas bloquer le moteur
+        // pour toujours : on le remet a zero et on repart.
+        if (state is InferenceEngine.State.Error) reinitialiser(e)
+    }
+
+    /** Sort le moteur de l'etat "Erreur" et oublie ce qui etait charge. */
+    private suspend fun reinitialiser(e: InferenceEngine) {
+        withContext(Dispatchers.Default) { runCatching { e.cleanUp() } }
+        loadedPath = null
+        systemPromptSent = false
+        activeSystemPrompt = null
+        appliedTemperature = Float.NaN
     }
 
     suspend fun load(
         context: Context,
         modelPath: String,
         cfg: AppConfig,
+        repartirDeZero: Boolean = false,
         onStatus: (String) -> Unit
     ) {
         val e = engine(context)
         awaitReady(e)
         if (isLoadedFor(modelPath)) {
-            // Un changement Codex/Chat doit aussi modifier le prompt du moteur local.
-            if (activeSystemPrompt != cfg.systemPrompt) {
+            // Un changement de mode ou de role doit aussi modifier le prompt du moteur local.
+            if (repartirDeZero || activeSystemPrompt != cfg.systemPrompt) {
                 resetConversation(context, cfg)
             }
             return
         }
 
+        // Changement de modele : on decharge l'ancien (sinon le moteur refuse d'en charger un autre).
+        if (loadedPath != null) withContext(Dispatchers.Default) { unload() }
+
         onStatus("Chargement du modele…")
-        e.loadModel(modelPath)
-        e.setSamplingParams(cfg.temperature, 0.95f, 40)
-        e.setSystemPrompt(cfg.systemPrompt)
+        try {
+            e.loadModel(modelPath)
+            e.setSamplingParams(cfg.temperature, 0.95f, 40)
+            e.setSystemPrompt(cfg.systemPrompt)
+        } catch (ex: CancellationException) {
+            throw ex
+        } catch (ex: Exception) {
+            // Le prochain essai (autre modele, par exemple) doit repartir d'un moteur sain.
+            reinitialiser(e)
+            throw ex
+        }
         appliedTemperature = cfg.temperature
         loadedPath = modelPath
         systemPromptSent = true

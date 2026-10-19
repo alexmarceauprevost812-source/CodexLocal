@@ -278,6 +278,91 @@ object ProjectStore {
             document.uri.toString(), document.length(), interne = false)
     }
 
+    /**
+     * Crée un dossier (et ses parents) dans un projet. Même règles de chemin que
+     * pour les fichiers : relatif, sans '..', sans nom caché. Renvoie le chemin créé.
+     */
+    fun creerDossier(context: Context, projet: Projet, cheminRelatif: String): String {
+        val segments = validerCheminRelatif(cheminRelatif)
+        var existaitDeja = true
+
+        if (projet.interne) {
+            val racine = File(projet.uri).canonicalFile
+            require(racine.isDirectory) { "Dossier de projet introuvable" }
+            var dossier = racine
+            for (segment in segments) {
+                dossier = File(dossier, segment)
+                require(dossier.canonicalFile.toPath().startsWith(racine.toPath())) {
+                    "Chemin de dossier refusé"
+                }
+                if (!dossier.isDirectory) {
+                    require(!dossier.exists()) { "Ce nom est déjà utilisé par un fichier : $segment" }
+                    check(dossier.mkdir()) { "Impossible de créer le dossier : $segment" }
+                    existaitDeja = false
+                }
+            }
+        } else {
+            var dossier = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri))
+                ?: error("Dossier du téléphone inaccessible")
+            require(dossier.isDirectory && dossier.canWrite()) {
+                "Ce dossier ne permet pas l'écriture : autorise l'accès dans Android"
+            }
+            for (segment in segments) {
+                val existant = dossier.findFile(segment)
+                dossier = if (existant == null) {
+                    existaitDeja = false
+                    dossier.createDirectory(segment)
+                        ?: error("Création du dossier impossible : $segment")
+                } else {
+                    require(existant.isDirectory) { "Ce nom est déjà utilisé par un fichier : $segment" }
+                    existant
+                }
+            }
+        }
+        check(!existaitDeja) { "Ce dossier existe déjà" }
+        return segments.joinToString("/")
+    }
+
+    /** Chemins relatifs de tous les dossiers du projet, y compris les dossiers vides. */
+    fun listerDossiers(context: Context, projet: Projet): List<String> {
+        val resultat = ArrayList<String>()
+        if (projet.interne) {
+            parcourirDossiers(File(projet.uri), "", resultat, 0)
+        } else {
+            val racine = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri))
+                ?: return emptyList()
+            parcourirDocumentsDossiers(racine, "", resultat, 0)
+        }
+        return resultat.sortedBy { it.lowercase() }
+    }
+
+    private fun parcourirDossiers(
+        dossier: File, prefixe: String, sortie: MutableList<String>, profondeur: Int
+    ) {
+        if (profondeur > PROFONDEUR_MAX || sortie.size >= MAX_FICHIERS) return
+        val enfants = dossier.listFiles() ?: return
+        for (d in enfants) {
+            if (!d.isDirectory || d.name.startsWith(".") || d.name in ignores) continue
+            val chemin = if (prefixe.isEmpty()) d.name else "$prefixe/${d.name}"
+            sortie.add(chemin)
+            parcourirDossiers(d, chemin, sortie, profondeur + 1)
+        }
+    }
+
+    private fun parcourirDocumentsDossiers(
+        dossier: DocumentFile, prefixe: String, sortie: MutableList<String>, profondeur: Int
+    ) {
+        if (profondeur > PROFONDEUR_MAX || sortie.size >= MAX_FICHIERS) return
+        val enfants = runCatching { dossier.listFiles() }.getOrNull() ?: return
+        for (d in enfants) {
+            val nom = d.name ?: continue
+            if (!d.isDirectory || nom.startsWith(".") || nom in ignores) continue
+            val chemin = if (prefixe.isEmpty()) nom else "$prefixe/$nom"
+            sortie.add(chemin)
+            parcourirDocumentsDossiers(d, chemin, sortie, profondeur + 1)
+        }
+    }
+
     /** Un chemin relatif, sans traversal, caractères de contrôle ni nom caché. */
     fun validerCheminRelatif(chemin: String): List<String> {
         val valeur = chemin.trim()
@@ -293,6 +378,182 @@ object ProjectStore {
                 it.none { char -> Character.isISOControl(char) }
         }) { "Nom interdit : pas de dossier caché, de '..' ou de chemin absolu" }
         return morceaux
+    }
+
+    /**
+     * Le fichier existant a ce chemin relatif, ou null. Contrairement a [listerFichiers],
+     * il n'y a pas de limite de taille de liste : on va droit au fichier.
+     */
+    fun trouverFichier(context: Context, projet: Projet, cheminRelatif: String): FichierProjet? {
+        val segments = validerCheminRelatif(cheminRelatif)
+        val nom = segments.last()
+        val chemin = segments.joinToString("/")
+
+        if (projet.interne) {
+            val racine = File(projet.uri).canonicalFile
+            val cible = File(racine, chemin).canonicalFile
+            if (!cible.toPath().startsWith(racine.toPath()) || !cible.isFile) return null
+            return FichierProjet(nom, chemin, cible.absolutePath, cible.length(), interne = true)
+        }
+
+        var dossier = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri)) ?: return null
+        for (segment in segments.dropLast(1)) {
+            dossier = dossier.findFile(segment)?.takeIf { it.isDirectory } ?: return null
+        }
+        val document = dossier.findFile(nom)?.takeIf { it.isFile } ?: return null
+        return FichierProjet(document.name ?: nom, chemin, document.uri.toString(),
+            document.length(), interne = false)
+    }
+
+    /** Supprime un fichier du projet (utilise pour annuler une creation). */
+    fun supprimerFichier(context: Context, fichier: FichierProjet): Boolean =
+        if (fichier.interne) {
+            File(fichier.uri).delete()
+        } else {
+            DocumentFile.fromSingleUri(context, Uri.parse(fichier.uri))?.delete() ?: false
+        }
+
+    // ------------------------------------- tous les fichiers (appli, apercu)
+
+    /** Un fichier du projet avec son contenu, texte ou image. */
+    class EntreeFichier(val chemin: String, val octets: ByteArray)
+
+    /** Etat d'un fichier : taille et date de modification (pour reperer les changements). */
+    data class EtatFichier(val taille: Long, val modifie: Long)
+
+    private const val MAX_ENTREES = 3000
+
+    /** Poids maximum d'un projet transforme en appli. */
+    const val MAX_OCTETS_APPLI = 60L * 1024 * 1024
+
+    /**
+     * Parcourt tous les fichiers du projet, images comprises (les dossiers caches ou de
+     * compilation sont ignores). `lire` ne charge le contenu que si on l'appelle.
+     */
+    private fun parcourirTous(
+        context: Context,
+        projet: Projet,
+        visiteur: (chemin: String, taille: Long, modifie: Long, lire: () -> ByteArray) -> Unit
+    ) {
+        var compte = 0
+
+        fun marcherFichiers(dossier: File, prefixe: String, profondeur: Int) {
+            if (profondeur > PROFONDEUR_MAX) return
+            val enfants = dossier.listFiles() ?: return
+            for (f in enfants.sortedBy { it.name }) {
+                if (f.name.startsWith(".") || compte >= MAX_ENTREES) continue
+                val chemin = if (prefixe.isEmpty()) f.name else "$prefixe/${f.name}"
+                if (f.isDirectory) {
+                    if (f.name !in ignores) marcherFichiers(f, chemin, profondeur + 1)
+                } else if (f.isFile) {
+                    compte++
+                    visiteur(chemin, f.length(), f.lastModified()) { f.readBytes() }
+                }
+            }
+        }
+
+        fun marcherDocuments(dossier: DocumentFile, prefixe: String, profondeur: Int) {
+            if (profondeur > PROFONDEUR_MAX) return
+            val enfants = runCatching { dossier.listFiles() }.getOrNull() ?: return
+            for (d in enfants.sortedBy { it.name ?: "" }) {
+                val nom = d.name ?: continue
+                if (nom.startsWith(".") || compte >= MAX_ENTREES) continue
+                val chemin = if (prefixe.isEmpty()) nom else "$prefixe/$nom"
+                if (d.isDirectory) {
+                    if (nom !in ignores) marcherDocuments(d, chemin, profondeur + 1)
+                } else if (d.isFile) {
+                    compte++
+                    visiteur(chemin, d.length(), d.lastModified()) {
+                        context.contentResolver.openInputStream(d.uri)?.use { it.readBytes() }
+                            ?: ByteArray(0)
+                    }
+                }
+            }
+        }
+
+        if (projet.interne) {
+            marcherFichiers(File(projet.uri), "", 0)
+        } else {
+            DocumentFile.fromTreeUri(context, Uri.parse(projet.uri))
+                ?.let { marcherDocuments(it, "", 0) }
+        }
+    }
+
+    /** Tous les fichiers du projet avec leur contenu ; refuse un projet plus lourd que `maxOctets`. */
+    fun lireTousLesFichiers(
+        context: Context,
+        projet: Projet,
+        maxOctets: Long = MAX_OCTETS_APPLI
+    ): List<EntreeFichier> {
+        val resultat = ArrayList<EntreeFichier>()
+        var total = 0L
+        parcourirTous(context, projet) { chemin, taille, _, lire ->
+            total += taille
+            check(total <= maxOctets) {
+                "Le projet est trop gros pour une appli (maximum ${maxOctets / (1024 * 1024)} Mo)."
+            }
+            resultat.add(EntreeFichier(chemin, lire()))
+        }
+        return resultat
+    }
+
+    /** Photo des fichiers du projet : chemin -> taille et date. Sert a voir ce qui a change. */
+    fun instantane(context: Context, projet: Projet): Map<String, EtatFichier> {
+        val resultat = LinkedHashMap<String, EtatFichier>()
+        parcourirTous(context, projet) { chemin, taille, modifie, _ ->
+            resultat[chemin] = EtatFichier(taille, modifie)
+        }
+        return resultat
+    }
+
+    /** Ouvre un fichier du projet en lecture (null s'il n'existe pas ou si le chemin sort du projet). */
+    fun ouvrirFlux(context: Context, projet: Projet, cheminRelatif: String): java.io.InputStream? {
+        val segments = cheminRelatif.split('/').filter { it.isNotEmpty() }
+        if (segments.isEmpty() || segments.any { it == ".." || it == "." }) return null
+        if (projet.interne) {
+            val racine = File(projet.uri).canonicalFile
+            val cible = File(racine, segments.joinToString("/")).canonicalFile
+            if (!cible.toPath().startsWith(racine.toPath()) || !cible.isFile) return null
+            return cible.inputStream()
+        }
+        var dossier = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri)) ?: return null
+        for (segment in segments.dropLast(1)) {
+            dossier = dossier.findFile(segment)?.takeIf { it.isDirectory } ?: return null
+        }
+        val document = dossier.findFile(segments.last())?.takeIf { it.isFile } ?: return null
+        return context.contentResolver.openInputStream(document.uri)
+    }
+
+    /** Ecrit un fichier binaire (une image) dans le projet, en creant les dossiers manquants. */
+    fun ecrireBinaire(context: Context, projet: Projet, cheminRelatif: String, octets: ByteArray): String {
+        val segments = validerCheminRelatif(cheminRelatif)
+        val chemin = segments.joinToString("/")
+        if (projet.interne) {
+            val racine = File(projet.uri).canonicalFile
+            val cible = File(racine, chemin).canonicalFile
+            require(cible.toPath().startsWith(racine.toPath())) { "Chemin de fichier refusé" }
+            cible.parentFile?.mkdirs()
+            cible.writeBytes(octets)
+            return chemin
+        }
+        var dossier = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri))
+            ?: error("Dossier du téléphone inaccessible")
+        require(dossier.isDirectory && dossier.canWrite()) {
+            "Ce dossier ne permet pas l'écriture : autorise l'accès dans Android"
+        }
+        for (segment in segments.dropLast(1)) {
+            val existant = dossier.findFile(segment)
+            dossier = existant?.takeIf { it.isDirectory }
+                ?: dossier.createDirectory(segment)
+                ?: error("Création du dossier impossible : $segment")
+        }
+        val nom = segments.last()
+        dossier.findFile(nom)?.delete()
+        val document = dossier.createFile("application/octet-stream", nom)
+            ?: error("Création du fichier refusée par Android")
+        context.contentResolver.openOutputStream(document.uri, "wt")?.use { it.write(octets) }
+            ?: error("Écriture impossible dans ce dossier")
+        return chemin
     }
 
     // ------------------------------------------------------------------- E/S

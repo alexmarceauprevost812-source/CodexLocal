@@ -23,7 +23,10 @@ internal object ChatWindowInsets {
             val typing = insets.isVisible(WindowInsetsCompat.Type.ime())
             val landscape = binding.root.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
             binding.status.isVisible = !typing
-            binding.modeSelector.isVisible = !(typing && landscape)
+            // Le panneau de l'equipe (visible si PanneauEquipe l'a demande) s'efface en paysage
+            // quand le clavier est ouvert, pour laisser de la place aux messages.
+            binding.panneauEquipe.isVisible =
+                binding.panneauEquipe.tag == true && !(landscape && typing)
             binding.input.maxLines = if (!typing) 6 else if (landscape) 2 else 3
             // This screen handles insets once; descendants must not add them again.
             WindowInsetsCompat.CONSUMED

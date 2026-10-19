@@ -2,15 +2,51 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <!-- Boutons de mode : appui = activer, nouvel appui = retour au mode Codex. -->
+    <item
+        android:id="@+id/action_mode_equipe"
+        android:title="@string/mode_equipe"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_mode_chat"
+        android:title="@string/mode_chat"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="always" />
+
+    <!-- Bureau : la grande page avec tous les choix de menu. -->
+    <item
+        android:id="@+id/action_bureau"
+        android:title="@string/action_bureau"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="always" />
+
+    <!-- Le reste est regroupe dans le menu « ⋮ » tout en haut a droite. -->
     <item
         android:id="@+id/action_new_chat"
         android:title="@string/action_new_chat"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_studio"
+        android:title="@string/action_studio"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_projets"
+        android:title="@string/action_projets"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_ouvrir_dossier"
+        android:title="@string/action_ouvrir_dossier"
+        app:showAsAction="never" />
 
     <item
         android:id="@+id/action_settings"
         android:title="@string/settings_title"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 
     <item
         android:id="@+id/action_check_update"

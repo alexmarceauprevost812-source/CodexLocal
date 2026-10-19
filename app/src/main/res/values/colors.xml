@@ -21,6 +21,7 @@
     <color name="white">#FFECECEC</color>
     <color name="grey">#FF8C8C8C</color>
     <color name="grey_dark">#FF5A5A5A</color>
+    <color name="equipe_ok">#FF7EE787</color>
 
     <!-- ====== Coloration syntaxique du code ====== -->
     <color name="code_bg">#FF070707</color>

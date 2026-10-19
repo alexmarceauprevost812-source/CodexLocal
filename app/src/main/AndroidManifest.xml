@@ -6,6 +6,16 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Installation des mises a jour de l'appli -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Retirer une appli fabriquee par le Studio (par exemple apres un changement de cle) -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <!-- Voir (et ouvrir) les applis fabriquees par le Studio, qui ont un icone de lanceur -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -48,6 +58,28 @@
             android:exported="false"
             android:label="@string/editor_title"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- Studio : projets, dossiers, IA qui cree des fichiers, images SVG -->
+        <activity
+            android:name=".studio.StudioActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
+            android:exported="false"
+            android:label="@string/studio_titre"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Bureau : toutes les entrees de menu en icones, comme l'ecran d'accueil d'un telephone -->
+        <activity
+            android:name=".bureau.BureauActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
+            android:exported="false"
+            android:label="@string/bureau_titre" />
+
+        <!-- Vue « projet » facon GitHub : dossiers, fichiers, favori, ajout, modification -->
+        <activity
+            android:name=".projet.ProjetActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
+            android:exported="false"
+            android:label="@string/studio_titre" />
 
         <!-- Permet de passer l'APK telecharge au gestionnaire de paquets Android -->
         <provider

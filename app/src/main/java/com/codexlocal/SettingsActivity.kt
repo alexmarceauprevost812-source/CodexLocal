@@ -15,6 +15,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.codexlocal.databinding.ActivitySettingsBinding
+import com.codexlocal.usage.CompteurUsage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -30,10 +31,30 @@ class SettingsActivity : AppCompatActivity() {
     private var modelFiles: List<File> = emptyList()
     private var editingProvider: ProviderType = ProviderType.LOCAL
     private var busyJob: Job? = null
+    private lateinit var compteur: CompteurUsage
 
     private val pickModel =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             uri?.let { importModel(it) }
+        }
+
+    private val pickFond =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            lifecycleScope.launch {
+                try {
+                    withContext(Dispatchers.IO) { FondEcran.enregistrer(this@SettingsActivity, uri) }
+                    Toast.makeText(this@SettingsActivity, R.string.fond_applique, Toast.LENGTH_SHORT).show()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        getString(R.string.fond_erreur, e.message ?: ""),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         }
 
     private val pickUpdate =
@@ -65,14 +86,21 @@ class SettingsActivity : AppCompatActivity() {
             insets
         }
         prefs = Prefs(this)
+        compteur = CompteurUsage(this)
 
         binding.tvLocalDir.text = getString(R.string.local_dir_hint) +
             "\n" + ModelStore.modelsDir(this).absolutePath
 
         setupCommon()
+        setupFond()
         setupLocal()
         setupCatalog()
         setupProvider()
+        binding.btnUsageZero.setOnClickListener {
+            compteur.remettreAZero(editingProvider)
+            Toast.makeText(this, R.string.usage_zero_fait, Toast.LENGTH_SHORT).show()
+            afficherUsage(editingProvider)
+        }
 
         binding.btnSave.setOnClickListener { save() }
         binding.btnCancel.setOnClickListener { finish() }
@@ -122,6 +150,7 @@ class SettingsActivity : AppCompatActivity() {
             ProviderType.GEMINI -> binding.rbGemini.isChecked = true
         }
         loadRemoteFields(editingProvider)
+        afficherUsage(editingProvider)
 
         binding.rgProvider.setOnCheckedChangeListener { _, checkedId ->
             val next = when (checkedId) {
@@ -134,6 +163,7 @@ class SettingsActivity : AppCompatActivity() {
             saveRemoteFields(editingProvider)
             editingProvider = next
             loadRemoteFields(next)
+            afficherUsage(next)
             updateSections()
         }
         updateSections()
@@ -149,6 +179,37 @@ class SettingsActivity : AppCompatActivity() {
         prefs.setBaseUrl(p, binding.etBaseUrl.text.toString().trim())
         prefs.setModel(p, binding.etModel.text.toString().trim())
         prefs.setApiKey(p, binding.etApiKey.text.toString().trim())
+        if (p != ProviderType.LOCAL) {
+            compteur.definirLimites(
+                p,
+                binding.etLimiteJour.text.toString().trim().toLongOrNull() ?: 0L,
+                binding.etLimiteMois.text.toString().trim().toLongOrNull() ?: 0L
+            )
+        }
+    }
+
+    /** Compteur et limites du fournisseur affiche (rien a surveiller en local). */
+    private fun afficherUsage(p: ProviderType) {
+        val local = p == ProviderType.LOCAL
+        listOf<View>(
+            binding.tvUsageTitre, binding.pbUsage, binding.etLimiteJour, binding.etLimiteMois,
+            binding.tvUsageNote, binding.btnUsageZero
+        ).forEach { it.visibility = if (local) View.GONE else View.VISIBLE }
+        if (local) {
+            binding.tvUsage.text = getString(R.string.usage_local)
+            return
+        }
+        val e = compteur.etat(p)
+        binding.tvUsage.text = getString(
+            R.string.usage_resume,
+            CompteurUsage.nombre(e.jour.jetons), e.jour.requetes.toInt(),
+            CompteurUsage.nombre(e.mois.jetons), e.mois.requetes.toInt()
+        )
+        binding.etLimiteJour.setText(if (e.limiteJour > 0) e.limiteJour.toString() else "")
+        binding.etLimiteMois.setText(if (e.limiteMois > 0) e.limiteMois.toString() else "")
+        val pourcent = e.pourcentMax
+        binding.pbUsage.visibility = if (pourcent == null) View.GONE else View.VISIBLE
+        binding.pbUsage.progress = (pourcent ?: 0).coerceAtMost(100)
     }
 
     private fun updateSections() {
@@ -163,6 +224,23 @@ class SettingsActivity : AppCompatActivity() {
         ).forEach {
             it.isEnabled = isLocal
             it.alpha = if (isLocal) 1f else 0.4f
+        }
+    }
+
+    // ---------------------------------------------------------- fond d'ecran
+
+    private fun setupFond() {
+        binding.btnFondChoisir.setOnClickListener { pickFond.launch("image/*") }
+        binding.btnFondDefaut.setOnClickListener {
+            FondEcran.reinitialiser(this)
+            Toast.makeText(this, R.string.fond_applique, Toast.LENGTH_SHORT).show()
+        }
+        binding.slFondOpacite.value = prefs.fondOpacite.toFloat()
+        binding.tvFondOpacite.text = getString(R.string.fond_visibilite, prefs.fondOpacite)
+        binding.slFondOpacite.addOnChangeListener { _, valeur, _ ->
+            val pourcent = valeur.toInt()
+            prefs.fondOpacite = pourcent
+            binding.tvFondOpacite.text = getString(R.string.fond_visibilite, pourcent)
         }
     }
 

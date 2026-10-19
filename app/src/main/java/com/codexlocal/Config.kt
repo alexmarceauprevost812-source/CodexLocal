@@ -12,7 +12,11 @@ enum class ProviderType(val label: String) {
 
 /** Le mode est independant du fournisseur local ou distant. */
 enum class AssistantMode {
-    CODEX, CHAT
+    /** Assistant de code ; avec un projet ouvert il cree, ecrit et lit les fichiers. */
+    CODEX,
+    CHAT,
+    /** Equipe de roles : chef (casque blanc), planificateur, redacteur, codeur. */
+    EQUIPE
 }
 
 const val CHAT_SYSTEM_PROMPT =
@@ -35,6 +39,8 @@ fun AppConfig.forMode(mode: AssistantMode): AppConfig = when (mode) {
             "les corrections expliquees et les blocs de code utilisables."
     )
     AssistantMode.CHAT -> copy(systemPrompt = CHAT_SYSTEM_PROMPT)
+    // Chaque role de l'equipe a ses propres consignes (voir agent/Equipe.kt).
+    AssistantMode.EQUIPE -> this
 }
 
 object Defaults {
@@ -114,6 +120,13 @@ class Prefs(context: Context) {
             sp.edit().putString(KEY_SYSTEM_PROMPT, v).apply()
         }
 
+    /** Visibilite du fond d'ecran, de 0 a 100 %. */
+    var fondOpacite: Int
+        get() = sp.getInt(KEY_FOND_OPACITE, FondEcran.OPACITE_DEFAUT)
+        set(v) {
+            sp.edit().putInt(KEY_FOND_OPACITE, v.coerceIn(0, 100)).apply()
+        }
+
     /** Verifier automatiquement les mises a jour au demarrage. */
     var autoUpdate: Boolean
         get() = sp.getBoolean(KEY_AUTO_UPDATE, true)
@@ -171,6 +184,7 @@ class Prefs(context: Context) {
         const val KEY_LOCAL_PATH = "localModelPath"
         const val KEY_SYSTEM_PROMPT = "systemPrompt"
         const val KEY_AUTO_UPDATE = "autoUpdate"
+        const val KEY_FOND_OPACITE = "fondOpacite"
         const val KEY_SESSION = "sessionActive"
     }
 }

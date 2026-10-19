@@ -98,4 +98,9 @@ val State.isModelLoaded: Boolean
         this is State.ProcessingUserPrompt ||
         this is State.Generating
 
-class UnsupportedArchitectureException : Exception()
+/**
+ * Le moteur natif n'a pas pu charger le modele. Malgre son nom historique, la cause
+ * peut etre un fichier incomplet, une architecture trop recente ou un manque de memoire :
+ * le message precise ce qu'il faut verifier.
+ */
+class UnsupportedArchitectureException(message: String? = null) : Exception(message)

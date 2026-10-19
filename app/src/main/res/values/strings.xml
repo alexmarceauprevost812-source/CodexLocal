@@ -102,4 +102,188 @@
     <string name="msg_projet_cree">Projet créé : %1$s</string>
     <string name="msg_copie_usb">Copie tes fichiers ici par USB :\n%1$s</string>
     <string name="update_install_apk">Installer un APK téléchargé</string>
+
+    <!-- ====== Dossiers ====== -->
+    <string name="drawer_nouveau_dossier">＋ Nouveau dossier</string>
+    <string name="drawer_dossiers">Dossiers</string>
+    <string name="hint_nom_dossier">src ou assets/images</string>
+    <string name="msg_creer_dossier">Nom du dossier dans le projet actif (ex. src, assets/images). Un dossier existant est conservé.</string>
+    <string name="msg_dossier_cree">Dossier créé : %1$s</string>
+    <string name="msg_echec_dossier">Impossible de créer le dossier</string>
+
+    <!-- ====== Fond d\'écran ====== -->
+    <string name="section_fond">Fond d\'écran</string>
+    <string name="fond_choisir">Choisir une image</string>
+    <string name="fond_defaut">Fond par défaut</string>
+    <string name="fond_visibilite">Visibilité du fond : %1$d %%</string>
+    <string name="fond_applique">Fond d\'écran mis à jour</string>
+    <string name="fond_erreur">Image illisible : %1$s</string>
+
+    <!-- ====== Studio ====== -->
+    <string name="drawer_studio">Studio — projets, IA et création</string>
+    <string name="studio_titre">Studio</string>
+    <string name="studio_projet_actuel">Projet : %1$s</string>
+    <string name="studio_aucun_projet">Aucun projet. Crée-en un avec « ＋ Projet ».</string>
+    <string name="studio_btn_changer">Changer</string>
+    <string name="studio_btn_projet">＋ Projet</string>
+    <string name="studio_btn_dossier">＋ Dossier</string>
+    <string name="studio_btn_fichier">＋ Fichier</string>
+    <string name="studio_mode_espace">Espace</string>
+    <string name="studio_mode_code">Code IA</string>
+    <string name="studio_mode_crea">Créatif</string>
+    <string name="studio_choisir_projet">Choisir un projet</string>
+    <string name="studio_besoin_projet">Choisis ou crée d\'abord un projet.</string>
+    <string name="studio_espace_vide">Le projet est vide. Ajoute un dossier ou un fichier.</string>
+    <string name="studio_hint_code">Décris ce que l\'IA doit créer (ex. une page web avec un chronomètre)</string>
+    <string name="studio_hint_crea">Décris un logo ou une illustration (ex. un lion orange sur fond noir)</string>
+    <string name="studio_generer">Générer</string>
+    <string name="studio_arreter">Arrêter</string>
+    <string name="studio_creer_fichiers">Créer les fichiers dans le projet</string>
+    <string name="studio_enregistrer_svg">Enregistrer dans le projet</string>
+    <string name="studio_fichiers_proposes">%1$d fichier(s) proposé(s) : %2$s</string>
+    <string name="studio_aucun_fichier">Aucun fichier reconnu dans la réponse. Reformule ta demande.</string>
+    <string name="studio_resultat_titre">Création des fichiers</string>
+    <string name="studio_resultat_msg">%1$d créé(s), %2$d ignoré(s).</string>
+    <string name="studio_svg_absent">Aucune image SVG valide dans la réponse. Reformule ta demande.</string>
+    <string name="studio_svg_pret">Image prête. Enregistre-la dans le projet.</string>
+    <string name="studio_svg_titre">Enregistrer l\'image</string>
+    <string name="studio_svg_hint">assets/logo.svg</string>
+    <string name="studio_svg_msg">Chemin du fichier .svg dans le projet. Un fichier existant n\'est jamais écrasé.</string>
+    <string name="studio_svg_extension">Le nom doit finir par .svg</string>
+    <string name="studio_enregistre">Enregistré : %1$s</string>
+
+
+    <!-- ====== Studio : signature d\'APK ====== -->
+    <string name="studio_mode_sign">Signature</string>
+    <string name="sign_intro">Crée une clé sur ce téléphone puis signe des APK avec elle. Sauvegarde la clé : sans elle, Android refuse les mises à jour des applis déjà signées.</string>
+    <string name="sign_aucune_cle">Aucune clé. Appuie sur « Créer une clé ».</string>
+    <string name="sign_cle_info">Clé : %1$s\nEmpreinte SHA-256 :\n%2$s\nValide jusqu\'au %3$s</string>
+    <string name="sign_creer_cle">Créer une clé</string>
+    <string name="sign_exporter_cle">Sauvegarder la clé (.p12)</string>
+    <string name="sign_signer_apk">Signer un APK</string>
+    <string name="sign_creer_titre">Nouvelle clé de signature</string>
+    <string name="sign_creer_msg">Nom affiché dans la clé (lettres, chiffres, espaces).</string>
+    <string name="sign_creer_hint">Nom de la clé</string>
+    <string name="sign_remplacer_titre">Remplacer la clé ?</string>
+    <string name="sign_remplacer_msg">Les applis signées avec l\'ancienne clé ne pourront pas être mises à jour avec la nouvelle. Sauvegarde l\'ancienne clé d\'abord si tu en as besoin.</string>
+    <string name="sign_remplacer_ok">Remplacer</string>
+    <string name="sign_cle_creee">Clé créée</string>
+    <string name="sign_echec">Opération impossible</string>
+    <string name="sign_en_cours">Signature en cours…</string>
+    <string name="sign_ok">APK signé et vérifié.\nEmpreinte : %1$s\nChoisis où l\'enregistrer.</string>
+    <string name="sign_enregistre">APK signé enregistré</string>
+    <string name="sign_export_titre">Clé sauvegardée</string>
+    <string name="sign_export_msg">Alias : %1$s\nMot de passe : %2$s\n\nNote-le : il faut les deux pour réutiliser ce fichier.</string>
+    <string name="sign_copier">Copier le mot de passe</string>
+
+
+    <!-- Equipe d'IA et fichiers automatiques -->
+    <string name="mode_equipe">Équipe</string>
+    <string name="hint_input_equipe">Décris ce que l\'équipe doit construire…</string>
+    <string name="agent_snackbar">%1$d fichier(s) créé(s), %2$d modifié(s)</string>
+    <string name="agent_annuler">Annuler</string>
+    <string name="agent_annule">Modifications annulées (%1$d)</string>
+    <string name="equipe_projet_auto">Projet « %1$s » créé pour l\'équipe</string>
+
+    <!-- Bureau : toutes les entrees de menu en tuiles -->
+    <string name="bureau_titre">Bureau</string>
+    <string name="action_bureau">Bureau</string>
+    <string name="action_studio">🛠️ Studio</string>
+    <string name="action_projets">📁 Projets et fichiers</string>
+    <string name="action_ouvrir_dossier">📂 Ouvrir un dossier</string>
+    <string name="bureau_codex">Codex</string>
+    <string name="bureau_codex_sous">Programmer avec l\'IA</string>
+    <string name="bureau_chat">Chat</string>
+    <string name="bureau_chat_sous">Discuter librement</string>
+    <string name="bureau_equipe">Équipe</string>
+    <string name="bureau_equipe_sous">Chef, plan, textes, code</string>
+    <string name="bureau_studio">Studio</string>
+    <string name="bureau_studio_sous">Créer, signer, construire</string>
+    <string name="bureau_tester">Tester mon appli</string>
+    <string name="bureau_tester_sous">Voir et installer l\'APK</string>
+    <string name="bureau_projets">Projets</string>
+    <string name="bureau_projets_sous">Dossiers et fichiers</string>
+    <string name="bureau_dossier">Ouvrir un dossier</string>
+    <string name="bureau_dossier_sous">Un dossier du téléphone</string>
+    <string name="bureau_nouvelle">Nouvelle conversation</string>
+    <string name="bureau_nouvelle_sous">Repartir de zéro</string>
+    <string name="bureau_reglages">Réglages</string>
+    <string name="bureau_reglages_sous">Modèle, fond, mises à jour</string>
+    <string name="bureau_maj">Mises à jour</string>
+    <string name="bureau_maj_sous">Chercher une nouvelle version</string>
+
+    <string name="bureau_favoris">⭐ Favoris</string>
+    <string name="bureau_rubrique_projets">📁 Projets</string>
+    <string name="bureau_aucun_projet">Aucun projet. Crée-en un dans le Studio.</string>
+    <string name="bureau_projet_vide">Ce projet est vide.</string>
+    <string name="bureau_fichiers_de">Fichiers de « %1$s »</string>
+    <string name="bureau_favori_ajoute">⭐ Ajouté aux favoris</string>
+    <string name="bureau_favori_retire">Retiré des favoris</string>
+    <string name="bureau_fichier_introuvable">Fichier introuvable</string>
+    <!-- Vue « projet » comme GitHub, mais locale -->
+    <string name="projet_favori">Favori</string>
+    <string name="projet_ajouter">Ajouter</string>
+    <string name="projet_parametres">Paramètres</string>
+    <string name="projet_sous_titre">Local · %1$d fichier(s)</string>
+    <string name="projet_introuvable">Projet introuvable</string>
+    <string name="projet_dossier_vide">Ce dossier est vide. Appuie sur ＋ pour ajouter un fichier.</string>
+    <string name="projet_remonter">Dossier parent</string>
+    <string name="projet_elements">%1$d élément(s)</string>
+    <string name="projet_nouveau_fichier">📄 Nouveau fichier</string>
+    <string name="projet_nouveau_dossier">🗂️ Nouveau dossier</string>
+    <string name="projet_modifier">✏️ Modifier le code</string>
+    <string name="projet_supprimer_fichier">🗑️ Supprimer le fichier</string>
+    <string name="projet_confirmer_suppression">Supprimer « %1$s » ? Cette action est définitive.</string>
+    <string name="projet_fichier_supprime">Fichier supprimé</string>
+    <string name="projet_echec_suppression">Suppression impossible</string>
+    <string name="projet_ouvrir_studio">🛠️ Ouvrir dans le Studio</string>
+    <string name="projet_retirer">Retirer de la liste</string>
+    <string name="projet_retirer_msg">Le projet disparaît de la liste. Ses fichiers restent sur le téléphone.</string>
+    <string name="projet_retire">Projet retiré de la liste</string>
+    <string name="projet_info_stockage">📍 %1$s</string>
+    <string name="projet_stockage_interne">Dossier de l\'appli (visible par USB)</string>
+    <string name="projet_stockage_externe">Dossier choisi sur le téléphone</string>
+    <!-- Compteur d'utilisation des cles API -->
+    <string name="usage_titre">📊 Compteur d\'utilisation (ta clé API)</string>
+    <string name="usage_hint_jour">Limite par jour, en jetons (0 = aucune)</string>
+    <string name="usage_hint_mois">Limite par mois, en jetons (0 = aucune)</string>
+    <string name="usage_note">Tout reste sur ton téléphone. Les jetons sont estimés (≈ 4 caractères chacun) : c\'est un garde-fou, pas la facture exacte de ton service. Quand une limite est atteinte, l\'appli n\'envoie plus rien.</string>
+    <string name="usage_zero">Remettre le compteur à zéro</string>
+    <string name="usage_zero_fait">Compteur remis à zéro</string>
+    <string name="usage_local">Le modèle local est gratuit : aucun compteur à surveiller.</string>
+    <string name="usage_resume">Aujourd\'hui : ≈ %1$s jetons · %2$d requête(s)\nCe mois : ≈ %3$s jetons · %4$d requête(s)</string>
+    <string name="usage_barre_jour">Limite du jour utilisée à %1$d %%</string>
+    <!-- Studio : onglet Test (apercu en direct, APK, installation) -->
+    <string name="studio_mode_test">Test</string>
+    <string name="test_construire">🔨 Construire l\'APK</string>
+    <string name="test_en_cours">Construction…</string>
+    <string name="test_installer">📲 Installer</string>
+    <string name="test_ouvrir">▶ Ouvrir</string>
+    <string name="test_enregistrer">💾 Garder</string>
+    <string name="test_desinstaller">🗑 Retirer</string>
+    <string name="test_aucun_projet">Choisis ou crée d\'abord un projet dans l\'onglet Espace.</string>
+    <string name="test_info">📱 %1$s\n%2$s\n%3$s</string>
+    <string name="test_etat_pas_installee">Pas encore installée sur ce téléphone</string>
+    <string name="test_etat_installee">Installée (version %1$d)</string>
+    <string name="test_etat_a_jour">✅ Installée et à jour</string>
+    <string name="test_etat_ancienne">Installée, mais une version plus récente est prête</string>
+    <string name="test_sans_page">Pas encore de page index.html.\nL\'aperçu apparaît dès qu\'un fichier index.html existe dans le projet.</string>
+    <string name="test_construire_d_abord">Construis d\'abord l\'APK.</string>
+    <string name="test_permission">Autorise CodexLocal à installer des applis dans l\'écran qui vient de s\'ouvrir, puis reviens ici : l\'installation reprend toute seule.</string>
+    <string name="test_installation_lancee">Installation lancée : valide dans la fenêtre d\'Android, puis appuie sur ▶ Ouvrir.</string>
+    <string name="test_pas_installee">L\'appli n\'est pas encore installée.</string>
+    <string name="test_echec_install">Impossible de lancer l\'installation.</string>
+    <string name="test_conflit_cle">Si Android refuse (« conflit » avec une version déjà installée), c\'est que la clé de signature a changé : appuie sur 🗑 Retirer puis réinstalle.</string>
+    <!-- Bouton ＋ : images du projet -->
+    <string name="plus_description">Ajouter une image ou une icône</string>
+    <string name="plus_image">🖼️ Ajouter une image au projet</string>
+    <string name="plus_icone">🎨 Choisir l\'icône de l\'appli</string>
+    <string name="plus_besoin_projet">Ouvre d\'abord un projet (menu 📁 Projets) pour y ajouter des images.</string>
+    <string name="plus_image_ajoutee">🖼️ Image ajoutée : %1$s</string>
+    <string name="plus_icone_definie">🎨 Icône de l\'appli définie (%1$s)</string>
+    <string name="plus_echec">Image impossible à ajouter : %1$s</string>
+    <string name="projet_image">Image</string>
+    <string name="projet_image_illisible">Image illisible</string>
+    <string name="projet_image_usage">Dans ton code : images/… utilise le chemin « %1$s ». Elle part dans l\'APK.</string>
+    <string name="plus_echec_titre">Image impossible à ajouter</string>
 </resources>

@@ -3,6 +3,23 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+// Version automatique : sur GitHub Actions, chaque compilation a un numero
+// (GITHUB_RUN_NUMBER) toujours plus grand que le precedent, donc chaque mise a
+// jour suit la precedente sans modifier ce fichier. En local : version 1.5 / code 5.
+val ciRun: Int? = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+
+// Modele d'application pour le Studio : la « coquille » (module :shell) est compilee puis copiee
+// dans les assets de CodexLocal sous le nom modele-shell.apk (voir ConstructeurApk).
+val dossierModeleApk = layout.buildDirectory.dir("generated/modeleApk/assets")
+val copierModeleApk by tasks.registering(Copy::class) {
+    dependsOn(":shell:assembleModele")
+    from(project(":shell").layout.buildDirectory.dir("outputs/apk/modele")) {
+        include("*.apk")
+        rename { "modele-shell.apk" }
+    }
+    into(dossierModeleApk)
+}
+
 android {
     namespace = "com.codexlocal"
     compileSdk = 36
@@ -11,8 +28,8 @@ android {
         applicationId = "com.codexlocal"
         minSdk = 33
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.5"
+        versionCode = if (ciRun != null) 100 + ciRun else 5
+        versionName = if (ciRun != null) "1.5.$ciRun" else "1.5"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -67,6 +84,8 @@ android {
         viewBinding = true
     }
 
+    sourceSets.getByName("main").assets.srcDir(dossierModeleApk)
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
@@ -78,6 +97,8 @@ android {
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            excludes += "META-INF/DEPENDENCIES"
         }
     }
 }
@@ -92,9 +113,15 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.material)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.apksig)
+    implementation(libs.bouncycastle.pkix)
 
     implementation(project(":lib"))
 
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.16.1")
 }
+
+// Le modele doit exister avant que les assets ne soient rassembles (appli et tests).
+tasks.matching { it.name == "preBuild" || (it.name.startsWith("merge") && it.name.endsWith("Assets")) }
+    .configureEach { dependsOn(copierModeleApk) }

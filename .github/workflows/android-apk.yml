@@ -2,12 +2,13 @@ name: CodexLocal Android APK + PC checks
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
     paths:
       - "app/**"
       - "lib/**"
+      - "shell/**"
+      - "scripts/**"
       - "pc/**"
       - "gradle/**"
       - "gradlew"
@@ -109,7 +110,28 @@ jobs:
           # Elle n'est valable que localement, pas sur le runner Linux.
           sed -i '/^[[:space:]]*org.gradle.java.home[[:space:]]*=/d' gradle.properties
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
+          # Tout est copie dans un journal pour que l'etape « Resume des erreurs » puisse
+          # afficher la vraie cause d'un echec (les journaux complets ne sont pas toujours lisibles).
+          set -o pipefail
+          JOURNAL="$RUNNER_TEMP/gradle.log"
+          # Le modele d'APK du Studio (module :shell) d'abord : on le verifie avant les tests.
+          ./gradlew :app:copierModeleApk --stacktrace --no-daemon 2>&1 | tee -a "$JOURNAL"
+          python3 scripts/verifier_modele_apk.py app/build/generated/modeleApk/assets/modele-shell.apk 2>&1 | tee -a "$JOURNAL"
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee -a "$JOURNAL"
+      - name: Resume des erreurs
+        if: failure()
+        run: |
+          JOURNAL="$RUNNER_TEMP/gradle.log"
+          [ -f "$JOURNAL" ] || exit 0
+          {
+            grep -E '^e: ' "$JOURNAL" | sort -u | head -40
+            grep -E -A4 ' FAILED$' "$JOURNAL" | head -60
+            grep -E -A8 'What went wrong' "$JOURNAL" | head -30
+            grep -E 'Modele d.APK invalide|^ - ' "$JOURNAL" | head -10
+          } > "$RUNNER_TEMP/resume.txt" || true
+          [ -s "$RUNNER_TEMP/resume.txt" ] || tail -40 "$JOURNAL" > "$RUNNER_TEMP/resume.txt"
+          MSG=$(sed 's/%/%25/g' "$RUNNER_TEMP/resume.txt" | cut -c1-400 | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Erreurs de compilation ou de tests::${MSG:0:60000}"
       - name: Publier APK telechargeable
         uses: actions/upload-artifact@v4
         with:
@@ -117,3 +139,33 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+
+  # Publie l'APK dans une release GitHub : l'appli la detecte toute seule
+  # (UpdateChecker -> releases/latest). La version suit automatiquement le
+  # numero de compilation (1.5.<numero>), voir app/build.gradle.kts.
+  publier-release:
+    name: Publier la release (mise a jour automatique)
+    needs: apk-debug
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: CodexLocal-Android-Debug-APK
+          path: apk
+      - name: Creer la release de cette compilation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="1.5.${GITHUB_RUN_NUMBER}"
+          TAG="v$VERSION"
+          APK="$(ls apk/*.apk | head -n1)"
+          cp "$APK" "CodexLocal-$VERSION.apk"
+          gh release create "$TAG" "CodexLocal-$VERSION.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --latest \
+            --title "CodexLocal $VERSION" \
+            --notes "Version $VERSION, compilee automatiquement. L'appli propose cette mise a jour au demarrage."

@@ -123,6 +123,23 @@ internal class InferenceEngineImpl private constructor(
     @Volatile
     private var _cancelGeneration = false
 
+    /** Vrai tant qu'un modele est charge cote natif (pour ne le liberer qu'une fois). */
+    @Volatile
+    private var _modelLoaded = false
+
+    /** Un vrai fichier GGUF commence par les quatre octets "GGUF". */
+    private fun verifierEnTeteGguf(fichier: File) {
+        val entete = ByteArray(4)
+        val lus = fichier.inputStream().use { it.read(entete) }
+        if (lus != 4 || String(entete, Charsets.US_ASCII) != "GGUF") {
+            throw IOException(
+                "« ${fichier.name} » n'est pas un modèle GGUF valide " +
+                    "(${fichier.length() / 1_048_576} Mo) : téléchargement interrompu ou mauvais fichier. " +
+                    "Supprime-le puis télécharge-le de nouveau."
+            )
+        }
+    }
+
     /**
      * Single-threaded coroutine dispatcher & scope for LLama asynchronous operations
      */
@@ -161,23 +178,38 @@ internal class InferenceEngineImpl private constructor(
 
             try {
                 Log.i(TAG, "Checking access to model file... \n$pathToModel")
-                File(pathToModel).let {
-                    require(it.exists()) { "File not found" }
-                    require(it.isFile) { "Not a valid file" }
-                    require(it.canRead()) { "Cannot read file" }
-                }
+                val fichier = File(pathToModel)
+                require(fichier.exists()) { "Modèle introuvable : ${fichier.name}" }
+                require(fichier.isFile) { "Ce n'est pas un fichier de modèle : ${fichier.name}" }
+                require(fichier.canRead()) { "Modèle illisible : ${fichier.name}" }
+                verifierEnTeteGguf(fichier)
+                val taille = "${fichier.length() / 1_048_576} Mo"
 
                 Log.i(TAG, "Loading model... \n$pathToModel")
                 _readyForSystemPrompt = false
                 _state.value = InferenceEngine.State.LoadingModel
                 load(pathToModel).let {
-                    // TODO-han.yin: find a better way to pass other error codes
-                    if (it != 0) throw UnsupportedArchitectureException()
+                    if (it != 0) {
+                        throw UnsupportedArchitectureException(
+                            "Le moteur n'a pas pu charger « ${fichier.name} » ($taille). " +
+                                "Causes probables : fichier incomplet (télécharge-le de nouveau), " +
+                                "modèle trop récent pour ce moteur, ou mémoire insuffisante. " +
+                                "Dans Réglages, choisis un autre modèle ou un plus petit."
+                        )
+                    }
                 }
                 prepare().let {
-                    if (it != 0) throw IOException("Failed to prepare resources")
+                    if (it != 0) {
+                        // Le modele est deja en memoire : on le libere pour ne pas le garder en vain.
+                        unload()
+                        throw IOException(
+                            "Mémoire insuffisante pour préparer « ${fichier.name} » ($taille). " +
+                                "Ferme d'autres applications ou choisis un modèle plus petit."
+                        )
+                    }
                 }
                 Log.i(TAG, "Model loaded!")
+                _modelLoaded = true
                 _readyForSystemPrompt = true
 
                 _cancelGeneration = false
@@ -312,6 +344,7 @@ internal class InferenceEngineImpl private constructor(
                     _state.value = InferenceEngine.State.UnloadingModel
 
                     unload()
+                    _modelLoaded = false
 
                     _state.value = InferenceEngine.State.Initialized
                     Log.i(TAG, "Model unloaded!")
@@ -320,6 +353,12 @@ internal class InferenceEngineImpl private constructor(
 
                 is InferenceEngine.State.Error -> {
                     Log.i(TAG, "Resetting error states...")
+                    // Un echec en cours de route (ex. generation) laisse le modele en memoire.
+                    if (_modelLoaded) {
+                        unload()
+                        _modelLoaded = false
+                    }
+                    _readyForSystemPrompt = false
                     _state.value = InferenceEngine.State.Initialized
                     Log.i(TAG, "States reset!")
                     Unit

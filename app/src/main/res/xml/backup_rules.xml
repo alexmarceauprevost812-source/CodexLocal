@@ -6,6 +6,9 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
+    <!-- Cle de signature du Studio : jamais sauvegardee dans le cloud -->
+    <exclude domain="file" path="cles/"/>
+    <exclude domain="sharedpref" path="codexlocal_cles.xml"/>
     <!--
    <include domain="sharedpref" path="."/>
    <exclude domain="sharedpref" path="device.xml"/>

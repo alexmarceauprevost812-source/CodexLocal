@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,20 +18,37 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.codexlocal.bureau.ActionBureau
+import com.codexlocal.bureau.BureauActivity
+import com.codexlocal.agent.ActionsFichiers
+import com.codexlocal.agent.AgentProjet
+import com.codexlocal.agent.Annulation
+import com.codexlocal.agent.Bilan
+import com.codexlocal.agent.AgentPrompts
+import com.codexlocal.agent.Equipe
+import com.codexlocal.agent.PanneauEquipe
+import com.codexlocal.agent.Role
 import com.codexlocal.databinding.ActivityMainBinding
 import com.codexlocal.drawer.DrawerAdapter
 import com.codexlocal.drawer.DrawerItem
 import com.codexlocal.editor.CodeEditorActivity
+import com.codexlocal.project.Dialogues
 import com.codexlocal.project.FichierProjet
+import com.codexlocal.project.ImagesProjet
 import com.codexlocal.project.Langages
 import com.codexlocal.project.Projet
+import com.codexlocal.studio.StudioActivity
+import com.codexlocal.usage.CompteurUsage
 import com.codexlocal.project.ProjectStore
 import com.codexlocal.session.Session
 import com.codexlocal.session.SessionStore
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -50,16 +68,40 @@ class MainActivity : AppCompatActivity() {
     private var isGenerating = false
     private var modelSessionId: String? = null
 
+    // ----- boutons de mode (barre du haut) et panneau de l'equipe -----
+    private lateinit var boutonChat: TextView
+    private lateinit var boutonEquipe: TextView
+    private lateinit var boutonBureau: TextView
+    private lateinit var panneauEquipe: PanneauEquipe
+
     // ----- menu lateral : sessions et projets -----
     private val itemsTiroir = mutableListOf<DrawerItem>()
     private lateinit var tiroirAdapter: DrawerAdapter
     private var session: Session? = null
     private var projetActif: Projet? = null
     private var fichiersProjet: List<FichierProjet> = emptyList()
+    private var dossiersProjet: List<String> = emptyList()
 
     private val choisirDossier =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             uri?.let { ajouterProjet(it) }
+        }
+
+    private val choisirImage =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) ajouterImage(uri, commeIcone = false)
+        }
+
+    private val choisirIcone =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) ajouterImage(uri, commeIcone = true)
+        }
+
+    /** Le Bureau renvoie la tuile choisie ; on l'execute ici, comme un appui sur le menu. */
+    private val bureau =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { resultat ->
+            ActionBureau.depuisCle(resultat.data?.getStringExtra(BureauActivity.EXTRA_ACTION))
+                ?.let { executerBureau(it) }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,12 +111,22 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         ChatWindowInsets.install(binding)
         prefs = Prefs(this)
+        appliquerFond()
 
         binding.toolbar.inflateMenu(R.menu.main)
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_new_chat -> {
                     nouvelleSession(); true
+                }
+                R.id.action_studio -> {
+                    ouvrirStudio(); true
+                }
+                R.id.action_projets -> {
+                    binding.drawerLayout.openDrawer(binding.tiroir); true
+                }
+                R.id.action_ouvrir_dossier -> {
+                    choisirDossier.launch(null); true
                 }
                 R.id.action_settings -> {
                     openSettings(); true
@@ -99,11 +151,12 @@ class MainActivity : AppCompatActivity() {
         binding.listeTiroir.adapter = tiroirAdapter
         ouvrirSessionOuCreer()
         rafraichirTiroir()
-        setupModeSelector()
+        configurerBoutonsMode()
 
         binding.send.setOnClickListener {
             if (job?.isActive == true) stopGeneration() else send()
         }
+        binding.btnPlus.setOnClickListener { menuPlus() }
 
         // Premier lancement : on ouvre directement les reglages
         if (savedInstanceState == null) {
@@ -130,7 +183,15 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         Updater.reprendreInstallation(this)
+        appliquerFond()
         refreshStatus()
+    }
+
+    /** Fond d'ecran (35 % par defaut) ; le logo d'accueil n'est repete que sur une image perso. */
+    private fun appliquerFond() {
+        val opacite = prefs.fondOpacite
+        FondEcran.appliquer(this, binding.fondEcran, opacite)
+        binding.logoAccueil.isVisible = FondEcran.estPersonnalise(this) || opacite == 0
     }
 
     /** Appele quand l'editeur de code renvoie un fichier a analyser. */
@@ -159,22 +220,46 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     "Local : " + File(cfg.localModelPath).name
                 }
-            else -> cfg.provider.label + " : " + cfg.model
+            else -> cfg.provider.label + " : " + cfg.model + " · " +
+                CompteurUsage.resume(CompteurUsage(this).etat(cfg.provider))
         }
     }
 
-    /** Theme noir/orange pour Codex ; noir/bleu ciel pour Chat. */
-    private fun setupModeSelector() {
-        binding.modeSelector.check(
-            if (prefs.assistantMode == AssistantMode.CODEX) R.id.modeCodex else R.id.modeChat
+    /**
+     * Deux boutons dans la barre du haut : 💬 pour discuter, ⛑️ pour l'equipe.
+     * Un appui active le mode ; un nouvel appui sur le meme bouton revient au mode Codex.
+     */
+    private fun configurerBoutonsMode() {
+        val menu = binding.toolbar.menu
+        boutonChat = menu.findItem(R.id.action_mode_chat).actionView as TextView
+        boutonEquipe = menu.findItem(R.id.action_mode_equipe).actionView as TextView
+        boutonChat.text = "💬"
+        boutonChat.contentDescription = getString(R.string.mode_chat)
+        boutonEquipe.text = "⛑️"
+        boutonEquipe.contentDescription = getString(R.string.mode_equipe)
+        boutonBureau = menu.findItem(R.id.action_bureau).actionView as TextView
+        boutonBureau.text = "🖥️"
+        boutonBureau.contentDescription = getString(R.string.action_bureau)
+        boutonBureau.setOnClickListener { ouvrirBureau() }
+        listOf(boutonChat, boutonEquipe, boutonBureau).forEach { it.setTextColor(getColor(R.color.white)) }
+        boutonChat.setOnClickListener { changeMode(basculer(AssistantMode.CHAT)) }
+        boutonEquipe.setOnClickListener { changeMode(basculer(AssistantMode.EQUIPE)) }
+
+        panneauEquipe = PanneauEquipe(
+            binding.panneauEquipe,
+            listOf(
+                binding.equipeEtape1, binding.equipeEtape2, binding.equipeEtape3,
+                binding.equipeEtape4, binding.equipeEtape5
+            ),
+            binding.equipeActivite,
+            binding.equipeChrono
         )
-        binding.modeSelector.addOnButtonCheckedListener { _, checkedId, checked ->
-            if (!checked) return@addOnButtonCheckedListener
-            val mode = if (checkedId == R.id.modeChat) AssistantMode.CHAT else AssistantMode.CODEX
-            changeMode(mode)
-        }
+        panneauEquipe.reinitialiser()
         updateModeTheme()
     }
+
+    private fun basculer(mode: AssistantMode) =
+        if (prefs.assistantMode == mode) AssistantMode.CODEX else mode
 
     private fun changeMode(mode: AssistantMode) {
         if (prefs.assistantMode == mode) return
@@ -195,32 +280,44 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
     }
 
+    /** Theme noir/orange pour Codex et Equipe ; noir/bleu ciel pour Chat. */
     private fun updateModeTheme() {
-        val isChat = prefs.assistantMode == AssistantMode.CHAT
+        val mode = prefs.assistantMode
+        val isChat = mode == AssistantMode.CHAT
         val accent = getColor(if (isChat) R.color.sky_blue else R.color.orange)
-        val orange = getColor(R.color.orange)
-        val blue = getColor(R.color.sky_blue)
-        val black = getColor(R.color.black)
 
         binding.toolbar.setTitleTextColor(accent)
         binding.status.setTextColor(accent)
         binding.input.backgroundTintList = ColorStateList.valueOf(accent)
         binding.input.hint = getString(
-            if (isChat) R.string.hint_input_chat else R.string.hint_input
+            when (mode) {
+                AssistantMode.CHAT -> R.string.hint_input_chat
+                AssistantMode.EQUIPE -> R.string.hint_input_equipe
+                AssistantMode.CODEX -> R.string.hint_input
+            }
         )
 
-        binding.modeCodex.backgroundTintList =
-            ColorStateList.valueOf(if (isChat) black else orange)
-        binding.modeCodex.setTextColor(if (isChat) orange else black)
-        binding.modeCodex.strokeColor = ColorStateList.valueOf(orange)
-
-        binding.modeChat.backgroundTintList =
-            ColorStateList.valueOf(if (isChat) blue else black)
-        binding.modeChat.setTextColor(if (isChat) black else blue)
-        binding.modeChat.strokeColor = ColorStateList.valueOf(blue)
+        marquerBouton(boutonChat, mode == AssistantMode.CHAT, getColor(R.color.sky_blue))
+        marquerBouton(boutonEquipe, mode == AssistantMode.EQUIPE, getColor(R.color.white))
+        panneauEquipe.afficher(mode == AssistantMode.EQUIPE)
+        if (mode == AssistantMode.EQUIPE && !isGenerating) {
+            panneauEquipe.reinitialiser()
+            panneauEquipe.activite("⛑️ L'équipe attend ta demande…")
+        }
         adapter.chatMode = isChat
         adapter.notifyDataSetChanged()
         updateSendIcon()
+    }
+
+    /** Anneau autour du bouton du mode actif, bouton un peu estompe sinon. */
+    private fun marquerBouton(bouton: TextView, actif: Boolean, couleur: Int) {
+        if (actif) {
+            bouton.setBackgroundResource(R.drawable.bg_mode_actif)
+            bouton.backgroundTintList = ColorStateList.valueOf(couleur)
+        } else {
+            bouton.background = null
+        }
+        bouton.alpha = if (actif) 1f else 0.65f
     }
 
     private fun updateSendIcon() {
@@ -242,8 +339,8 @@ class MainActivity : AppCompatActivity() {
         isGenerating = on
         updateSendIcon()
         binding.input.isEnabled = !on
-        binding.modeCodex.isEnabled = !on
-        binding.modeChat.isEnabled = !on
+        boutonChat.isEnabled = !on
+        boutonEquipe.isEnabled = !on
     }
 
     /** Affiche le logo d'accueil tant qu'aucun message n'existe. */
@@ -393,6 +490,7 @@ class MainActivity : AppCompatActivity() {
     private fun ouvrirProjet(projet: Projet?) {
         projetActif = projet
         fichiersProjet = emptyList()
+        dossiersProjet = emptyList()
         binding.titreTiroir.text = projet?.nom ?: getString(R.string.drawer_sous_titre)
         rafraichirTiroir()
         if (projet == null) return
@@ -402,8 +500,13 @@ class MainActivity : AppCompatActivity() {
                 runCatching { ProjectStore.listerFichiers(this@MainActivity, projet) }
                     .getOrDefault(emptyList())
             }
+            val dossiers = withContext(Dispatchers.IO) {
+                runCatching { ProjectStore.listerDossiers(this@MainActivity, projet) }
+                    .getOrDefault(emptyList())
+            }
             if (projetActif?.uri != projet.uri) return@launch
             fichiersProjet = fichiers
+            dossiersProjet = dossiers
             rafraichirTiroir()
             binding.status.text = getString(R.string.msg_projet_ouvert, projet.nom) + " — " +
                 getString(R.string.msg_fichiers_trouves, fichiers.size)
@@ -503,6 +606,120 @@ class MainActivity : AppCompatActivity() {
         dialogNouveauFichier(contenu, if (bloc == null) "reponse.md" else "code.$extension")
     }
 
+    /** Cree un dossier (ou une arborescence src/utils) dans le projet actif. */
+    private fun dialogNouveauDossier() {
+        val projet = projetActif
+        if (projet == null) {
+            Toast.makeText(this, R.string.studio_besoin_projet, Toast.LENGTH_SHORT).show()
+            return
+        }
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        Dialogues.saisir(
+            activity = this,
+            titre = getString(R.string.drawer_nouveau_dossier),
+            message = getString(R.string.msg_creer_dossier),
+            hint = getString(R.string.hint_nom_dossier),
+            valider = { Dialogues.erreurChemin(it) }
+        ) { chemin ->
+            lifecycleScope.launch {
+                try {
+                    val cree = withContext(Dispatchers.IO) {
+                        ProjectStore.creerDossier(this@MainActivity, projet, chemin)
+                    }
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.msg_dossier_cree, cree),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    if (projetActif?.uri == projet.uri) ouvrirProjet(projet)
+                } catch (e: Exception) {
+                    MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle(R.string.msg_echec_dossier)
+                        .setMessage(e.message ?: e.toString())
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun ouvrirStudio(mode: String? = null) {
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        startActivity(
+            Intent(this, StudioActivity::class.java)
+                .putExtra(StudioActivity.EXTRA_PROJET_URI, projetActif?.uri)
+                .putExtra(StudioActivity.EXTRA_MODE, mode)
+        )
+    }
+
+    /** Bouton ＋ : une image du telephone entre dans le projet ouvert (et dans son APK). */
+    private fun menuPlus() {
+        if (projetActif == null) {
+            Toast.makeText(this, R.string.plus_besoin_projet, Toast.LENGTH_LONG).show()
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setItems(arrayOf(getString(R.string.plus_image), getString(R.string.plus_icone))) { _, choix ->
+                if (choix == 0) choisirImage.launch("image/*") else choisirIcone.launch("image/*")
+            }
+            .show()
+    }
+
+    private fun ajouterImage(uri: android.net.Uri, commeIcone: Boolean) {
+        val projet = projetActif ?: return
+        lifecycleScope.launch {
+            try {
+                val chemin = withContext(Dispatchers.IO) {
+                    if (commeIcone) {
+                        ImagesProjet.definirIcone(this@MainActivity, projet, uri)
+                    } else {
+                        ImagesProjet.importer(this@MainActivity, projet, uri, nomAffiche(uri))
+                    }
+                }
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(if (commeIcone) R.string.plus_icone_definie else R.string.plus_image_ajoutee, chemin),
+                    Toast.LENGTH_LONG
+                ).show()
+                if (projetActif?.uri == projet.uri) ouvrirProjet(projet)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.plus_echec, e.message ?: e.toString()),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    /** Nom du fichier choisi, tel que le montre le telephone (pour garder un nom parlant). */
+    private fun nomAffiche(uri: android.net.Uri): String? =
+        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { if (it.moveToFirst()) it.getString(0) else null }
+
+    private fun ouvrirBureau() {
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        bureau.launch(Intent(this, BureauActivity::class.java))
+    }
+
+    /** Execute le choix fait dans le Bureau (memes actions que le menu « ⋮ » et le tiroir). */
+    private fun executerBureau(action: ActionBureau) {
+        when (action) {
+            ActionBureau.CODEX -> changeMode(AssistantMode.CODEX)
+            ActionBureau.CHAT -> changeMode(AssistantMode.CHAT)
+            ActionBureau.EQUIPE -> changeMode(AssistantMode.EQUIPE)
+            ActionBureau.STUDIO -> ouvrirStudio()
+            ActionBureau.TESTER -> ouvrirStudio(StudioActivity.MODE_TEST)
+            ActionBureau.PROJETS -> binding.drawerLayout.openDrawer(binding.tiroir)
+            ActionBureau.OUVRIR_DOSSIER -> choisirDossier.launch(null)
+            ActionBureau.NOUVELLE -> nouvelleSession()
+            ActionBureau.REGLAGES -> openSettings()
+            ActionBureau.MISES_A_JOUR -> checkUpdates()
+        }
+    }
+
     private fun ouvrirFichier(f: FichierProjet) {
         binding.drawerLayout.closeDrawer(binding.tiroir)
         startActivity(
@@ -518,6 +735,7 @@ class MainActivity : AppCompatActivity() {
         if (projetActif?.uri == uri) {
             projetActif = null
             fichiersProjet = emptyList()
+            dossiersProjet = emptyList()
             binding.titreTiroir.text = getString(R.string.drawer_sous_titre)
         }
         rafraichirTiroir()
@@ -529,6 +747,7 @@ class MainActivity : AppCompatActivity() {
     private fun rafraichirTiroir() {
         val nouveaux = mutableListOf<DrawerItem>()
 
+        nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_studio), CLE_STUDIO))
         nouveaux.add(
             DrawerItem.Section(getString(R.string.drawer_sessions), "＋", CLE_NOUVELLE_SESSION)
         )
@@ -578,8 +797,16 @@ class MainActivity : AppCompatActivity() {
                     "＋", CLE_NOUVEAU_FICHIER
                 )
             )
+            dossiersProjet.forEach { nouveaux.add(DrawerItem.Info("📁 $it/")) }
             if (fichiersProjet.isEmpty()) {
-                nouveaux.add(DrawerItem.Info(getString(R.string.drawer_chargement)))
+                nouveaux.add(
+                    DrawerItem.Info(
+                        getString(
+                            if (dossiersProjet.isEmpty()) R.string.drawer_chargement
+                            else R.string.drawer_aucun_fichier
+                        )
+                    )
+                )
             } else {
                 fichiersProjet.forEach {
                     nouveaux.add(
@@ -591,6 +818,7 @@ class MainActivity : AppCompatActivity() {
 
         if (projetActif != null) {
             nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_nouveau_fichier), CLE_NOUVEAU_FICHIER))
+            nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_nouveau_dossier), CLE_NOUVEAU_DOSSIER))
         }
         nouveaux.add(
             DrawerItem.Bouton(getString(R.string.drawer_nouveau_projet), CLE_NOUVEAU_PROJET)
@@ -631,6 +859,8 @@ class MainActivity : AppCompatActivity() {
             cle == CLE_NOUVELLE_SESSION -> nouvelleSession()
             cle == CLE_NOUVEAU_PROJET -> dialogNouveauProjet()
             cle == CLE_NOUVEAU_FICHIER -> dialogNouveauFichier()
+            cle == CLE_NOUVEAU_DOSSIER -> dialogNouveauDossier()
+            cle == CLE_STUDIO -> ouvrirStudio()
             cle == CLE_OUVRIR_DOSSIER -> choisirDossier.launch(null)
             item is DrawerItem.LigneSession -> supprimerSession(item.id)
             item is DrawerItem.LigneProjet -> supprimerProjet(item.uri)
@@ -640,68 +870,318 @@ class MainActivity : AppCompatActivity() {
     private fun send() {
         val text = binding.input.text.toString().trim()
         if (text.isEmpty()) return
-        val cfg = prefs.config().forMode(prefs.assistantMode)
+        val mode = prefs.assistantMode
+        val cfg = prefs.config().forMode(mode)
 
         binding.input.setText("")
-        messages.add(Message.user(text))
-        val assistant = Message.assistant()
-        messages.add(assistant)
-        adapter.notifyItemRangeInserted(messages.size - 2, 2)
+        val user = Message.user(text)
+        messages.add(user)
+        adapter.notifyItemInserted(messages.size - 1)
         updateEmptyState()
         scrollToEnd()
         setGenerating(true)
 
         job = lifecycleScope.launch {
+            val annulations = mutableListOf<Annulation>()
             try {
-                if (cfg.provider == ProviderType.LOCAL) {
-                    if (cfg.localModelPath.isBlank()) {
-                        binding.status.text = getString(R.string.msg_no_model_loaded)
-                        return@launch
-                    }
-                    // Le chargement ajuste aussi le prompt lors d'un passage Codex/Chat.
-                    val alreadyLoaded = LocalEngine.isLoadedFor(cfg.localModelPath)
-                    if (!alreadyLoaded) binding.status.text = getString(R.string.msg_loading_model)
-                    LocalEngine.load(this@MainActivity, cfg.localModelPath, cfg) { msg ->
-                        runOnUiThread { binding.status.text = msg }
-                    }
-                    if (modelSessionId != session?.id) {
-                        LocalEngine.resetConversation(this@MainActivity, cfg)
-                        modelSessionId = session?.id
-                    }
-                    if (!alreadyLoaded) {
-                        binding.status.text =
-                            getString(R.string.msg_model_loaded, File(cfg.localModelPath).name)
-                    }
-                    LocalEngine.applySampling(cfg)
+                if (mode == AssistantMode.EQUIPE) {
+                    jouerEquipe(user, cfg, annulations)
+                } else {
+                    converser(user, mode, cfg, annulations)
                 }
-
-                val history = messages.dropLast(1)
-                ChatRepository.stream(history, cfg).collect { chunk ->
-                    assistant.content += chunk
-                    val now = System.currentTimeMillis()
-                    if (now - lastUiUpdate > 60) {
-                        lastUiUpdate = now
-                        adapter.notifyItemChanged(messages.size - 1)
-                        scrollToEnd()
-                    }
-                }
-                adapter.notifyItemChanged(messages.size - 1)
-                scrollToEnd()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val message = e.message ?: e.toString()
-                binding.status.text = getString(R.string.msg_error, message)
-                if (assistant.content.isEmpty()) {
-                    assistant.content = "[erreur] $message"
-                    adapter.notifyItemChanged(messages.size - 1)
-                }
+                afficherErreur(e.message ?: e.toString())
             } finally {
                 setGenerating(false)
+                refreshStatus()
                 sauverSession()
                 rafraichirTiroir()
+                if (annulations.isNotEmpty()) {
+                    projetActif?.let { ouvrirProjet(it) }
+                    proposerAnnulation(annulations)
+                }
             }
         }
+    }
+
+    private fun afficherErreur(message: String) {
+        binding.status.text = getString(R.string.msg_error, message)
+        val dernier = messages.lastOrNull() ?: return
+        if (dernier.isUser) return
+        dernier.content = if (dernier.content.isBlank()) {
+            "[erreur] $message"
+        } else {
+            dernier.content + "\n\n[erreur] $message"
+        }
+        adapter.notifyItemChanged(messages.size - 1)
+    }
+
+    // ------------------------------------------------- conversation + fichiers
+
+    /**
+     * Conversation normale. En mode Codex avec un projet ouvert, l'IA cree, ecrit et lit
+     * les fichiers toute seule : ce qu'elle ecrit est applique, et si elle demande a lire
+     * un fichier, son contenu lui est renvoye automatiquement (quelques tours au plus).
+     */
+    private suspend fun converser(
+        user: Message,
+        mode: AssistantMode,
+        base: AppConfig,
+        annulations: MutableList<Annulation>
+    ) {
+        val projet = if (mode == AssistantMode.CODEX) projetActif else null
+        val cfg = if (projet != null) avecActionsFichiers(base) else base
+        if (projet != null) {
+            val contexte = withContext(Dispatchers.IO) {
+                AgentProjet.contexteProjet(this@MainActivity, projet)
+            }
+            user.envoi = contexte + "\n\n" + user.content
+        }
+
+        var tours = 0
+        while (true) {
+            val assistant = Message.assistant()
+            messages.add(assistant)
+            adapter.notifyItemInserted(messages.size - 1)
+            scrollToEnd()
+
+            if (!preparerModele(cfg, repartirDeZero = false)) {
+                retirerMessage(assistant)
+                return
+            }
+            diffuser(assistant, messages.subList(0, messages.size - 1).toList(), cfg)
+            if (projet == null) return
+
+            val bilan = appliquerActions(projet, assistant, cfg)
+            annulations += bilan.annulations
+            tours++
+            if (bilan.lectures.isEmpty() || tours >= MAX_TOURS_LECTURE) return
+
+            val suite = Message.user(
+                "📖 Lecture : " + bilan.lectures.joinToString(", ") { it.chemin }
+            )
+            suite.envoi = bilan.texteLectures()
+            messages.add(suite)
+            adapter.notifyItemInserted(messages.size - 1)
+        }
+    }
+
+    /** Consignes de fichiers ajoutees au prompt, avec de la place pour des fichiers entiers. */
+    private fun avecActionsFichiers(base: AppConfig) = base.copy(
+        systemPrompt = base.systemPrompt + "\n\n" + AgentPrompts.FICHIERS,
+        maxTokens = base.maxTokens.coerceAtLeast(
+            if (base.provider == ProviderType.LOCAL) 2048 else 4096
+        )
+    )
+
+    /** Charge le modele local si besoin. Faux (avec un message) quand il n'y en a pas. */
+    private suspend fun preparerModele(cfg: AppConfig, repartirDeZero: Boolean): Boolean {
+        if (cfg.provider != ProviderType.LOCAL) return true
+        if (cfg.localModelPath.isBlank()) {
+            binding.status.text = getString(R.string.msg_no_model_loaded)
+            return false
+        }
+        val dejaCharge = LocalEngine.isLoadedFor(cfg.localModelPath)
+        if (!dejaCharge) binding.status.text = getString(R.string.msg_loading_model)
+        LocalEngine.load(this, cfg.localModelPath, cfg, repartirDeZero) { msg ->
+            runOnUiThread { binding.status.text = msg }
+        }
+        if (repartirDeZero) {
+            // Les roles de l'equipe ne partagent pas de conversation : la suivante repart a zero.
+            modelSessionId = null
+        } else if (modelSessionId != session?.id) {
+            LocalEngine.resetConversation(this, cfg)
+            modelSessionId = session?.id
+        }
+        if (!dejaCharge) {
+            binding.status.text =
+                getString(R.string.msg_model_loaded, File(cfg.localModelPath).name)
+        }
+        LocalEngine.applySampling(cfg)
+        return true
+    }
+
+    /** Envoie `history` a l'IA et ecrit la reponse dans `assistant`, en direct. */
+    private suspend fun diffuser(
+        assistant: Message,
+        history: List<Message>,
+        cfg: AppConfig,
+        surProgres: ((String) -> Unit)? = null
+    ) {
+        ChatRepository.stream(history, cfg, CompteurUsage(this)).collect { chunk ->
+            assistant.content += chunk
+            val now = System.currentTimeMillis()
+            if (now - lastUiUpdate > 60) {
+                lastUiUpdate = now
+                val i = messages.indexOfFirst { it === assistant }
+                if (i >= 0) adapter.notifyItemChanged(i)
+                scrollToEnd()
+                surProgres?.invoke(assistant.content)
+            }
+        }
+        val i = messages.indexOfFirst { it === assistant }
+        if (i >= 0) adapter.notifyItemChanged(i)
+        scrollToEnd()
+    }
+
+    private fun retirerMessage(message: Message) {
+        val i = messages.indexOfFirst { it === message }
+        if (i >= 0) {
+            messages.removeAt(i)
+            adapter.notifyItemRemoved(i)
+        }
+        updateEmptyState()
+    }
+
+    /** Applique dans le projet ce que la reponse demande, et l'ecrit sous la reponse. */
+    private suspend fun appliquerActions(projet: Projet, assistant: Message, cfg: AppConfig): Bilan {
+        val actions = ActionsFichiers.extraire(assistant.content)
+        if (actions.isEmpty()) return Bilan()
+        // Reponse proche de la limite de longueur : un fichier sans "=== FIN ===" est peut-etre coupe.
+        val peutEtreCoupee = assistant.content.length >= cfg.maxTokens * 2
+        val bilan = withContext(Dispatchers.IO) {
+            AgentProjet.appliquer(this@MainActivity, projet, actions, ignorerIncomplets = peutEtreCoupee)
+        }
+        val resume = bilan.resume()
+        if (resume.isNotEmpty()) {
+            assistant.content += "\n\n" + resume
+            val i = messages.indexOfFirst { it === assistant }
+            if (i >= 0) adapter.notifyItemChanged(i)
+            scrollToEnd()
+        }
+        return bilan
+    }
+
+    private fun proposerAnnulation(annulations: List<Annulation>) {
+        val creations = annulations.count { it.ancien == null }
+        Snackbar.make(
+            binding.root,
+            getString(R.string.agent_snackbar, creations, annulations.size - creations),
+            12_000
+        ).setAction(R.string.agent_annuler) {
+            lifecycleScope.launch {
+                val n = withContext(Dispatchers.IO) {
+                    AgentProjet.annuler(this@MainActivity, annulations)
+                }
+                Toast.makeText(
+                    this@MainActivity, getString(R.string.agent_annule, n), Toast.LENGTH_SHORT
+                ).show()
+                projetActif?.let { ouvrirProjet(it) }
+            }
+        }.setAnchorView(binding.input).show()
+    }
+
+    // ------------------------------------------------------------- equipe
+
+    /** Le projet ouvert, ou un nouveau projet cree pour l'equipe s'il n'y en a pas. */
+    private suspend fun projetPourEquipe(): Projet {
+        projetActif?.let { return it }
+        val nom = "Equipe_" + SimpleDateFormat("yyyyMMdd_HHmm", Locale.CANADA_FRENCH).format(Date())
+        val cree = withContext(Dispatchers.IO) { ProjectStore.creerProjetInterne(this@MainActivity, nom) }
+        ProjectStore.ajouter(this, cree)
+        ouvrirProjet(cree)
+        Toast.makeText(this, getString(R.string.equipe_projet_auto, cree.nom), Toast.LENGTH_SHORT).show()
+        return cree
+    }
+
+    /**
+     * L'equipe au travail, une etape apres l'autre : le chef donne ses consignes, le
+     * planificateur fait le plan, le redacteur ecrit les textes, le codeur ecrit le code
+     * (fichiers crees dans le projet), puis le chef relit. Le panneau du haut montre tout
+     * en direct.
+     */
+    private suspend fun jouerEquipe(
+        user: Message,
+        cfg: AppConfig,
+        annulations: MutableList<Annulation>
+    ) {
+        val projet = projetPourEquipe()
+        val demande = user.content
+        var contexte = withContext(Dispatchers.IO) {
+            AgentProjet.contexteProjet(this@MainActivity, projet)
+        }
+
+        panneauEquipe.reinitialiser()
+        panneauEquipe.afficher(true)
+        val debut = System.currentTimeMillis()
+        val chrono = lifecycleScope.launch {
+            while (isActive) {
+                panneauEquipe.chrono((System.currentTimeMillis() - debut) / 1000)
+                delay(1000)
+            }
+        }
+        try {
+            val (brief, _) = jouerRole(
+                Role.CHEF, Equipe.demandeChef(demande, contexte), projet, cfg, annulations
+            )
+            val (plan, _) = jouerRole(
+                Role.PLANIFICATEUR, Equipe.demandePlanificateur(demande, brief, contexte),
+                projet, cfg, annulations
+            )
+            val (textes, bilanTextes) = jouerRole(
+                Role.REDACTEUR, Equipe.demandeRedacteur(demande, brief, plan, contexte),
+                projet, cfg, annulations
+            )
+            // Le redacteur a pu creer des fichiers : le codeur doit les voir.
+            contexte = withContext(Dispatchers.IO) {
+                AgentProjet.contexteProjet(this@MainActivity, projet)
+            }
+            val (_, bilanCode) = jouerRole(
+                Role.CODEUR, Equipe.demandeCodeur(demande, brief, plan, textes, contexte),
+                projet, cfg, annulations
+            )
+            val bilan = bilanTextes + bilanCode
+            jouerRole(Role.REVUE, Equipe.demandeRevue(demande, plan, bilan), projet, cfg, annulations)
+            panneauEquipe.fini(
+                "✅ Équipe terminée — ${bilan.crees.size} fichier(s) créé(s), " +
+                    "${bilan.modifies.size} modifié(s)"
+            )
+            binding.status.text = getString(R.string.msg_projet_ouvert, projet.nom)
+        } finally {
+            chrono.cancel()
+        }
+    }
+
+    /** Fait travailler un role : message dans le chat, voyant du panneau, fichiers ecrits. */
+    private suspend fun jouerRole(
+        role: Role,
+        requete: String,
+        projet: Projet,
+        base: AppConfig,
+        annulations: MutableList<Annulation>
+    ): Pair<String, Bilan> {
+        panneauEquipe.commencer(role)
+        binding.status.text =
+            "${role.emoji} ${role.titre} — étape ${role.ordinal + 1}/${Equipe.NB_ETAPES}"
+        val assistant = Message.assistant(role.entete)
+        messages.add(assistant)
+        adapter.notifyItemInserted(messages.size - 1)
+        scrollToEnd()
+
+        val cfg = base.copy(
+            systemPrompt = role.systemPrompt(projetOuvert = true),
+            maxTokens = role.maxTokens(base)
+        )
+        if (!preparerModele(cfg, repartirDeZero = true)) {
+            error(getString(R.string.msg_no_model_loaded))
+        }
+        diffuser(assistant, listOf(Message.user(requete)), cfg) { contenu ->
+            val ligne = Equipe.derniereLigne(contenu.removePrefix(role.entete))
+            if (ligne.isNotEmpty()) panneauEquipe.activite("${role.emoji} $ligne")
+        }
+        val texte = assistant.content.removePrefix(role.entete).trim()
+
+        var bilan = Bilan()
+        if (role.ecrit) {
+            bilan = appliquerActions(projet, assistant, cfg)
+            annulations += bilan.annulations
+            val premiere = bilan.resume().lineSequence().firstOrNull().orEmpty()
+            if (premiere.isNotEmpty()) panneauEquipe.activite("${role.emoji} $premiere")
+        }
+        panneauEquipe.terminer(role)
+        return texte to bilan
     }
 
     private fun stopGeneration() {
@@ -730,9 +1210,14 @@ class MainActivity : AppCompatActivity() {
         /** Message pre-rempli, transmis par l'editeur de code. */
         const val EXTRA_MESSAGE = "message_initial"
 
+        /** Combien de fois de suite l'IA peut demander a lire des fichiers pour une question. */
+        private const val MAX_TOURS_LECTURE = 3
+
         private const val CLE_NOUVELLE_SESSION = "nouvelle_session"
         private const val CLE_NOUVEAU_PROJET = "nouveau_projet"
         private const val CLE_NOUVEAU_FICHIER = "nouveau_fichier"
+        private const val CLE_NOUVEAU_DOSSIER = "nouveau_dossier"
+        private const val CLE_STUDIO = "studio"
         private const val CLE_OUVRIR_DOSSIER = "ouvrir_dossier"
     }
 }

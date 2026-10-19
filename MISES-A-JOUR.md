@@ -6,16 +6,16 @@ d’installer des applications de cette source, l’activer et revenir dans Code
 l’installation reprend. Android demande ensuite la confirmation finale.
 La conversation et les réglages sont conservés lors d’une mise à jour compatible.
 
-## Dépôt privé
+## Mises à jour automatiques
 
-Le téléchargement automatique depuis `releases/latest` ne peut pas lire ce dépôt
-privé sans authentification. La vérification manuelle affiche maintenant cette
-limite au lieu de prétendre que l’application est à jour.
+Le dépôt est public. À chaque push sur `main` qui change le code, GitHub compile
+l'APK, puis le job **publier-release** crée une release `v<versionName>` avec l'APK.
+Au démarrage, CodexLocal interroge `releases/latest` et propose la mise à jour
+(option « Vérifier automatiquement » dans les réglages, activée par défaut).
 
-Pour récupérer l’APK : se connecter à GitHub, ouvrir **Actions**, sélectionner une
-compilation réussie, télécharger l’artefact **CodexLocal-Android-Debug-APK**,
-extraire le ZIP, puis sélectionner le fichier `.apk` dans CodexLocal.
-Pour la première installation de la version 1.5, ouvrir directement l’APK sur Android.
+Rien à modifier à la main : la version suit le numéro de compilation GitHub
+(`1.5.<numéro>`, `versionCode` = 100 + numéro). Chaque fusion dans `main` produit
+donc une nouvelle release plus récente que la précédente, et l'appli la propose.
 
 ## Condition nécessaire : garder la même clé de signature
 
@@ -35,6 +35,3 @@ nécessite d’adapter la configuration de signature.
 Sans ce secret, le workflow produit un APK de test et affiche un avertissement;
 sa capacité à remplacer une installation précédente n’est pas garantie.
 Une nouvelle clé ne remplace pas celle d’une ancienne installation.
-
-Pour chaque version suivante, augmenter `versionCode` et `versionName` dans
-`app/build.gradle.kts`, puis laisser GitHub compiler et tester l’APK.
