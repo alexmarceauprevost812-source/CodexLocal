@@ -140,7 +140,9 @@ class ConstructeurApkTest {
         // Verification par apksig, comme le fait Android avant d'installer.
         val verification = ApkVerifier.Builder(resultat.fichier).build().verify()
         assertTrue(verification.errors.joinToString(), verification.isVerified)
-        assertTrue(verification.isVerifiedUsingV2Scheme)
+        // Le modele demande Android 11 minimum : apksig n'ajoute alors que la signature v3 (v2 et v1 ne servent
+        // qu'aux anciennes versions). Au moins un schema moderne doit etre valide.
+        assertTrue(verification.isVerifiedUsingV3Scheme || verification.isVerifiedUsingV2Scheme)
         assertEquals(resultat.empreinte, CleStudio.empreinte(verification.signerCertificates.single()))
 
         // Apres signature, l'alignement est toujours bon.
