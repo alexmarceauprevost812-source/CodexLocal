@@ -720,6 +720,7 @@ class MainActivity : AppCompatActivity() {
             ActionBureau.NOUVELLE -> nouvelleSession()
             ActionBureau.REGLAGES -> openSettings()
             ActionBureau.MISES_A_JOUR -> checkUpdates()
+            ActionBureau.PARTAGER -> startActivity(Intent(this, PartageActivity::class.java))
         }
     }
 

@@ -214,6 +214,8 @@
     <string name="bureau_reglages_sous">Modèle, fond, mises à jour</string>
     <string name="bureau_maj">Mises à jour</string>
     <string name="bureau_maj_sous">Chercher une nouvelle version</string>
+    <string name="bureau_partager">Partager mes IA</string>
+    <string name="bureau_partager_sous">Réutiliser les modèles dans LexOS</string>
 
     <string name="bureau_favoris">⭐ Favoris</string>
     <string name="bureau_rubrique_projets">📁 Projets</string>

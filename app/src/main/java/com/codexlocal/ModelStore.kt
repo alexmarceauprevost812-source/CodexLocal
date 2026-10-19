@@ -18,6 +18,12 @@ import java.net.URL
 object ModelStore {
 
     fun modelsDir(context: Context): File {
+        // Si le partage avec les autres applis (LexOS...) est actif, on lit et on
+        // ecrit dans le dossier public commun. Sinon, le dossier prive habituel.
+        if (PartageModeles.actif(context)) {
+            val partage = PartageModeles.dossierPartage()
+            if (partage.exists() || partage.mkdirs()) return partage
+        }
         val dir = File(context.getExternalFilesDir(null), "models")
         if (!dir.exists()) dir.mkdirs()
         return dir

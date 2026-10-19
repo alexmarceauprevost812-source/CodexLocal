@@ -22,7 +22,8 @@ enum class ActionBureau(
     OUVRIR_DOSSIER("dossier", "📂", R.string.bureau_dossier, R.string.bureau_dossier_sous),
     NOUVELLE("nouvelle", "📝", R.string.bureau_nouvelle, R.string.bureau_nouvelle_sous),
     REGLAGES("reglages", "⚙️", R.string.bureau_reglages, R.string.bureau_reglages_sous),
-    MISES_A_JOUR("maj", "🔄", R.string.bureau_maj, R.string.bureau_maj_sous);
+    MISES_A_JOUR("maj", "🔄", R.string.bureau_maj, R.string.bureau_maj_sous),
+    PARTAGER("partager", "🔗", R.string.bureau_partager, R.string.bureau_partager_sous);
 
     companion object {
         fun depuisCle(cle: String?): ActionBureau? = values().firstOrNull { it.cle == cle }
