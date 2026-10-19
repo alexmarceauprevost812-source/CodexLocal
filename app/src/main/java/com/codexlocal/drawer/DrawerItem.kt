@@ -5,11 +5,13 @@ import com.codexlocal.project.Langage
 /** Les entrees possibles du menu lateral. */
 sealed class DrawerItem {
 
-    /** Titre de rubrique, avec une action facultative ("＋"). */
+    /** Titre de rubrique, avec une action facultative ("＋") et une seconde ("🗑"). */
     data class Section(
         val titre: String,
         val action: String? = null,
-        val cleAction: String? = null
+        val cleAction: String? = null,
+        val action2: String? = null,
+        val cleAction2: String? = null
     ) : DrawerItem()
 
     data class LigneSession(

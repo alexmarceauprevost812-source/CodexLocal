@@ -502,7 +502,10 @@ class ProjetActivity : AppCompatActivity() {
         MaterialAlertDialogBuilder(this)
             .setTitle(p.nom + "\n" + stockage)
             .setItems(
-                arrayOf(getString(R.string.projet_ouvrir_studio), getString(R.string.projet_retirer))
+                arrayOf(
+                    getString(R.string.projet_ouvrir_studio),
+                    getString(if (p.interne) R.string.projet_supprimer else R.string.projet_retirer)
+                )
             ) { _, choix ->
                 if (choix == 0) {
                     startActivity(
@@ -510,16 +513,8 @@ class ProjetActivity : AppCompatActivity() {
                             .putExtra(StudioActivity.EXTRA_PROJET_URI, p.uri)
                     )
                 } else {
-                    MaterialAlertDialogBuilder(this)
-                        .setTitle(R.string.projet_retirer)
-                        .setMessage(R.string.projet_retirer_msg)
-                        .setPositiveButton(R.string.projet_retirer) { _, _ ->
-                            ProjectStore.supprimer(this, p.uri)
-                            Toast.makeText(this, R.string.projet_retire, Toast.LENGTH_SHORT).show()
-                            finish()
-                        }
-                        .setNegativeButton(R.string.btn_cancel, null)
-                        .show()
+                    // projet interne : efface avec ses fichiers ; dossier du telephone : retire de la liste
+                    Dialogues.confirmerSuppressionProjet(this, p) { finish() }
                 }
             }
             .show()

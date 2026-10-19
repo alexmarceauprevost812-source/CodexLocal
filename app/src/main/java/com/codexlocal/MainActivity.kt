@@ -188,6 +188,15 @@ class MainActivity : AppCompatActivity() {
         Updater.reprendreInstallation(this)
         appliquerFond()
         refreshStatus()
+        verifierProjetActif()
+    }
+
+    /** Le projet ouvert a pu etre supprime depuis un autre ecran (Bureau, fiche du projet). */
+    private fun verifierProjetActif() {
+        val actif = projetActif ?: return
+        if (ProjectStore.lister(this).none { it.uri == actif.uri }) {
+            apresSuppressionProjets(setOf(actif.uri))
+        }
     }
 
     /** Fond d'ecran (35 % par defaut) ; le logo d'accueil n'est repete que sur une image perso. */
@@ -417,14 +426,55 @@ class MainActivity : AppCompatActivity() {
         SessionStore.enregistrer(this, s)
     }
 
-    private fun supprimerSession(id: String) {
-        SessionStore.supprimer(this, id)
-        if (session?.id == id) {
+    /** Le « ✕ » d'une conversation : on demande avant d'effacer. */
+    private fun confirmerSuppressionSession(id: String) {
+        val titre = SessionStore.charger(this, id)?.titre ?: getString(R.string.drawer_sessions)
+        Dialogues.confirmer(
+            this, getString(R.string.suppr_session_titre),
+            "« $titre »\n\n" + getString(R.string.suppr_irreversible),
+            getString(R.string.btn_supprimer)
+        ) { supprimerSessions(listOf(id)) }
+    }
+
+    /** Le « 🗑 » des sessions : cocher plusieurs conversations, puis confirmer. */
+    private fun choisirSessionsASupprimer() {
+        val sessions = SessionStore.lister(this)
+        if (sessions.isEmpty()) {
+            Toast.makeText(this, R.string.suppr_aucune_session, Toast.LENGTH_SHORT).show()
+            return
+        }
+        Dialogues.choisirPlusieurs(
+            this, getString(R.string.suppr_sessions_choix),
+            sessions.map { it.titre }, getString(R.string.btn_supprimer)
+        ) { positions ->
+            val ids = positions.map { sessions[it].id }
+            val nombre = resources.getQuantityString(R.plurals.suppr_n_conversations, ids.size, ids.size)
+            Dialogues.confirmer(
+                this, getString(R.string.suppr_confirmer_plusieurs, nombre),
+                getString(R.string.suppr_irreversible), getString(R.string.btn_supprimer)
+            ) { supprimerSessions(ids) }
+        }
+    }
+
+    private fun supprimerSessions(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        val activeSupprimee = session?.id in ids
+        if (activeSupprimee) stopGeneration()
+        ids.forEach { SessionStore.supprimer(this, it) }
+        if (activeSupprimee) {
             session = null
             ouvrirSessionOuCreer()
         }
         rafraichirTiroir()
-        Toast.makeText(this, R.string.msg_session_supprimee, Toast.LENGTH_SHORT).show()
+        Toast.makeText(
+            this,
+            if (ids.size == 1) getString(R.string.msg_session_supprimee)
+            else getString(
+                R.string.suppr_sessions_faites,
+                resources.getQuantityString(R.plurals.suppr_n_conversations, ids.size, ids.size)
+            ),
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     // ============================================================ projets
@@ -735,16 +785,80 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun supprimerProjet(uri: String) {
-        ProjectStore.supprimer(this, uri)
-        if (projetActif?.uri == uri) {
+    /** Le « ✕ » d'un projet : on demande avant d'effacer. */
+    private fun confirmerSuppressionProjet(uri: String) {
+        val projet = ProjectStore.lister(this).firstOrNull { it.uri == uri } ?: return
+        Dialogues.confirmerSuppressionProjet(
+            this, projet,
+            avant = { if (projetActif?.uri == uri) stopGeneration() }
+        ) { apresSuppressionProjets(setOf(uri)) }
+    }
+
+    /** Le « 🗑 » des projets : cocher plusieurs projets, puis confirmer. */
+    private fun choisirProjetsASupprimer() {
+        val projets = ProjectStore.lister(this)
+        if (projets.isEmpty()) {
+            Toast.makeText(this, R.string.suppr_aucun_projet, Toast.LENGTH_SHORT).show()
+            return
+        }
+        Dialogues.choisirPlusieurs(
+            this, getString(R.string.suppr_projets_choix),
+            projets.map { if (it.interne) it.nom else it.nom + "  (dossier du téléphone)" },
+            getString(R.string.btn_supprimer)
+        ) { positions ->
+            val choisis = positions.map { projets[it] }
+            val internes = choisis.count { it.interne }
+            val externes = choisis.size - internes
+            val lignes = mutableListOf<String>()
+            if (internes > 0) lignes.add(
+                getString(
+                    R.string.suppr_projets_internes_msg,
+                    resources.getQuantityString(R.plurals.suppr_n_projets, internes, internes)
+                )
+            )
+            if (externes > 0) lignes.add(
+                getString(
+                    R.string.suppr_projets_externes_msg,
+                    resources.getQuantityString(R.plurals.suppr_n_dossiers, externes, externes)
+                )
+            )
+            val nombre = resources.getQuantityString(R.plurals.suppr_n_projets, choisis.size, choisis.size)
+            Dialogues.confirmer(
+                this, getString(R.string.suppr_confirmer_plusieurs, nombre),
+                lignes.joinToString("\n\n"), getString(R.string.btn_supprimer)
+            ) { supprimerProjets(choisis) }
+        }
+    }
+
+    private fun supprimerProjets(projets: List<Projet>) {
+        if (projetActif?.uri in projets.map { it.uri }) stopGeneration()
+        lifecycleScope.launch {
+            // l'effacement des fichiers se fait hors de l'ecran : un projet peut en contenir des milliers
+            val echecs = withContext(Dispatchers.IO) {
+                projets.filterNot { ProjectStore.supprimerProjet(this@MainActivity, it) }
+            }
+            val faits = projets.filter { it !in echecs }.map { it.uri }.toSet()
+            apresSuppressionProjets(faits)
+            if (echecs.isNotEmpty()) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.msg_suppression_echec, echecs.joinToString { it.nom }),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    /** Met l'ecran a jour une fois ces projets supprimes (et ferme le projet ouvert s'il en fait partie). */
+    private fun apresSuppressionProjets(uris: Set<String>) {
+        if (projetActif?.uri in uris) {
+            stopGeneration()
             projetActif = null
             fichiersProjet = emptyList()
             dossiersProjet = emptyList()
             binding.titreTiroir.text = getString(R.string.drawer_sous_titre)
         }
         rafraichirTiroir()
-        Toast.makeText(this, R.string.msg_projet_supprime, Toast.LENGTH_SHORT).show()
     }
 
     // ============================================================== tiroir
@@ -754,7 +868,10 @@ class MainActivity : AppCompatActivity() {
 
         nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_studio), CLE_STUDIO))
         nouveaux.add(
-            DrawerItem.Section(getString(R.string.drawer_sessions), "＋", CLE_NOUVELLE_SESSION)
+            DrawerItem.Section(
+                getString(R.string.drawer_sessions), "＋", CLE_NOUVELLE_SESSION,
+                "🗑", CLE_SUPPRIMER_SESSIONS
+            )
         )
         val sessions = SessionStore.lister(this)
         if (sessions.isEmpty()) {
@@ -774,7 +891,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         nouveaux.add(
-            DrawerItem.Section(getString(R.string.drawer_projets), "＋", CLE_NOUVEAU_PROJET)
+            DrawerItem.Section(
+                getString(R.string.drawer_projets), "＋", CLE_NOUVEAU_PROJET,
+                "🗑", CLE_SUPPRIMER_PROJETS
+            )
         )
         val projets = ProjectStore.lister(this)
         if (projets.isEmpty()) {
@@ -867,8 +987,10 @@ class MainActivity : AppCompatActivity() {
             cle == CLE_NOUVEAU_DOSSIER -> dialogNouveauDossier()
             cle == CLE_STUDIO -> ouvrirStudio()
             cle == CLE_OUVRIR_DOSSIER -> choisirDossier.launch(null)
-            item is DrawerItem.LigneSession -> supprimerSession(item.id)
-            item is DrawerItem.LigneProjet -> supprimerProjet(item.uri)
+            cle == CLE_SUPPRIMER_SESSIONS -> choisirSessionsASupprimer()
+            cle == CLE_SUPPRIMER_PROJETS -> choisirProjetsASupprimer()
+            item is DrawerItem.LigneSession -> confirmerSuppressionSession(item.id)
+            item is DrawerItem.LigneProjet -> confirmerSuppressionProjet(item.uri)
         }
     }
 
@@ -1353,5 +1475,7 @@ class MainActivity : AppCompatActivity() {
         private const val CLE_NOUVEAU_DOSSIER = "nouveau_dossier"
         private const val CLE_STUDIO = "studio"
         private const val CLE_OUVRIR_DOSSIER = "ouvrir_dossier"
+        private const val CLE_SUPPRIMER_SESSIONS = "supprimer_sessions"
+        private const val CLE_SUPPRIMER_PROJETS = "supprimer_projets"
     }
 }

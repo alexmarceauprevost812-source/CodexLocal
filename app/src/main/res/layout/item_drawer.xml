@@ -50,6 +50,17 @@
     </LinearLayout>
 
     <TextView
+        android:id="@+id/action2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="36dp"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="4dp"
+        android:textColor="@color/orange"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <TextView
         android:id="@+id/action"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
