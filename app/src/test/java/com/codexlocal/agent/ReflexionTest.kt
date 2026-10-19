@@ -90,6 +90,9 @@ class ReflexionTest {
         listOf(
             "La balise `</think>` termine le raisonnement.",
             "La balise </think> termine le raisonnement.",
+            "La balise de fin est </think>.",
+            "Elle s'appelle </think>, ne l'oublie pas",
+            "(voir </think>)",
             "Utilise \"</think>\" pour couper.",
             "Voici l'astuce : la fin c'est </think> et c'est tout"
         ).forEach { texte ->

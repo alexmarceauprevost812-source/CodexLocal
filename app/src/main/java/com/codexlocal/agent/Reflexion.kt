@@ -39,7 +39,8 @@ object Reflexion {
 
     /**
      * Le `</think>` en [i] est cite dans une phrase (« la balise `</think>` termine... ») et non
-     * une vraie fin de raisonnement : colle a un guillemet ou a une apostrophe inversee, ou entoure
+     * une vraie fin de raisonnement : colle a un guillemet, a une apostrophe inversee ou a une
+     * ponctuation (une vraie fin est suivie d'un retour a la ligne), ou entoure
      * d'espaces au milieu d'une ligne qui a du texte des deux cotes.
      */
     private fun citee(texte: String, i: Int): Boolean {
@@ -47,7 +48,7 @@ object Reflexion {
         val avant = texte.getOrNull(i - 1)
         val suite = texte.getOrNull(apres)
         if (avant != null && avant in "`\"'\u00AB\u201C") return true
-        if (suite != null && suite in "`\"'\u00BB\u201D") return true
+        if (suite != null && suite in "`\"'\u00BB\u201D.,;:!?)]}") return true
         val debutLigne = texte.lastIndexOf('\n', i - 1) + 1
         val finLigne = texte.indexOf('\n', apres).let { if (it < 0) texte.length else it }
         val gauche = texte.substring(debutLigne, i)

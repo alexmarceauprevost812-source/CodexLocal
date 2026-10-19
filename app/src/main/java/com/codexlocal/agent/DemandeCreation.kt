@@ -27,6 +27,10 @@ object DemandeCreation {
     private const val DEBUT =
         """(?:^|[.!?;:,\n]\s*|\b(?:et|puis|ensuite|alors|donc|maintenant|ok|salut|bonjour|bon|stp|svp|plait)\s+)"""
 
+    /** « Fais-moi voir le fichier », « fais-moi savoir » : on veut regarder ou savoir, pas creer. */
+    private const val PAS_POUR_VOIR =
+        """(?!(?:-moi|-nous|-lui)?\s+(?:voir|savoir|lire|comprendre|apprendre|decouvrir|visiter|penser)\b)"""
+
     private const val INFINITIFS =
         "faire|fabriquer|creer|construire|generer|ecrire|developper|programmer|realiser|ajouter|" +
             "rajouter|modifier|corriger|changer|refaire|mettre|monter|inventer|completer|remplacer"
@@ -37,7 +41,7 @@ object DemandeCreation {
      * (« mon programme fait quoi ? ») ne comptent pas, ni « fais-tu ... ? ».
      */
     private val ORDRE = Regex(
-        DEBUT + """(?:$IMPERATIFS_SURS)\b(?!-tu\b|-t-|-il\b|-elle\b|-on\b|-vous\b)"""
+        DEBUT + """(?:$IMPERATIFS_SURS)\b(?!-tu\b|-t-|-il\b|-elle\b|-on\b|-vous\b)$PAS_POUR_VOIR"""
     )
 
     private val ORDRE_AMBIGU = Regex(
@@ -50,7 +54,7 @@ object DemandeCreation {
             """je veux|je voudrais|j'aimerais|j'aimerai|je souhaite|il faut|il faudrait|on veut|""" +
             """on doit|je dois|besoin de|besoin d'|essaie de|essaye de)""" +
             """(?:\s+|(?<=d'))""" +
-            """(?:(?:(?:me|nous|moi|bien|aussi|maintenant|encore|donc)\s+)|m')*(?:$INFINITIFS)\b"""
+            """(?:(?:(?:me|nous|moi|bien|aussi|maintenant|encore|donc)\s+)|m')*(?:$INFINITIFS)\b$PAS_POUR_VOIR"""
     )
 
     /** Un message qui commence ainsi est une question, meme s'il contient un verbe comme « faire ». */
