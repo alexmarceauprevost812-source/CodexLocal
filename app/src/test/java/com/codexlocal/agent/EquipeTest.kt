@@ -83,10 +83,28 @@ class EquipeTest {
         assertTrue(prompt.contains("que tu viens d'ecrire toi-meme"))
     }
 
-    @Test fun theTeamKeepsTheSharedPromptWithoutTheReadFirstRule() {
+    @Test fun theTeamGetsItsOwnRuleBecauseItCannotReadFilesItself() {
         val codeur = Role.CODEUR.systemPrompt(true)
-        assertTrue(codeur.endsWith(AgentPrompts.FICHIERS))
-        assertFalse(codeur.contains("JAMAIS de memoire"))
+        assertTrue(codeur.endsWith(AgentPrompts.FICHIERS_EQUIPE))
+        assertTrue(AgentPrompts.FICHIERS_EQUIPE.startsWith(AgentPrompts.FICHIERS))
+        assertTrue(codeur.contains("EN ENTIER") && codeur.contains("n'ecris pas de ligne === LIRE ==="))
+        assertFalse(codeur.contains("Avant de le modifier, ecris seule sur une ligne"))
+        assertTrue(Role.REDACTEUR.systemPrompt(true).endsWith(AgentPrompts.FICHIERS_EQUIPE))
+        assertFalse(Role.CHEF.systemPrompt(true).contains("EN ENTIER"))
+    }
+
+    @Test fun previewIsAddedAfterTheProjectLine() {
+        val apercu = ApercuFichiers("Contenu actuel…\n--- Fichier a.txt ---\nx\n", mapOf("a.txt" to "h"))
+        assertEquals("[Projet]\n\n" + apercu.texte, Equipe.avecApercu("[Projet]", apercu))
+        assertEquals(apercu.texte, Equipe.avecApercu(null, apercu))
+        assertEquals("[Projet]", Equipe.avecApercu("[Projet]", ApercuFichiers.VIDE))
+        assertEquals(null, Equipe.avecApercu(null, ApercuFichiers.VIDE))
+        assertEquals(null, Equipe.avecApercu("  ", ApercuFichiers.VIDE))
+    }
+
+    @Test fun localModelsGetASmallerPreviewThanOnlineOnes() {
+        assertTrue(Equipe.BUDGET_APERCU_LOCAL in 1_000..6_000)
+        assertTrue(Equipe.BUDGET_APERCU_DISTANT > Equipe.BUDGET_APERCU_LOCAL)
     }
 
     @Test fun reminderAndRetryDoNotPushToRewriteExistingFiles() {

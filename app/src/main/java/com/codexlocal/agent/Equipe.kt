@@ -41,8 +41,7 @@ object AgentPrompts {
 
     /**
      * Consignes du mode Codex : les fichiers + la protection des fichiers existants (en dernier,
-     * les petits modeles suivent surtout la fin). L'equipe, elle, ne relit pas de fichiers : elle
-     * garde [FICHIERS] seul.
+     * les petits modeles suivent surtout la fin). L'equipe a les siennes : [FICHIERS_EQUIPE].
      */
     const val FICHIERS_CODEX = FICHIERS + "\n" +
         "IMPORTANT : un fichier qui existe deja dans le projet ne se remplace JAMAIS de memoire " +
@@ -50,6 +49,18 @@ object AgentPrompts {
         "=== LIRE: chemin/relatif.ext === puis arrete-toi : son contenu te sera envoye. Un " +
         "fichier que tu viens d'ecrire toi-meme dans cette conversation peut etre reecrit " +
         "directement. N'ecris QUE les fichiers qui changent, jamais les autres."
+
+    /**
+     * Consignes des roles de l'equipe qui ecrivent des fichiers. L'equipe ne peut pas relire de
+     * fichiers : le contenu des fichiers existants est donne dans la demande (voir
+     * AgentProjet.apercuFichiers), et seuls ceux-la peuvent etre remplaces.
+     */
+    const val FICHIERS_EQUIPE = FICHIERS + "\n" +
+        "IMPORTANT : le contenu actuel des fichiers deja dans le projet est donne dans la demande. " +
+        "Pour modifier un de ces fichiers, reecris-le EN ENTIER (tout ce qu'il contient deja + le " +
+        "changement demande) et n'ecris QUE les fichiers qui changent. Un fichier dont le contenu " +
+        "n'est pas donne ne se reecrit JAMAIS : cree un autre fichier a la place. Tu ne peux pas " +
+        "lire d'autres fichiers : n'ecris pas de ligne === LIRE ==="
 
     /**
      * Rappel colle a la fin de CHAQUE message de l'utilisateur en mode Codex : les petits modeles
@@ -129,7 +140,7 @@ enum class Role(
     /** Consignes completes du role, avec le protocole de fichiers quand il ecrit dans un projet. */
     fun systemPrompt(projetOuvert: Boolean): String = when {
         !ecrit -> consigne
-        projetOuvert -> consigne + "\n\n" + AgentPrompts.FICHIERS
+        projetOuvert -> consigne + "\n\n" + AgentPrompts.FICHIERS_EQUIPE
         else -> consigne + "\n\n" + AgentPrompts.SANS_PROJET
     }
 
@@ -150,6 +161,15 @@ enum class Role(
 object Equipe {
 
     const val NB_ETAPES = 5
+
+    /** Caracteres de fichiers existants montres aux redacteurs : modele local (memoire courte) / en ligne. */
+    const val BUDGET_APERCU_LOCAL = 4_000
+    const val BUDGET_APERCU_DISTANT = 40_000
+
+    /** Le contexte du projet suivi du contenu des fichiers montres (null s'il n'y a rien a dire). */
+    fun avecApercu(contexte: String?, apercu: ApercuFichiers): String? =
+        listOfNotNull(contexte?.takeIf { it.isNotBlank() }, apercu.texte.takeIf { it.isNotBlank() })
+            .joinToString("\n\n").ifBlank { null }
     private const val MAX_BRIEF = 1_200
     private const val MAX_PLAN = 2_500
     private const val MAX_TEXTES = 3_000

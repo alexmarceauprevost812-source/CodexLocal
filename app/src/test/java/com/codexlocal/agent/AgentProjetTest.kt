@@ -358,4 +358,102 @@ class AgentProjetTest {
         assertEquals(listOf("a.txt"), second.proteges)
         assertEquals("original\n", File(p.uri, "a.txt").readText())
     }
+
+    // ------------------------------------------- version beaucoup plus courte, apercu pour l'equipe
+
+    @Test fun aKnownFileIsNotReplacedByAMuchShorterVersion() {
+        val p = projet()
+        val gros = "ligne de code\n".repeat(100)
+        File(p.uri, "index.html").writeText(gros)
+        val bilan = appliquerAvecConnus(
+            p, "=== FICHIER: index.html ===\njuste le nouveau bouton\n=== FIN ===",
+            mapOf("index.html" to FichiersConnus.empreinte(gros))
+        )
+        assertTrue(bilan.modifies.isEmpty() && bilan.proteges.isEmpty() && bilan.annulations.isEmpty())
+        assertEquals(1, bilan.ignores.size)
+        assertTrue(bilan.ignores[0].startsWith("index.html (la nouvelle version est beaucoup plus courte"))
+        assertEquals(gros, File(p.uri, "index.html").readText())
+    }
+
+    @Test fun theShorterVersionGoesThroughWhenTheUserAskedForIt() {
+        val p = projet()
+        val gros = "ligne de code\n".repeat(100)
+        File(p.uri, "index.html").writeText(gros)
+        val bilan = AgentProjet.appliquer(
+            ctx, p,
+            ActionsFichiers.extraire("=== FICHIER: index.html ===\nsimple\n=== FIN ==="),
+            ignorerIncomplets = false,
+            connus = mapOf("index.html" to FichiersConnus.empreinte(gros)),
+            reductionPermise = true
+        )
+        assertEquals(listOf("index.html"), bilan.modifies)
+        assertEquals("simple\n", File(p.uri, "index.html").readText())
+    }
+
+    @Test fun shrinkingIsNotCheckedWithoutProtection() {
+        val p = projet()
+        File(p.uri, "index.html").writeText("ligne de code\n".repeat(100))
+        val bilan = appliquer(p, "=== FICHIER: index.html ===\nsimple\n=== FIN ===")
+        assertEquals(listOf("index.html"), bilan.modifies)
+    }
+
+    @Test fun previewShowsExistingFilesAndRecordsWhatWasShown() {
+        val p = projet()
+        File(p.uri, "index.html").writeText("<h1>Mon site</h1>\n")
+        File(p.uri, "css").mkdirs()
+        File(p.uri, "css/style.css").writeText("h1 { color: red; }")
+        val apercu = AgentProjet.apercuFichiers(ctx, p, "change la couleur", 10_000)
+        assertTrue(apercu.texte.contains("--- Fichier index.html ---\n<h1>Mon site</h1>\n"))
+        // un fichier sans retour a la ligne final est complete
+        assertTrue(apercu.texte.contains("--- Fichier css/style.css ---\nh1 { color: red; }\n"))
+        assertTrue(apercu.texte.endsWith("--- Fin des fichiers ---"))
+        assertEquals(FichiersConnus.empreinte("<h1>Mon site</h1>\n"), apercu.connus["index.html"])
+        assertEquals(FichiersConnus.empreinte("h1 { color: red; }"), apercu.connus["css/style.css"])
+    }
+
+    @Test fun previewRespectsTheBudgetAndKeepsTheFilesTheRequestNames() {
+        val p = projet()
+        File(p.uri, "index.html").writeText("i".repeat(300))
+        File(p.uri, "style.css").writeText("s".repeat(300))
+        File(p.uri, "app.js").writeText("a".repeat(300))
+        val apercu = AgentProjet.apercuFichiers(ctx, p, "corrige app.js", 650)
+        // 650 caracteres : deux fichiers de 300 tiennent, pas trois (README.md compte aussi)
+        assertTrue(apercu.connus.containsKey("app.js"))
+        assertTrue(apercu.connus.containsKey("index.html"))
+        assertFalse(apercu.connus.containsKey("style.css"))
+        assertTrue(apercu.connus.values.size <= 3)
+    }
+
+    @Test fun previewSkipsBigFilesAndBinaryFiles() {
+        val p = projet()
+        File(p.uri, "gros.js").writeText("x".repeat(AgentProjet.MAX_CARACTERES_LECTURE + 1))
+        File(p.uri, "logo.png").writeBytes(byteArrayOf(1, 2, 3))
+        val apercu = AgentProjet.apercuFichiers(ctx, p, "", 100_000)
+        assertFalse(apercu.connus.containsKey("gros.js"))
+        assertFalse(apercu.connus.containsKey("logo.png"))
+    }
+
+    @Test fun nothingToShowGivesAnEmptyPreview() {
+        val p = projet()
+        File(p.uri, "README.md").delete()
+        val apercu = AgentProjet.apercuFichiers(ctx, p, "fais un site", 5_000)
+        assertTrue(apercu.texte.isEmpty() && apercu.connus.isEmpty())
+    }
+
+    @Test fun whatThePreviewShowedCanBeReplacedByTheTeam() {
+        val p = projet()
+        File(p.uri, "index.html").writeText("<p>avant</p>\n")
+        val apercu = AgentProjet.apercuFichiers(ctx, p, "modifie index.html", 5_000)
+        val bilan = appliquerAvecConnus(
+            p, "=== FICHIER: index.html ===\n<p>apres</p>\n=== FIN ===", apercu.connus
+        )
+        assertEquals(listOf("index.html"), bilan.modifies)
+        // modifie a la main entre-temps : l'IA ne le connait plus
+        File(p.uri, "index.html").writeText("<p>a la main</p>\n")
+        val encore = appliquerAvecConnus(
+            p, "=== FICHIER: index.html ===\n<p>encore</p>\n=== FIN ===", apercu.connus
+        )
+        assertEquals(listOf("index.html"), encore.proteges)
+        assertEquals("<p>a la main</p>\n", File(p.uri, "index.html").readText())
+    }
 }

@@ -24,13 +24,18 @@ object AgentProjet {
      * perdu ce qu'il contient. Il reste tel quel, apparait dans `proteges` et son contenu est
      * ajoute aux `lectures` pour que l'IA le revoie et recommence en connaissance de cause.
      * `null` : aucune protection.
+     *
+     * Avec [connus], un fichier connu n'est pas non plus remplace par une version beaucoup plus
+     * courte ([ProtectionFichiers.reduitTrop]) sauf si [reductionPermise] : l'IA a alors presque
+     * certainement oublie une grande partie du fichier.
      */
     fun appliquer(
         context: Context,
         projet: Projet,
         actions: List<ActionFichier>,
         ignorerIncomplets: Boolean,
-        connus: Map<String, String>? = null
+        connus: Map<String, String>? = null,
+        reductionPermise: Boolean = false
     ): Bilan {
         val crees = ArrayList<String>()
         val modifies = ArrayList<String>()
@@ -51,7 +56,8 @@ object AgentProjet {
                         action.contenu.length > MAX_CARACTERES_ECRITURE ->
                             ignores.add("${action.chemin} (fichier trop gros)")
                         else -> ecrire(
-                            context, projet, action, connus, crees, modifies, proteges, lectures, annulations, ecrits
+                            context, projet, action, connus, reductionPermise,
+                            crees, modifies, proteges, lectures, annulations, ecrits, ignores
                         )
                     }
                 } catch (e: Exception) {
@@ -79,12 +85,14 @@ object AgentProjet {
         projet: Projet,
         action: ActionFichier.Ecrire,
         connus: Map<String, String>?,
+        reductionPermise: Boolean,
         crees: MutableList<String>,
         modifies: MutableList<String>,
         proteges: MutableList<String>,
         lectures: MutableList<LectureFichier>,
         annulations: MutableList<Annulation>,
-        ecrits: MutableMap<String, String>
+        ecrits: MutableMap<String, String>,
+        ignores: MutableList<String>
     ) {
         val existant = ProjectStore.trouverFichier(context, projet, action.chemin)
         if (existant == null) {
@@ -106,6 +114,14 @@ object AgentProjet {
             if (lectures.none { it.chemin == existant.chemin }) {
                 lectures.add(lire(context, projet, existant.chemin))
             }
+            return
+        }
+        if (connus != null && !reductionPermise && ProtectionFichiers.reduitTrop(ancien, action.contenu)) {
+            ignores.add(
+                "${existant.chemin} (la nouvelle version est beaucoup plus courte : ${ancien.length} → " +
+                    "${action.contenu.length} caractères. Rien n'a été remplacé pour ne rien perdre : " +
+                    "redemande en disant de garder le reste)"
+            )
             return
         }
         ecrits[existant.chemin] = FichiersConnus.empreinte(action.contenu)
@@ -131,6 +147,40 @@ object AgentProjet {
         }
     } catch (e: Exception) {
         LectureFichier(chemin, null, e.message ?: "lecture impossible")
+    }
+
+    /**
+     * Le contenu des fichiers a montrer a une IA qui ne peut pas les relire (l'equipe), dans la
+     * limite de [budget] caracteres : d'abord les fichiers que la [demande] nomme, puis index.html,
+     * puis les plus petits. Un fichier trop long ou qui ne tient plus n'est pas montre : l'IA ne le
+     * connait pas et ne pourra pas le remplacer.
+     */
+    fun apercuFichiers(context: Context, projet: Projet, demande: String, budget: Int): ApercuFichiers {
+        val fichiers = runCatching { ProjectStore.listerFichiers(context, projet) }
+            .getOrDefault(emptyList())
+            .filter { Langages.estTexte(it.nom) && it.taille <= MAX_CARACTERES_LECTURE }
+        val parChemin = fichiers.associateBy { it.chemin }
+        val ordre = ProtectionFichiers.ordreApercu(
+            fichiers.map { ProtectionFichiers.Candidat(it.chemin, it.taille) }, demande
+        )
+        val connus = LinkedHashMap<String, String>()
+        val corps = StringBuilder()
+        var total = 0
+        for (candidat in ordre) {
+            val fichier = parChemin[candidat.chemin] ?: continue
+            val texte = runCatching { ProjectStore.lireTexte(context, fichier) }.getOrNull() ?: continue
+            if (texte.length > MAX_CARACTERES_LECTURE || total + texte.length > budget) continue
+            corps.append("\n--- Fichier ").append(fichier.chemin).append(" ---\n").append(texte)
+            if (!texte.endsWith("\n")) corps.append('\n')
+            total += texte.length
+            connus[fichier.chemin] = FichiersConnus.empreinte(texte)
+        }
+        if (connus.isEmpty()) return ApercuFichiers.VIDE
+        return ApercuFichiers(
+            "Contenu actuel des fichiers du projet (pour en modifier un, réécris-le EN ENTIER " +
+                "en gardant tout ce qui existe) :" + corps + "--- Fin des fichiers ---",
+            connus
+        )
     }
 
     /** Remet le projet comme avant. Renvoie le nombre de fichiers retablis ou supprimes. */

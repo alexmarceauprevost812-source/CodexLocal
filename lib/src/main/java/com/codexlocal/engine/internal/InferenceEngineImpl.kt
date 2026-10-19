@@ -111,6 +111,9 @@ internal class InferenceEngineImpl private constructor(
     private external fun nativeRecoveryCount(): Int
 
     @FastNative
+    private external fun nativeDiscardCount(): Int
+
+    @FastNative
     private external fun systemInfo(): String
 
     @FastNative
@@ -283,6 +286,8 @@ internal class InferenceEngineImpl private constructor(
     override fun contextCapacity(): Int = if (nativeReady() && _modelLoaded) nativeContextSize() else 0
 
     override fun recoveryCount(): Int = if (nativeReady()) nativeRecoveryCount() else 0
+
+    override fun discardCount(): Int = if (nativeReady()) nativeDiscardCount() else 0
 
     /**
      * Regle l'echantillonnage cote natif.

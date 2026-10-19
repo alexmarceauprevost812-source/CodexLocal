@@ -10,32 +10,46 @@ import java.security.MessageDigest
  * Pour chaque fichier on garde l'[empreinte] de ce que l'IA a vu : si le fichier a change depuis
  * (modifie a la main, annulation...), l'IA ne le connait plus et il redevient protege.
  *
+ * On garde aussi le numero du message de la conversation qui a apporte cette connaissance : quand
+ * ce message sort de la memoire de l'IA (conversation trop longue), le fichier est oublie aussi
+ * ([oublierAvant]).
+ *
  * La liste est propre a une conversation ET a un projet ([pour]), et se vide quand l'IA perd la
  * memoire de la conversation ([oublier]). Code pur, sans dependance Android.
  */
 class FichiersConnus {
 
+    private class Connu(val empreinte: String, val position: Int)
+
     private var cle: String? = null
-    private val empreintes = HashMap<String, String>()
+    private val connus = HashMap<String, Connu>()
 
     /** Annonce la conversation et le projet en cours ; repart de zero quand ils changent. */
     fun pour(cle: String) {
         if (cle != this.cle) {
             this.cle = cle
-            empreintes.clear()
+            connus.clear()
         }
     }
 
     /** L'IA n'a plus la conversation en memoire : elle ne connait plus aucun fichier. */
-    fun oublier() = empreintes.clear()
+    fun oublier() = connus.clear()
 
-    /** Chemin -> [empreinte] du contenu que l'IA connait maintenant. */
-    fun ajouter(nouveaux: Map<String, String>) {
-        empreintes.putAll(nouveaux)
+    /** L'IA ne se souvient plus des messages avant le numero [position] : ses fichiers sont oublies. */
+    fun oublierAvant(position: Int) {
+        connus.values.removeAll { it.position < position }
     }
 
-    /** Une copie, a donner a [AgentProjet.appliquer]. */
-    fun instantane(): Map<String, String> = HashMap(empreintes)
+    /**
+     * Chemin -> [empreinte] du contenu que l'IA connait maintenant, apporte par le message numero
+     * [position] de la conversation.
+     */
+    fun ajouter(nouveaux: Map<String, String>, position: Int) {
+        for ((chemin, empreinte) in nouveaux) connus[chemin] = Connu(empreinte, position)
+    }
+
+    /** Chemin -> empreinte, a donner a [AgentProjet.appliquer]. */
+    fun instantane(): Map<String, String> = connus.mapValues { it.value.empreinte }
 
     companion object {
         /** Identifiant du contenu d'un fichier : change des que le texte change. */

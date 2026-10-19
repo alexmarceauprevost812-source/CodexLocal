@@ -47,7 +47,7 @@ data class Bilan(
         if (proteges.isNotEmpty()) {
             add(
                 "🔒 Protégé : " + proteges.joinToString(", ") +
-                    " (existe déjà, pas remplacé : l'IA doit d'abord le relire)"
+                    " (existe déjà : pas remplacé, l'IA n'en connaît pas tout le contenu)"
             )
         }
         if (lectures.isNotEmpty()) add("📖 Lu : " + lectures.joinToString(", ") { it.chemin })

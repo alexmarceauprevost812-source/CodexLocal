@@ -154,6 +154,20 @@ object LocalEngine {
         return (e.contextUsed() * 100L / total).toInt().coerceIn(0, 100)
     }
 
+    private var elagagesVus = 0
+
+    /**
+     * Vrai si, depuis le dernier appel, le moteur a retire de vieux messages de sa memoire (la
+     * conversation est devenue trop longue) : ce que le modele avait lu plus tot, il ne l'a plus.
+     */
+    fun anciensMessagesRetires(): Boolean {
+        val e = engine ?: return false
+        val n = e.discardCount()
+        val change = n != elagagesVus
+        elagagesVus = n
+        return change
+    }
+
     fun isLoadedFor(path: String): Boolean = path.isNotBlank() && loadedPath == path && systemPromptSent
 
     fun stream(message: String, maxTokens: Int): Flow<String> {

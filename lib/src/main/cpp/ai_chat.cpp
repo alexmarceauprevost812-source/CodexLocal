@@ -395,6 +395,8 @@ static bool rebuild_cache(const llama_tokens &keep) {
     return decode_append(keep, true) == 0;
 }
 
+static int g_discards = 0;       // combien de fois de vieux messages ont ete retires de la memoire
+
 /** Les positions des messages apres que [from, to) a ete retire du cache. */
 static void forget_turn_starts(const llama_pos from, const llama_pos to) {
     const llama_pos n = to - from;
@@ -412,6 +414,7 @@ static bool discard_range(const llama_pos from, const llama_pos to) {
     const llama_pos n_discard = to - from;
     if (n_discard <= 0) return true;
     LOGi("%s: Discarding %d tokens [%d, %d)", __func__, (int) n_discard, (int) from, (int) to);
+    g_discards++;
 
     auto *mem = llama_get_memory(g_context);
     if (llama_memory_can_shift(mem) && llama_memory_seq_rm(mem, 0, from, to)) {
@@ -802,6 +805,14 @@ JNIEXPORT jint JNICALL
 Java_com_codexlocal_engine_internal_InferenceEngineImpl_nativeContextSize(
         JNIEnv * /*unused*/, jobject /*unused*/) {
     return (jint) usable_context();
+}
+
+/** CodexLocal : combien de fois de vieux messages ont ete retires de la memoire du modele (conversation trop longue). */
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_codexlocal_engine_internal_InferenceEngineImpl_nativeDiscardCount(
+        JNIEnv * /*unused*/, jobject /*unused*/) {
+    return (jint) g_discards;
 }
 
 /** CodexLocal : combien de fois la memoire du modele a du etre remise a son point de depart apres un incident. */

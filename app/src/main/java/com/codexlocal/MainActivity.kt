@@ -31,6 +31,7 @@ import com.codexlocal.agent.Equipe
 import com.codexlocal.agent.FichiersConnus
 import com.codexlocal.agent.NommageIA
 import com.codexlocal.agent.PanneauEquipe
+import com.codexlocal.agent.ProtectionFichiers
 import com.codexlocal.agent.Role
 import com.codexlocal.databinding.ActivityMainBinding
 import com.codexlocal.drawer.DrawerAdapter
@@ -44,6 +45,7 @@ import com.codexlocal.project.Projet
 import com.codexlocal.studio.StudioActivity
 import com.codexlocal.usage.CompteurUsage
 import com.codexlocal.project.ProjectStore
+import com.codexlocal.session.FenetreHistorique
 import com.codexlocal.session.Session
 import com.codexlocal.session.SessionStore
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -1089,11 +1091,11 @@ class MainActivity : AppCompatActivity() {
                 retirerMessage(assistant)
                 return
             }
-            // Memoire du modele local remise a zero : il ne connait plus le contenu d'aucun fichier.
-            if (codex && cfg.provider == ProviderType.LOCAL && LocalEngine.conversationVide) {
-                fichiersConnus.oublier()
-            }
-            diffuser(assistant, messages.subList(0, messages.size - 1).toList(), cfg)
+            val historique = messages.subList(0, messages.size - 1).toList()
+            if (codex) oublierFichiersHorsMemoire(cfg, historique)
+            diffuser(assistant, historique, cfg)
+            // Le modele local a pu perdre sa memoire (ou ses plus vieux messages) pendant la reponse.
+            if (codex) oublierFichiersHorsMemoire(cfg, historique)
             if (!codex) return
 
             var actions = ActionsFichiers.extraire(assistant.content)
@@ -1152,13 +1154,15 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            val bilan = appliquerActions(projet, assistant, cfg, actions, fichiersConnus.instantane())
+            val bilan = appliquerActions(
+                projet, assistant, cfg, actions, fichiersConnus.instantane(),
+                reductionPermise = ProtectionFichiers.reductionVoulue(user.content)
+            )
             annulations += bilan.annulations
-            fichiersConnus.ajouter(bilan.ecrits)
+            // Ce que l'IA vient d'ecrire, elle le connait (a partir de son message dans la conversation).
+            fichiersConnus.ajouter(bilan.ecrits, messages.indexOfFirst { it === assistant })
             tours++
             if (bilan.lectures.isEmpty() || tours >= MAX_TOURS_LECTURE) return
-            // Ces fichiers vont etre montres a l'IA : elle pourra les remplacer au prochain tour.
-            fichiersConnus.ajouter(bilan.lusEnEntier)
 
             val suite = Message.user(
                 "📖 Lecture : " + bilan.lectures.joinToString(", ") { it.chemin }
@@ -1166,6 +1170,8 @@ class MainActivity : AppCompatActivity() {
             suite.envoi = bilan.texteLectures()
             messages.add(suite)
             adapter.notifyItemInserted(messages.size - 1)
+            // Ces fichiers sont montres a l'IA dans ce message : elle pourra les remplacer ensuite.
+            fichiersConnus.ajouter(bilan.lusEnEntier, messages.size - 1)
         }
     }
 
@@ -1296,14 +1302,16 @@ class MainActivity : AppCompatActivity() {
         assistant: Message,
         cfg: AppConfig,
         actions: List<ActionFichier> = ActionsFichiers.extraire(assistant.content),
-        connus: Map<String, String>? = null
+        connus: Map<String, String>? = null,
+        reductionPermise: Boolean = false
     ): Bilan {
         if (actions.isEmpty()) return Bilan()
         // Reponse proche de la limite de longueur : un fichier sans "=== FIN ===" est peut-etre coupe.
         val peutEtreCoupee = assistant.content.length >= cfg.maxTokens * 2
         val bilan = withContext(Dispatchers.IO) {
             AgentProjet.appliquer(
-                this@MainActivity, projet, actions, ignorerIncomplets = peutEtreCoupee, connus = connus
+                this@MainActivity, projet, actions, ignorerIncomplets = peutEtreCoupee,
+                connus = connus, reductionPermise = reductionPermise
             )
         }
         val resume = bilan.resume()
@@ -1314,6 +1322,25 @@ class MainActivity : AppCompatActivity() {
             scrollToEnd()
         }
         return bilan
+    }
+
+    /**
+     * L'IA n'a plus en memoire tout ce qu'elle a lu ou ecrit plus tot dans une tres longue
+     * conversation : modele local qui a retire ses plus vieux messages, remis a zero ou recharge ;
+     * service en ligne qui ne renvoie que les derniers messages (voir FenetreHistorique).
+     * Les fichiers concernes redeviennent « inconnus » : l'IA devra les relire avant de les remplacer.
+     */
+    private fun oublierFichiersHorsMemoire(cfg: AppConfig, historique: List<Message>) {
+        if (cfg.provider == ProviderType.LOCAL) {
+            // « | » et non « || » : on lit toujours le compteur du moteur
+            if (LocalEngine.conversationVide | LocalEngine.anciensMessagesRetires()) {
+                fichiersConnus.oublier()
+            }
+        } else {
+            // les memes textes que ceux reellement envoyes (voir ChatRepository)
+            val envoyes = historique.map { m -> m.envoi?.let { m.copy(content = it) } ?: m }
+            fichiersConnus.oublierAvant(FenetreHistorique.debut(envoyes))
+        }
     }
 
     /** Une conversation dans un projet : la liste des fichiers connus de l'IA ne vaut que pour elle. */
@@ -1377,6 +1404,14 @@ class MainActivity : AppCompatActivity() {
         var contexte = withContext(Dispatchers.IO) {
             AgentProjet.contexteProjet(this@MainActivity, projet)
         }
+        // Les redacteurs ne peuvent pas relire de fichiers : on leur montre ceux qui existent deja,
+        // et ils ne peuvent remplacer que ceux-la (voir AgentProjet.appliquer).
+        val budget = if (cfg.provider == ProviderType.LOCAL) Equipe.BUDGET_APERCU_LOCAL
+        else Equipe.BUDGET_APERCU_DISTANT
+        val reductionPermise = ProtectionFichiers.reductionVoulue(demande)
+        var apercu = withContext(Dispatchers.IO) {
+            AgentProjet.apercuFichiers(this@MainActivity, projet, demande, budget)
+        }
 
         panneauEquipe.reinitialiser()
         panneauEquipe.afficher(true)
@@ -1396,16 +1431,21 @@ class MainActivity : AppCompatActivity() {
                 projet, cfg, annulations
             )
             val (textes, bilanTextes) = jouerRole(
-                Role.REDACTEUR, Equipe.demandeRedacteur(demande, brief, plan, contexte),
-                projet, cfg, annulations
+                Role.REDACTEUR,
+                Equipe.demandeRedacteur(demande, brief, plan, Equipe.avecApercu(contexte, apercu)),
+                projet, cfg, annulations, apercu.connus, reductionPermise
             )
             // Le redacteur a pu creer des fichiers : le codeur doit les voir.
             contexte = withContext(Dispatchers.IO) {
                 AgentProjet.contexteProjet(this@MainActivity, projet)
             }
+            apercu = withContext(Dispatchers.IO) {
+                AgentProjet.apercuFichiers(this@MainActivity, projet, demande, budget)
+            }
             val (_, bilanCode) = jouerRole(
-                Role.CODEUR, Equipe.demandeCodeur(demande, brief, plan, textes, contexte),
-                projet, cfg, annulations
+                Role.CODEUR,
+                Equipe.demandeCodeur(demande, brief, plan, textes, Equipe.avecApercu(contexte, apercu)),
+                projet, cfg, annulations, apercu.connus, reductionPermise
             )
             val bilan = bilanTextes + bilanCode
             jouerRole(Role.REVUE, Equipe.demandeRevue(demande, plan, bilan), projet, cfg, annulations)
@@ -1425,7 +1465,9 @@ class MainActivity : AppCompatActivity() {
         requete: String,
         projet: Projet,
         base: AppConfig,
-        annulations: MutableList<Annulation>
+        annulations: MutableList<Annulation>,
+        connus: Map<String, String>? = null,
+        reductionPermise: Boolean = false
     ): Pair<String, Bilan> {
         panneauEquipe.commencer(role)
         binding.status.text =
@@ -1450,7 +1492,9 @@ class MainActivity : AppCompatActivity() {
 
         var bilan = Bilan()
         if (role.ecrit) {
-            bilan = appliquerActions(projet, assistant, cfg)
+            bilan = appliquerActions(
+                projet, assistant, cfg, connus = connus, reductionPermise = reductionPermise
+            )
             annulations += bilan.annulations
             val premiere = bilan.resume().lineSequence().firstOrNull().orEmpty()
             if (premiere.isNotEmpty()) panneauEquipe.activite("${role.emoji} $premiere")
