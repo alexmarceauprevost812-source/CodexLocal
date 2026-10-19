@@ -150,6 +150,6 @@ class AgentProjetTest {
         assertEquals(1, bilan.ignores.size)
         assertTrue(bilan.ignores[0].contains("sans nom de fichier"))
         assertTrue(bilan.resume().contains("⚠️"))
-        assertTrue(ProjectStore.listerFichiers(ctx, p).isEmpty())
+        assertEquals(listOf("README.md"), ProjectStore.listerFichiers(ctx, p).map { it.chemin })
     }
 }
