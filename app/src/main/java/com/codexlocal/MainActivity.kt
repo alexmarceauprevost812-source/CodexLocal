@@ -1096,7 +1096,7 @@ class MainActivity : AppCompatActivity() {
             if (codex) oublierFichiersHorsMemoire(cfg, historique, apresReponse = false)
             diffuser(assistant, historique, cfg)
             // Le modele local a pu perdre sa memoire (ou ses plus vieux messages) pendant la reponse.
-            if (codex) oublierFichiersHorsMemoire(cfg, historique, apresReponse = true)
+            val memoirePerdue = codex && oublierFichiersHorsMemoire(cfg, historique, apresReponse = true)
             if (!codex) return
 
             var actions = ActionsFichiers.extraire(assistant.content)
@@ -1161,8 +1161,11 @@ class MainActivity : AppCompatActivity() {
                 placeLectures = placePourFichiers(cfg, PLACE_TEXTE_LECTURES)
             )
             annulations += bilan.annulations
-            // Ce que l'IA vient d'ecrire, elle le connait (a partir de son message dans la conversation).
-            fichiersConnus.ajouter(bilan.ecrits, messages.indexOfFirst { it === assistant })
+            // Ce que l'IA vient d'ecrire, elle le connait (a partir de son message dans la conversation),
+            // sauf si sa memoire s'est videe pendant qu'elle l'ecrivait.
+            if (!memoirePerdue) {
+                fichiersConnus.ajouter(bilan.ecrits, messages.indexOfFirst { it === assistant })
+            }
             tours++
             if (bilan.lectures.isEmpty() || tours >= MAX_TOURS_LECTURE) return
 
@@ -1335,24 +1338,26 @@ class MainActivity : AppCompatActivity() {
      *
      * Le dernier message de [historique] (celui qu'on envoie) reste connu : les plus vieux messages
      * sont toujours retires en premier. [apresReponse] : le modele a pu tout perdre pendant sa reponse.
+     * Renvoie vrai quand c'est arrive : ce que l'IA vient d'ecrire n'est alors pas sur d'etre dans
+     * sa memoire (elle l'a peut-etre ecrit en perdant le debut de ce qu'elle avait lu).
      */
     private fun oublierFichiersHorsMemoire(
         cfg: AppConfig, historique: List<Message>, apresReponse: Boolean
-    ) {
+    ): Boolean {
         val dernier = historique.size - 1
         if (cfg.provider == ProviderType.LOCAL) {
             // le compteur du moteur est toujours lu, meme quand la memoire est deja vide
             val retires = LocalEngine.anciensMessagesRetires()
-            when {
-                LocalEngine.conversationVide ->
-                    if (apresReponse) fichiersConnus.oublier() else fichiersConnus.oublierAvant(dernier)
-                retires -> fichiersConnus.oublierAvant(dernier)
-            }
-        } else {
-            // les memes textes que ceux reellement envoyes (voir ChatRepository)
-            val envoyes = historique.map { m -> m.envoi?.let { m.copy(content = it) } ?: m }
-            fichiersConnus.oublierAvant(FenetreHistorique.debut(envoyes))
+            val videe = LocalEngine.conversationVide
+            if (videe) fichiersConnus.memoireVidee(dernier, apresReponse)
+            else if (retires) fichiersConnus.memoireReduite(dernier, apresReponse)
+            // vrai : pendant sa reponse le modele a perdu une partie de la conversation
+            return apresReponse && (videe || retires)
         }
+        // les memes textes que ceux reellement envoyes (voir ChatRepository)
+        val envoyes = historique.map { m -> m.envoi?.let { m.copy(content = it) } ?: m }
+        fichiersConnus.oublierAvant(FenetreHistorique.debut(envoyes))
+        return false
     }
 
     /**

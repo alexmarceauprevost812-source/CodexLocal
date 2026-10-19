@@ -456,4 +456,21 @@ class AgentProjetTest {
         assertEquals(listOf("index.html"), encore.proteges)
         assertEquals("<p>a la main</p>\n", File(p.uri, "index.html").readText())
     }
+
+    @Test fun previewCountsCharactersNotBytes() {
+        val p = projet()
+        // 7 000 caracteres accentues = 14 000 octets : sous la limite en caracteres, au-dessus en octets
+        val accentue = "é".repeat(7_000)
+        assertTrue(accentue.toByteArray().size > AgentProjet.MAX_CARACTERES_LECTURE)
+        File(p.uri, "texte.txt").writeText(accentue)
+        val apercu = AgentProjet.apercuFichiers(ctx, p, "modifie texte.txt", 20_000)
+        assertEquals(FichiersConnus.empreinte(accentue), apercu.connus["texte.txt"])
+    }
+
+    @Test fun previewStillSkipsFilesWithTooManyCharacters() {
+        val p = projet()
+        File(p.uri, "long.txt").writeText("é".repeat(AgentProjet.MAX_CARACTERES_LECTURE + 1))
+        val apercu = AgentProjet.apercuFichiers(ctx, p, "modifie long.txt", 100_000)
+        assertFalse(apercu.connus.containsKey("long.txt"))
+    }
 }

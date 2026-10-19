@@ -86,4 +86,40 @@ class FichiersConnusTest {
         assertNotEquals(vu("é"), vu("e"))
         assertEquals(64, vu("").length)
     }
+
+    private fun avecTroisMessages(): FichiersConnus {
+        val connus = FichiersConnus()
+        connus.pour("s1|p1")
+        connus.ajouter(mapOf("vieux.txt" to vu("v")), 2)
+        connus.ajouter(mapOf("envoye.txt" to vu("e")), 8)
+        return connus
+    }
+
+    @Test fun resetBeforeTheAnswerKeepsWhatTheSentMessageCarries() {
+        val connus = avecTroisMessages()
+        connus.memoireVidee(dernier = 8, apresReponse = false)
+        assertEquals(setOf("envoye.txt"), connus.instantane().keys)
+    }
+
+    @Test fun resetDuringTheAnswerForgetsEverything() {
+        val connus = avecTroisMessages()
+        connus.memoireVidee(dernier = 8, apresReponse = true)
+        assertTrue(connus.instantane().isEmpty())
+    }
+
+    @Test fun oldMessagesRemovedBeforeTheAnswerSpareTheSentMessage() {
+        val connus = avecTroisMessages()
+        connus.memoireReduite(dernier = 8, apresReponse = false)
+        assertEquals(setOf("envoye.txt"), connus.instantane().keys)
+    }
+
+    @Test fun oldMessagesRemovedDuringTheAnswerMayHaveEatenTheSentMessageToo() {
+        val connus = avecTroisMessages()
+        connus.memoireReduite(dernier = 8, apresReponse = true)
+        assertTrue(connus.instantane().isEmpty())
+        // ce qui est apporte apres (message suivant) reste connu
+        connus.ajouter(mapOf("suivant.txt" to vu("s")), 10)
+        connus.memoireReduite(dernier = 10, apresReponse = false)
+        assertEquals(setOf("suivant.txt"), connus.instantane().keys)
+    }
 }

@@ -13,6 +13,9 @@ object AgentProjet {
     const val MAX_CARACTERES_LECTURE = 12_000
     private const val MAX_FICHIERS_CONTEXTE = 60
 
+    /** Nombre maximal de fichiers examines pour l'apercu de l'equipe (chacun doit etre lu pour compter ses caracteres). */
+    private const val MAX_FICHIERS_APERCU = 60
+
     /**
      * Applique les actions. Un fichier existant est remplace (l'ancien contenu est garde dans
      * les [Annulation]) ; un bloc possiblement coupe est ignore plutot qu'ecrit a moitie.
@@ -156,9 +159,11 @@ object AgentProjet {
      * connait pas et ne pourra pas le remplacer.
      */
     fun apercuFichiers(context: Context, projet: Projet, demande: String, budget: Int): ApercuFichiers {
+        // `taille` est en octets, la limite en caracteres : un caractere fait jusqu'a 4 octets en UTF-8,
+        // le vrai controle se fait sur le texte lu.
         val fichiers = runCatching { ProjectStore.listerFichiers(context, projet) }
             .getOrDefault(emptyList())
-            .filter { Langages.estTexte(it.nom) && it.taille <= MAX_CARACTERES_LECTURE }
+            .filter { Langages.estTexte(it.nom) && it.taille <= MAX_CARACTERES_LECTURE * 4L }
         val parChemin = fichiers.associateBy { it.chemin }
         val ordre = ProtectionFichiers.ordreApercu(
             fichiers.map { ProtectionFichiers.Candidat(it.chemin, it.taille) }, demande
@@ -166,7 +171,7 @@ object AgentProjet {
         val connus = LinkedHashMap<String, String>()
         val corps = StringBuilder()
         var total = 0
-        for (candidat in ordre) {
+        for (candidat in ordre.take(MAX_FICHIERS_APERCU)) {
             val fichier = parChemin[candidat.chemin] ?: continue
             val texte = runCatching { ProjectStore.lireTexte(context, fichier) }.getOrNull() ?: continue
             if (texte.length > MAX_CARACTERES_LECTURE || total + texte.length > budget) continue

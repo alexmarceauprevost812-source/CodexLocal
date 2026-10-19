@@ -41,6 +41,24 @@ class FichiersConnus {
     }
 
     /**
+     * Le modele local a remis sa memoire a zero (chargement, nouvelle session, incident).
+     * [dernier] : numero du message qu'on lui envoie. Avant sa reponse ce message-la lui arrive
+     * encore ; apres, il a pu tout perdre.
+     */
+    fun memoireVidee(dernier: Int, apresReponse: Boolean) {
+        if (apresReponse) oublier() else oublierAvant(dernier)
+    }
+
+    /**
+     * Le modele local a retire de vieux messages de sa memoire (conversation trop longue). Avant sa
+     * reponse, le message qu'on lui envoie ([dernier]) est intact : ce sont les plus vieux qui partent.
+     * Pendant sa reponse, le retrait a pu entamer ce message aussi.
+     */
+    fun memoireReduite(dernier: Int, apresReponse: Boolean) {
+        oublierAvant(if (apresReponse) dernier + 1 else dernier)
+    }
+
+    /**
      * Chemin -> [empreinte] du contenu que l'IA connait maintenant, apporte par le message numero
      * [position] de la conversation.
      */
