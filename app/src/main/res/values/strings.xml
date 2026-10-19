@@ -185,6 +185,7 @@
     <string name="agent_annuler">Annuler</string>
     <string name="agent_annule">Modifications annulées (%1$d)</string>
     <string name="equipe_projet_auto">Projet « %1$s » créé pour l\'équipe</string>
+    <string name="codex_projet_auto">Projet « %1$s » créé pour tes fichiers</string>
 
     <!-- Bureau : toutes les entrees de menu en tuiles -->
     <string name="bureau_titre">Bureau</string>

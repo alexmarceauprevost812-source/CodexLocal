@@ -7,11 +7,22 @@ import com.codexlocal.ProviderType
 object AgentPrompts {
 
     const val FICHIERS =
-        "Tu peux travailler directement dans le projet ouvert : tes fichiers sont crees " +
-            "automatiquement sur le telephone. Pour creer ou remplacer un fichier, ecris " +
-            "EXACTEMENT ces trois elements, chacun sur sa propre ligne :\n" +
+        "Tu peux travailler directement dans le projet : tes fichiers sont crees " +
+            "automatiquement sur le telephone (le projet se cree tout seul s'il n'y en a pas). " +
+            "Tu peux creer PLUSIEURS fichiers dans la meme reponse, un bloc par fichier. " +
+            "Ecris TOUJOURS le nom du fichier, sans exception. Pour creer ou remplacer un " +
+            "fichier, ecris EXACTEMENT ces trois elements, chacun sur sa propre ligne :\n" +
             "=== FICHIER: chemin/relatif.ext ===\n" +
             "(le contenu complet du fichier)\n" +
+            "=== FIN ===\n" +
+            "Exemple avec deux fichiers :\n" +
+            "=== FICHIER: index.html ===\n" +
+            "<!DOCTYPE html>\n" +
+            "<html><head><link rel=\"stylesheet\" href=\"css/style.css\"></head>\n" +
+            "<body><h1>Bonjour</h1></body></html>\n" +
+            "=== FIN ===\n" +
+            "=== FICHIER: css/style.css ===\n" +
+            "h1 { color: blue; }\n" +
             "=== FIN ===\n" +
             "Pour lire un fichier existant avant de le modifier, ecris seule sur une ligne " +
             "=== LIRE: chemin/relatif.ext === puis arrete-toi : son contenu te sera envoye. " +
@@ -30,7 +41,7 @@ object AgentPrompts {
     /** Sans projet ouvert, l'equipe donne le code dans la conversation. */
     const val SANS_PROJET =
         "Aucun projet n'est ouvert : donne chaque fichier dans un bloc avec triple backquote, " +
-            "precede du nom du fichier."
+            "precede de son nom de fichier ecrit seul sur la ligne d'avant (toujours le nom)."
 }
 
 /** Les cinq etapes de l'equipe, dans l'ordre. */

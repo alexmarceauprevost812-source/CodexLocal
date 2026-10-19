@@ -128,4 +128,28 @@ class AgentProjetTest {
         assertNull(ProjectStore.trouverFichier(ctx, p, "a/b"))
         assertNull(ProjectStore.trouverFichier(ctx, p, "a/zzz.txt"))
     }
+
+    @Test fun createsSeveralFilesFromMarkdownBlocksWithTitles() {
+        val p = projet()
+        val bilan = appliquer(
+            p,
+            "Voici ton site.\n\n**index.html**\n```html\n<link rel=\"stylesheet\" href=\"css/style.css\">\n```\n\n" +
+                "### css/style.css\n```css\nbody { margin: 0; }\n```\n\n" +
+                "```javascript title=\"js/app.js\"\nconsole.log(1);\n```"
+        )
+        assertEquals(listOf("index.html", "css/style.css", "js/app.js"), bilan.crees)
+        assertEquals("body { margin: 0; }\n", File(p.uri, "css/style.css").readText())
+        assertEquals("console.log(1);\n", File(p.uri, "js/app.js").readText())
+        assertTrue(bilan.resume().contains("📁 Créé : index.html, css/style.css, js/app.js"))
+    }
+
+    @Test fun bigUnnamedCodeBlockIsReportedNotWritten() {
+        val p = projet()
+        val bilan = appliquer(p, "Voilà :\n```python\na = 1\nb = 2\nc = 3\nprint(a + b + c)\n```")
+        assertTrue(bilan.crees.isEmpty() && bilan.modifies.isEmpty())
+        assertEquals(1, bilan.ignores.size)
+        assertTrue(bilan.ignores[0].contains("sans nom de fichier"))
+        assertTrue(bilan.resume().contains("⚠️"))
+        assertEquals(listOf("README.md"), ProjectStore.listerFichiers(ctx, p).map { it.chemin })
+    }
 }
