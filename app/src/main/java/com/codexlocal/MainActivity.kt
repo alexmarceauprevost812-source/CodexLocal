@@ -37,6 +37,7 @@ import com.codexlocal.project.FichierProjet
 import com.codexlocal.project.Langages
 import com.codexlocal.project.Projet
 import com.codexlocal.studio.StudioActivity
+import com.codexlocal.usage.CompteurUsage
 import com.codexlocal.project.ProjectStore
 import com.codexlocal.session.Session
 import com.codexlocal.session.SessionStore
@@ -207,7 +208,8 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     "Local : " + File(cfg.localModelPath).name
                 }
-            else -> cfg.provider.label + " : " + cfg.model
+            else -> cfg.provider.label + " : " + cfg.model + " · " +
+                CompteurUsage.resume(CompteurUsage(this).etat(cfg.provider))
         }
     }
 
@@ -834,6 +836,7 @@ class MainActivity : AppCompatActivity() {
                 afficherErreur(e.message ?: e.toString())
             } finally {
                 setGenerating(false)
+                refreshStatus()
                 sauverSession()
                 rafraichirTiroir()
                 if (annulations.isNotEmpty()) {
@@ -948,7 +951,7 @@ class MainActivity : AppCompatActivity() {
         cfg: AppConfig,
         surProgres: ((String) -> Unit)? = null
     ) {
-        ChatRepository.stream(history, cfg).collect { chunk ->
+        ChatRepository.stream(history, cfg, CompteurUsage(this)).collect { chunk ->
             assistant.content += chunk
             val now = System.currentTimeMillis()
             if (now - lastUiUpdate > 60) {

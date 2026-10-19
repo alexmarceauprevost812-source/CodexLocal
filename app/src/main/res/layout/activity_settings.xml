@@ -222,6 +222,74 @@
             android:textColorHint="@color/grey_dark"
             android:textSize="14sp" />
 
+        <!-- Compteur d'utilisation : pour ne pas depasser son forfait avec sa cle API -->
+        <TextView
+            android:id="@+id/tvUsageTitre"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/usage_titre"
+            android:textColor="@color/orange"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvUsage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/white"
+            android:textSize="13sp" />
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/pbUsage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:max="100"
+            app:indicatorColor="@color/orange"
+            app:trackColor="@color/divider"
+            app:trackCornerRadius="4dp"
+            app:trackThickness="8dp" />
+
+        <EditText
+            android:id="@+id/etLimiteJour"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/orange"
+            android:hint="@string/usage_hint_jour"
+            android:inputType="number"
+            android:textColor="@color/white"
+            android:textColorHint="@color/grey_dark"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/etLimiteMois"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/orange"
+            android:hint="@string/usage_hint_mois"
+            android:inputType="number"
+            android:textColor="@color/white"
+            android:textColorHint="@color/grey_dark"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvUsageNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/usage_note"
+            android:textColor="@color/grey"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/btnUsageZero"
+            style="@style/OrangeTextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/usage_zero" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

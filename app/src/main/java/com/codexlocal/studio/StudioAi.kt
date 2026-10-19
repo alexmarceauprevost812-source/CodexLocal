@@ -3,6 +3,7 @@ package com.codexlocal.studio
 import android.content.Context
 import com.codexlocal.AppConfig
 import com.codexlocal.ChatRepository
+import com.codexlocal.usage.CompteurUsage
 import com.codexlocal.LocalEngine
 import com.codexlocal.Message
 import com.codexlocal.Prefs
@@ -33,6 +34,6 @@ object StudioAi {
             LocalEngine.resetConversation(context, cfg)
             LocalEngine.applySampling(cfg)
         }
-        ChatRepository.stream(listOf(Message.user(demande)), cfg).collect { onMorceau(it) }
+        ChatRepository.stream(listOf(Message.user(demande)), cfg, CompteurUsage(context)).collect { onMorceau(it) }
     }
 }

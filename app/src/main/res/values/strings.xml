@@ -243,4 +243,14 @@
     <string name="projet_info_stockage">📍 %1$s</string>
     <string name="projet_stockage_interne">Dossier de l\'appli (visible par USB)</string>
     <string name="projet_stockage_externe">Dossier choisi sur le téléphone</string>
+    <!-- Compteur d'utilisation des cles API -->
+    <string name="usage_titre">📊 Compteur d\'utilisation (ta clé API)</string>
+    <string name="usage_hint_jour">Limite par jour, en jetons (0 = aucune)</string>
+    <string name="usage_hint_mois">Limite par mois, en jetons (0 = aucune)</string>
+    <string name="usage_note">Tout reste sur ton téléphone. Les jetons sont estimés (≈ 4 caractères chacun) : c\'est un garde-fou, pas la facture exacte de ton service. Quand une limite est atteinte, l\'appli n\'envoie plus rien.</string>
+    <string name="usage_zero">Remettre le compteur à zéro</string>
+    <string name="usage_zero_fait">Compteur remis à zéro</string>
+    <string name="usage_local">Le modèle local est gratuit : aucun compteur à surveiller.</string>
+    <string name="usage_resume">Aujourd\'hui : ≈ %1$s jetons · %2$d requête(s)\nCe mois : ≈ %3$s jetons · %4$d requête(s)</string>
+    <string name="usage_barre_jour">Limite du jour utilisée à %1$d %%</string>
 </resources>
