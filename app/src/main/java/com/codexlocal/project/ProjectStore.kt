@@ -380,6 +380,39 @@ object ProjectStore {
         return morceaux
     }
 
+    /**
+     * Le fichier existant a ce chemin relatif, ou null. Contrairement a [listerFichiers],
+     * il n'y a pas de limite de taille de liste : on va droit au fichier.
+     */
+    fun trouverFichier(context: Context, projet: Projet, cheminRelatif: String): FichierProjet? {
+        val segments = validerCheminRelatif(cheminRelatif)
+        val nom = segments.last()
+        val chemin = segments.joinToString("/")
+
+        if (projet.interne) {
+            val racine = File(projet.uri).canonicalFile
+            val cible = File(racine, chemin).canonicalFile
+            if (!cible.toPath().startsWith(racine.toPath()) || !cible.isFile) return null
+            return FichierProjet(nom, chemin, cible.absolutePath, cible.length(), interne = true)
+        }
+
+        var dossier = DocumentFile.fromTreeUri(context, Uri.parse(projet.uri)) ?: return null
+        for (segment in segments.dropLast(1)) {
+            dossier = dossier.findFile(segment)?.takeIf { it.isDirectory } ?: return null
+        }
+        val document = dossier.findFile(nom)?.takeIf { it.isFile } ?: return null
+        return FichierProjet(document.name ?: nom, chemin, document.uri.toString(),
+            document.length(), interne = false)
+    }
+
+    /** Supprime un fichier du projet (utilise pour annuler une creation). */
+    fun supprimerFichier(context: Context, fichier: FichierProjet): Boolean =
+        if (fichier.interne) {
+            File(fichier.uri).delete()
+        } else {
+            DocumentFile.fromSingleUri(context, Uri.parse(fichier.uri))?.delete() ?: false
+        }
+
     // ------------------------------------------------------------------- E/S
 
     fun lireTexte(context: Context, fichier: FichierProjet): String =

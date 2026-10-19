@@ -23,13 +23,16 @@ object ChatRepository {
      * le dernier message de l'utilisateur.
      * Distant : chaque appel est independant, on envoie tout l'historique.
      */
-    fun stream(history: List<Message>, cfg: AppConfig): Flow<String> =
-        if (cfg.provider == ProviderType.LOCAL) {
+    fun stream(history: List<Message>, cfg: AppConfig): Flow<String> {
+        // Le texte transmis peut differer de l'affichage (contexte du projet, fichiers lus).
+        val envoyes = history.map { m -> m.envoi?.let { m.copy(content = it) } ?: m }
+        return if (cfg.provider == ProviderType.LOCAL) {
             flow {
-                val last = history.last { it.isUser }.content
+                val last = envoyes.last { it.isUser }.content
                 LocalEngine.stream(last, cfg.maxTokens).collect { emit(it) }
             }
         } else {
-            remote.getValue(cfg.provider).stream(history, cfg)
+            remote.getValue(cfg.provider).stream(envoyes, cfg)
         }
+    }
 }

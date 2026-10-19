@@ -12,7 +12,11 @@ enum class ProviderType(val label: String) {
 
 /** Le mode est independant du fournisseur local ou distant. */
 enum class AssistantMode {
-    CODEX, CHAT
+    /** Assistant de code ; avec un projet ouvert il cree, ecrit et lit les fichiers. */
+    CODEX,
+    CHAT,
+    /** Equipe de roles : chef (casque blanc), planificateur, redacteur, codeur. */
+    EQUIPE
 }
 
 const val CHAT_SYSTEM_PROMPT =
@@ -35,6 +39,8 @@ fun AppConfig.forMode(mode: AssistantMode): AppConfig = when (mode) {
             "les corrections expliquees et les blocs de code utilisables."
     )
     AssistantMode.CHAT -> copy(systemPrompt = CHAT_SYSTEM_PROMPT)
+    // Chaque role de l'equipe a ses propres consignes (voir agent/Equipe.kt).
+    AssistantMode.EQUIPE -> this
 }
 
 object Defaults {

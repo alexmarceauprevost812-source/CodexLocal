@@ -2,6 +2,19 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <!-- Boutons de mode : appui = activer, nouvel appui = retour au mode Codex. -->
+    <item
+        android:id="@+id/action_mode_equipe"
+        android:title="@string/mode_equipe"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_mode_chat"
+        android:title="@string/mode_chat"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="always" />
+
     <item
         android:id="@+id/action_new_chat"
         android:title="@string/action_new_chat"

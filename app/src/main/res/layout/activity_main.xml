@@ -58,6 +58,107 @@
             android:layout_height="1dp"
             android:background="@color/divider" />
 
+        <!-- Equipe d'IA : ce que chaque role fait, en direct. -->
+        <LinearLayout
+            android:id="@+id/panneauEquipe"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_equipe_panneau"
+            android:orientation="vertical"
+            android:padding="6dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/equipeEtape1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingVertical="6dp"
+                android:textColor="@color/grey"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/equipeEtape2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingVertical="6dp"
+                android:textColor="@color/grey"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/equipeEtape3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingVertical="6dp"
+                android:textColor="@color/grey"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/equipeEtape4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingVertical="6dp"
+                android:textColor="@color/grey"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/equipeEtape5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingVertical="6dp"
+                android:textColor="@color/grey"
+                android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="6dp">
+
+                <TextView
+                    android:id="@+id/equipeActivite"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="start"
+                    android:maxLines="1"
+                    android:textColor="@color/white"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/equipeChrono"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textColor="@color/grey"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+
         <TextView
             android:id="@+id/status"
             android:layout_width="match_parent"
@@ -139,38 +240,6 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@color/divider" />
-
-        <!-- Selecteur de mode : Codex pour le code, Chat pour la discussion. -->
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/modeSelector"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            app:singleSelection="true"
-            app:selectionRequired="true"
-            app:checkedButton="@id/modeCodex">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/modeCodex"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="44dp"
-                android:text="@string/mode_codex"
-                android:textAllCaps="false"
-                app:strokeColor="@color/orange"
-                app:strokeWidth="1dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/modeChat"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="44dp"
-                android:text="@string/mode_chat"
-                android:textAllCaps="false"
-                app:strokeColor="@color/orange"
-                app:strokeWidth="1dp" />
-        </com.google.android.material.button.MaterialButtonToggleGroup>
 
         <LinearLayout
             android:layout_width="match_parent"
