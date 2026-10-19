@@ -1069,8 +1069,8 @@ class MainActivity : AppCompatActivity() {
         val codex = mode == AssistantMode.CODEX
         val projetDepart = if (codex) projetActif else null
         var projet = projetDepart
-        if (codex) fichiersConnus.pour(cleConnus(projetDepart))
         val cfg = if (codex) avecActionsFichiers(base) else base
+        if (codex) fichiersConnus.pour(cleConnus(projetDepart, cfg))
         if (codex) {
             val contexte = projetDepart?.let { p ->
                 withContext(Dispatchers.IO) { AgentProjet.contexteProjet(this@MainActivity, p) }
@@ -1142,7 +1142,7 @@ class MainActivity : AppCompatActivity() {
             // Des fichiers sont ecrits mais aucun projet n'est ouvert : on en cree un tout seul.
             if (projet == null && actions.any { it is ActionFichier.Ecrire }) {
                 projet = projetAutomatique("Codex_", R.string.codex_projet_auto)
-                fichiersConnus.pour(cleConnus(projet))
+                fichiersConnus.pour(cleConnus(projet, cfg))
             }
             if (projet == null) {
                 // rien n'est ecrit sans projet, mais on dit pourquoi quand l'IA a donne du code sans nom
@@ -1377,8 +1377,16 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-    /** Une conversation dans un projet : la liste des fichiers connus de l'IA ne vaut que pour elle. */
-    private fun cleConnus(projet: Projet?): String = (session?.id ?: "") + "|" + (projet?.uri ?: "")
+    /**
+     * Une conversation dans un projet, avec un modele precis : la liste des fichiers connus de l'IA ne
+     * vaut que pour elle. Le modele local ne se souvient que des tours qu'il a lui-meme joues (pas de
+     * ceux d'un service en ligne, ni d'un autre modele local) ; les services en ligne recoivent tous
+     * l'historique, ils partagent donc ce qu'ils savent.
+     */
+    private fun cleConnus(projet: Projet?, cfg: AppConfig): String {
+        val moteur = if (cfg.provider == ProviderType.LOCAL) "local:" + cfg.localModelPath else "ligne"
+        return (session?.id ?: "") + "|" + (projet?.uri ?: "") + "|" + moteur
+    }
 
     private fun proposerAnnulation(annulations: List<Annulation>) {
         val creations = annulations.count { it.ancien == null }
