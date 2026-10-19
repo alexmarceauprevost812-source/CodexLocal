@@ -81,7 +81,9 @@ object ProjectStore {
                     interne = o.optBoolean("interne", false)
                 )
             }
-        }.getOrDefault(emptyList())
+        }.getOrDefault(emptyList<Projet>())
+            // un projet interne dont le dossier a disparu (efface par USB) n'existe plus
+            .filter { !it.interne || File(it.uri).isDirectory }
 
         // On ajoute les dossiers internes presents mais pas encore enregistres
         val connus = stockes.filter { it.interne }.map { it.uri }.toSet()
@@ -113,8 +115,23 @@ object ProjectStore {
         ecrire(context, actuels + projet)
     }
 
+    /** Retire un projet de la liste, sans toucher a ses fichiers. */
     fun supprimer(context: Context, uri: String) {
         ecrire(context, lister(context).filterNot { it.uri == uri })
+    }
+
+    /**
+     * Supprime un projet pour de bon. Projet interne : son dossier et tous ses fichiers sont
+     * effaces (sinon il reviendrait dans la liste, car les dossiers de l'espace CodexLocal y sont
+     * toujours listes). Dossier choisi dans le telephone : il est seulement retire de la liste,
+     * on n'efface jamais le contenu d'un dossier de l'utilisateur. Renvoie faux si l'effacement a echoue.
+     */
+    fun supprimerProjet(context: Context, projet: Projet): Boolean {
+        if (projet.interne && !SuppressionDossier.supprimer(dossierInterne(context), File(projet.uri))) {
+            return false
+        }
+        supprimer(context, projet.uri)
+        return true
     }
 
     // ------------------------------------------------------------- fichiers

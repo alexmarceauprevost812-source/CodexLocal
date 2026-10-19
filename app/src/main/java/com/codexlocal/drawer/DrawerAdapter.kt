@@ -37,11 +37,13 @@ class DrawerAdapter(
         b.badge.isVisible = false
         b.sousTitre.isVisible = false
         b.action.isVisible = false
+        b.action2.isVisible = false
         b.titre.setTextColor(0xFFECECEC.toInt())
         b.titre.textSize = 14f
         b.titre.setTypeface(null, android.graphics.Typeface.NORMAL)
         b.root.setOnClickListener(null)
         b.action.setOnClickListener(null)
+        b.action2.setOnClickListener(null)
 
         when (item) {
             is DrawerItem.Section -> {
@@ -53,6 +55,12 @@ class DrawerAdapter(
                     b.action.text = item.action
                     b.action.isVisible = true
                     b.action.setOnClickListener { onAction(item) }
+                }
+                val cle2 = item.cleAction2
+                if (item.action2 != null && cle2 != null) {
+                    b.action2.text = item.action2
+                    b.action2.isVisible = true
+                    b.action2.setOnClickListener { onAction(DrawerItem.Bouton(item.action2, cle2)) }
                 }
             }
 

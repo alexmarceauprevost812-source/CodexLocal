@@ -87,6 +87,41 @@
     <string name="msg_fichiers_trouves">%1$d fichiers</string>
     <string name="msg_session_supprimee">Conversation supprimée</string>
     <string name="msg_projet_supprime">Projet retiré de la liste</string>
+    <string name="msg_projet_efface">Projet supprimé</string>
+    <string name="msg_suppression_echec">Impossible de supprimer « %1$s »</string>
+    <string name="btn_supprimer">Supprimer</string>
+    <string name="btn_retirer">Retirer</string>
+    <string name="suppr_irreversible">Impossible d\'annuler.</string>
+    <string name="suppr_cocher_tout">Tout cocher</string>
+    <string name="suppr_decocher_tout">Tout décocher</string>
+    <string name="suppr_session_titre">Supprimer cette conversation ?</string>
+    <string name="suppr_sessions_choix">Supprimer des conversations</string>
+    <string name="suppr_aucune_session">Aucune conversation à supprimer</string>
+    <string name="suppr_projets_choix">Supprimer des projets</string>
+    <string name="suppr_aucun_projet">Aucun projet à supprimer</string>
+    <string name="suppr_projet_titre">Supprimer le projet « %1$s » ?</string>
+    <string name="suppr_projet_msg">Le dossier et tous ses fichiers seront effacés du téléphone. Impossible d\'annuler.</string>
+    <string name="suppr_projet_retirer_titre">Retirer « %1$s » de la liste ?</string>
+    <string name="suppr_projet_retirer_msg">Le dossier reste sur ton téléphone avec tous ses fichiers.</string>
+    <string name="suppr_projets_externes_msg">%1$s seront seulement retirés de la liste : leurs fichiers restent sur ton téléphone.</string>
+    <string name="suppr_projets_internes_msg">%1$s seront effacés du téléphone avec tous leurs fichiers. Impossible d\'annuler.</string>
+    <plurals name="suppr_n_conversations">
+        <item quantity="one">%d conversation</item>
+        <item quantity="other">%d conversations</item>
+    </plurals>
+    <plurals name="suppr_n_projets">
+        <item quantity="one">%d projet</item>
+        <item quantity="other">%d projets</item>
+    </plurals>
+    <plurals name="suppr_n_dossiers">
+        <item quantity="one">%d dossier du téléphone</item>
+        <item quantity="other">%d dossiers du téléphone</item>
+    </plurals>
+    <string name="suppr_confirmer_plusieurs">Supprimer %1$s ?</string>
+    <string name="suppr_sessions_faites">%1$s supprimées</string>
+    <string name="suppr_projets_faits">%1$s traités</string>
+    <string name="suppr_supprimer_tout">🗑</string>
+    <string name="projet_supprimer">🗑️ Supprimer le projet</string>
     <string name="msg_acces_refuse">Accès au dossier refusé</string>
 
     <string name="drawer_espace">Espace projets :</string>
