@@ -120,10 +120,10 @@ object ConstructeurApk {
         // Icone : une image du projet (icone.png…), sinon celle du modele.
         val cheminIcone = IconesApk.trouver(fichiers.map { it.chemin })
         val imageIcone = cheminIcone?.let { c -> fichiers.first { it.chemin == c }.octets }
-        val icones = HashMap<String, ByteArray>()
+        val icones = HashMap<Int, ByteArray>()      // taille en pixels -> PNG carre
         if (imageIcone != null) {
-            for ((densite, taille) in IconesApk.TAILLES) {
-                IconesApk.versPng(imageIcone, taille)?.let { icones[densite] = it }
+            for (taille in IconesApk.TAILLES.values) {
+                IconesApk.versPng(imageIcone, taille)?.let { icones[taille] = it }
             }
             if (icones.isEmpty()) journal("⚠️ Image d'icône illisible, icône par défaut gardée")
             else journal("🖼️ Icône : $cheminIcone")
@@ -139,7 +139,7 @@ object ConstructeurApk {
                 // La page d'exemple du modele cede la place au projet.
                 e.nom.startsWith(WWW) -> Unit
                 else -> {
-                    val remplacement = IconesApk.densite(e.nom)?.let { icones[it] }
+                    val remplacement = IconesApk.taillePourEntree(e.nom, e.octets)?.let { icones[it] }
                     sortie.add(if (remplacement != null) ApkZip.Entree(e.nom, remplacement, false) else e)
                 }
             }

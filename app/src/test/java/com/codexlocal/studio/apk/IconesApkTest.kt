@@ -18,15 +18,18 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 class IconesApkTest {
 
-    @Test fun recognisesTheLauncherIconsOfTheTemplate() {
-        assertEquals("mdpi", IconesApk.densite("res/mipmap-mdpi/ic_launcher.png"))
-        assertEquals("xhdpi", IconesApk.densite("res/mipmap-xhdpi/ic_launcher.png"))
-        assertEquals("xxxhdpi", IconesApk.densite("res/mipmap-xxxhdpi-v4/ic_launcher.png"))
-        assertNull(IconesApk.densite("res/mipmap-anydpi-v26/ic_launcher.xml"))
-        assertNull(IconesApk.densite("res/mipmap-hdpi/ic_autre.png"))
-        assertNull(IconesApk.densite("assets/www/res/mipmap-hdpi/ic_launcher.png"))
-        // Chaque densite reconnue a une taille.
-        listOf("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi").forEach { assertNotNull(IconesApk.TAILLES[it]) }
+    @Test fun recognisesTheLauncherIconsBySizeNotByName() {
+        val png48 = PngTest.uni(48, 48, 0xFF112233.toInt())
+        assertEquals(48, IconesApk.taillePourEntree("res/-B.png", png48))      // chemin raccourci par Gradle
+        assertEquals(48, IconesApk.taillePourEntree("res/mipmap-mdpi/ic_launcher.png", png48))
+        assertNull(IconesApk.taillePourEntree("assets/www/images/logo.png", png48))   // image du projet : jamais
+        assertNull(IconesApk.taillePourEntree("res/-B.xml", png48))
+        assertNull(IconesApk.taillePourEntree("res/-B.png", PngTest.uni(48, 50, 0xFF112233.toInt())))   // pas carree
+        assertNull(IconesApk.taillePourEntree("res/-B.png", PngTest.uni(64, 64, 0xFF112233.toInt())))   // taille inconnue
+        assertNull(IconesApk.taillePourEntree("res/-B.png", "pas un png".toByteArray()))
+        IconesApk.TAILLES.values.forEach {
+            assertEquals(it, IconesApk.taillePourEntree("res/a.png", PngTest.uni(it, it, 0xFF000000.toInt())))
+        }
     }
 
     @Test fun picksTheIconByOrderOfPreference() {
@@ -62,16 +65,22 @@ class IconesApkTest {
             ),
             "Icone", "com.codexlocal.app.pabcdef12", 1
         )
-        val origine = ApkZip.lire(modele).associateBy { it.nom }
-        val icones = ApkZip.lire(octets).filter { IconesApk.densite(it.nom) != null }
-        assertEquals("Les 5 densites du modele", 5, icones.size)
-        for (icone in icones) {
-            val taille = IconesApk.TAILLES.getValue(IconesApk.densite(icone.nom)!!)
-            val image = BitmapFactory.decodeByteArray(icone.octets, 0, icone.octets.size)
-            assertEquals(icone.nom, taille, image.width)
-            assertEquals(icone.nom, bleu, image.getPixel(taille / 2, taille / 2))
-            assertTrue("${icone.nom} doit differer de l'icone du modele",
-                !icone.octets.contentEquals(origine.getValue(icone.nom).octets))
+        val iconesModele = ApkZip.lire(modele).filter { IconesApk.taillePourEntree(it.nom, it.octets) != null }
+        assertEquals(
+            "Le modele a cinq icones, une par taille",
+            IconesApk.TAILLES.values.toSet(),
+            iconesModele.map { IconesApk.taillePourEntree(it.nom, it.octets) }.toSet()
+        )
+        assertEquals(5, iconesModele.size)
+
+        val sortie = ApkZip.lire(octets).associateBy { it.nom }
+        for (origine in iconesModele) {
+            val taille = IconesApk.taillePourEntree(origine.nom, origine.octets)!!
+            val nouvelle = sortie.getValue(origine.nom).octets
+            val image = BitmapFactory.decodeByteArray(nouvelle, 0, nouvelle.size)
+            assertEquals(origine.nom, taille, image.width)
+            assertEquals(origine.nom, bleu, image.getPixel(taille / 2, taille / 2))
+            assertTrue("${origine.nom} doit differer de l'icone du modele", !nouvelle.contentEquals(origine.octets))
         }
     }
 }

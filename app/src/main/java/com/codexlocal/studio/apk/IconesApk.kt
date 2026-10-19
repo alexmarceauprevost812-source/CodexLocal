@@ -14,14 +14,23 @@ object IconesApk {
         "images/icone.jpg", "images/icone.webp"
     )
 
-    /** Tailles du lanceur Android (pixels) par densite. */
+    /**
+     * Tailles du lanceur Android (pixels) par densite. Ce sont aussi les tailles des cinq icones
+     * du modele (module :shell) : on les reconnait a leurs dimensions (voir [taillePourEntree]).
+     */
     val TAILLES = mapOf("mdpi" to 48, "hdpi" to 72, "xhdpi" to 96, "xxhdpi" to 144, "xxxhdpi" to 192)
 
-    private val MOTIF = Regex("^res/mipmap-(m|h|xh|xxh|xxxh)dpi(-v\\d+)?/ic_launcher\\.png$")
-
-    /** La densite d'une entree d'icone du modele (« xhdpi »), ou null si ce n'en est pas une. */
-    fun densite(nomEntree: String): String? =
-        MOTIF.matchEntire(nomEntree)?.groupValues?.get(1)?.let { it + "dpi" }
+    /**
+     * Si cette entree de l'APK est une icone du lanceur du modele, sa taille en pixels, sinon null.
+     *
+     * On ne se fie pas au nom : Android Gradle raccourcit les chemins de ressources (`res/-B.png`,
+     * `res/2P.png`…). Le modele n'a pas d'autre image que ses cinq icones carrees, de tailles connues.
+     */
+    fun taillePourEntree(nom: String, octets: ByteArray): Int? {
+        if (!nom.startsWith("res/") || !nom.endsWith(".png")) return null
+        val (largeur, hauteur) = PngEntete.dimensions(octets) ?: return null
+        return largeur.takeIf { largeur == hauteur && it in TAILLES.values }
+    }
 
     /** Chemin du fichier a utiliser comme icone parmi les fichiers du projet, ou null. */
     fun trouver(chemins: Collection<String>): String? =

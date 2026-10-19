@@ -92,8 +92,11 @@ class ConstructeurApkTest {
         // Les signatures du modele sont retirees : la signature du Studio les remplace.
         assertTrue(entrees.keys.none { it.startsWith("META-INF/") })
 
-        // Le code du modele est intact.
+        // Le code du modele est intact, et ses icones aussi quand le projet n'en fournit pas.
         val origine = ApkZip.lire(modele()).associateBy { it.nom }
+        val iconesModele = origine.values.filter { IconesApk.taillePourEntree(it.nom, it.octets) != null }
+        assertEquals(5, iconesModele.size)
+        iconesModele.forEach { assertArrayEquals(it.nom, it.octets, entrees.getValue(it.nom).octets) }
         assertArrayEquals(origine.getValue("classes.dex").octets, entrees.getValue("classes.dex").octets)
         assertArrayEquals(origine.getValue("resources.arsc").octets, entrees.getValue("resources.arsc").octets)
 
