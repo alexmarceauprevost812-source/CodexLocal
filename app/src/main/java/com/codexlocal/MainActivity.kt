@@ -1158,7 +1158,7 @@ class MainActivity : AppCompatActivity() {
             val bilan = appliquerActions(
                 projet, assistant, cfg, actions, fichiersConnus.instantane(),
                 reductionPermise = ProtectionFichiers.reductionVoulue(user.content),
-                placeLectures = placePourFichiers(cfg, PLACE_TEXTE_LECTURES)
+                placeLectures = placePourFichiers(cfg, 0)
             )
             annulations += bilan.annulations
             // Ce que l'IA vient d'ecrire, elle le connait (a partir de son message dans la conversation),
@@ -1580,9 +1580,6 @@ class MainActivity : AppCompatActivity() {
 
         /** Combien de fois de suite l'IA peut demander a lire des fichiers pour une question. */
         private const val MAX_TOURS_LECTURE = 3
-
-        /** Caracteres du message de lecture hors contenu des fichiers (explications, titres). */
-        private const val PLACE_TEXTE_LECTURES = 800
 
         private const val CLE_NOUVELLE_SESSION = "nouvelle_session"
         private const val CLE_NOUVEAU_PROJET = "nouveau_projet"

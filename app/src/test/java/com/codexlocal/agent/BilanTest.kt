@@ -97,25 +97,47 @@ class BilanTest {
     }
 
     @Test fun readsThatDoNotFitInTheModelMemoryAreNotShown() {
-        val bilan = Bilan(
-            lectures = listOf(
-                lecture("a.txt", "a".repeat(400)),
-                lecture("gros.txt", "g".repeat(900)),
-                lecture("b.txt", "b".repeat(500))
-            ),
-            proteges = listOf("gros.txt")
-        )
-        val limite = bilan.limiterLectures(1_000)
-        // a.txt (400) tient, gros.txt (900) ne tient plus, b.txt (500) tient encore (400 + 500 <= 1000)
+        val a = lecture("a.txt", "a".repeat(400))
+        val gros = lecture("gros.txt", "g".repeat(900))
+        val b = lecture("b.txt", "b".repeat(500))
+        val bilan = Bilan(lectures = listOf(a, gros, b))
+        // la taille du message complet quand a.txt et b.txt sont montres et gros.txt ne l'est pas
+        val budget = bilan.limiterLectures(1_300).texteLectures().length
+        val limite = bilan.limiterLectures(budget)
+        assertTrue(limite.texteLectures().length <= budget)
         assertEquals(listOf("a.txt", "gros.txt", "b.txt"), limite.lectures.map { it.chemin })
-        assertEquals("a".repeat(400), limite.lectures[0].texte)
+        assertEquals(a.texte, limite.lectures[0].texte)
         assertEquals(null, limite.lectures[1].texte)
         assertTrue(limite.lectures[1].erreur!!.contains("NOUVEAU fichier"))
-        assertEquals("b".repeat(500), limite.lectures[2].texte)
+        assertEquals(b.texte, limite.lectures[2].texte)
         // ce qui n'est pas montre n'est pas connu de l'IA
         assertEquals(setOf("a.txt", "b.txt"), limite.lusEnEntier.keys)
-        assertEquals(listOf("gros.txt"), limite.proteges)
         assertTrue(limite.texteLectures().contains("(pas assez de place"))
+    }
+
+    @Test fun theBudgetCountsTheWholeMessageNotOnlyTheFileTexts() {
+        val bilan = Bilan(
+            lectures = listOf(lecture("a.txt", "a".repeat(400)), lecture("b.txt", "b".repeat(500)))
+        )
+        val complet = bilan.texteLectures().length
+        // les textes seuls font 900 caracteres : le titre de chaque fichier et les consignes comptent
+        assertTrue(complet > 900 + 40)
+        assertEquals(setOf("a.txt", "b.txt"), bilan.limiterLectures(complet).lusEnEntier.keys)
+        // un caractere de moins : le dernier fichier ne tient plus
+        val serre = bilan.limiterLectures(complet - 1)
+        assertEquals(setOf("a.txt"), serre.lusEnEntier.keys)
+        assertTrue(serre.texteLectures().length <= complet - 1)
+    }
+
+    @Test fun manySmallFilesWithLongPathsCannotOverflowTheBudget() {
+        val lectures = (1..4).map { lecture("dossier/sous_dossier/un_nom_de_fichier_long_$it.txt", "x".repeat(100)) }
+        val bilan = Bilan(lectures = lectures, proteges = lectures.map { it.chemin })
+        for (budget in listOf(300, 600, 900, 1_200, 1_500, 2_500)) {
+            val limite = bilan.limiterLectures(budget)
+            val taille = limite.texteLectures().length
+            // soit le message tient, soit rien n'est montre (et rien n'est donc connu)
+            assertTrue("budget $budget, taille $taille", taille <= budget || limite.lusEnEntier.isEmpty())
+        }
     }
 
     @Test fun roomForEverythingChangesNothing() {
