@@ -63,12 +63,24 @@ object DemandeCreation {
             """explique|expliquer|dis-moi|dis moi|que |quoi |a quoi|peux-tu m'expliquer|peux tu m'expliquer)"""
     )
 
+    /** Les phrases : coupees aux . ! ? ; suivis d'un espace (un nom comme index.html reste entier) et aux retours a la ligne. */
+    private val PHRASES = Regex("""[.!?;]+(?=\s|$)|\n+""")
+
+    /**
+     * Vrai si UNE phrase du message est un ordre ou une demande de creation. Une phrase qui
+     * commence comme une question n'en est pas une, mais elle ne cache pas les phrases suivantes
+     * (« Comment ca marche ? Puis corrige le bug »).
+     */
     fun estUneDemande(message: String): Boolean {
         val texte = normaliser(message)
         if (texte.isBlank()) return false
-        if (QUESTION.containsMatchIn(texte)) return false
-        return ORDRE.containsMatchIn(texte) || ORDRE_AMBIGU.containsMatchIn(texte) ||
-            SOUHAIT.containsMatchIn(texte)
+        return texte.split(PHRASES).map { it.trim() }.filter { it.isNotEmpty() }.any(::phraseDemandeCreation)
+    }
+
+    private fun phraseDemandeCreation(phrase: String): Boolean {
+        if (QUESTION.containsMatchIn(phrase)) return false
+        return ORDRE.containsMatchIn(phrase) || ORDRE_AMBIGU.containsMatchIn(phrase) ||
+            SOUHAIT.containsMatchIn(phrase)
     }
 
     private fun normaliser(s: String): String =

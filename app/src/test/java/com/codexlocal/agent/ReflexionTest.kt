@@ -115,12 +115,25 @@ class ReflexionTest {
         assertEquals("La balise `</think>` ferme tout.", d.reponse)
     }
 
-    @Test fun aClosingTagInsideANestedFenceOfAFourBacktickFileIsCode() {
-        val texte = "Voici :\n**README.md**\n````markdown\n# Titre\n```js\nconst A = 1;\n</think>\n```\nfin\n````"
+    @Test fun aReasoningThatQuotesTheFileFormatNeverCreatesFiles() {
+        // modele qui n'ecrit que </think> : son raisonnement cite le format, sans le fermer
+        val texte = "Je dois ecrire :\n=== FICHIER: index.html ===\nbrouillon\nOK, je sais.\n</think>\nVoila."
         val d = Reflexion.separer(texte)
-        assertNull(d.reflexion)
-        assertEquals(texte, d.reponse)
-        assertEquals(texte, Reflexion.masquer(texte))
+        assertEquals("Voila.", d.reponse)
+        assertTrue(ActionsFichiers.extraire(texte).isEmpty())
+    }
+
+    @Test fun aReasoningThatDraftsCodeNeverCreatesFiles() {
+        val texte = "Brouillon :\n```html\n<h1>Salut</h1>\n<p>un</p>\n<p>deux</p>\n<p>trois</p>\n" +
+            "Voyons la suite.\n</think>\nVoila."
+        assertEquals("Voila.", Reflexion.separer(texte).reponse)
+        assertTrue(ActionsFichiers.extraire(texte).isEmpty())
+    }
+
+    @Test fun anExplicitOpeningOnOneLineIsAccepted() {
+        val d = Reflexion.separer("<think> plan </think> reponse")
+        assertEquals("plan", d.reflexion)
+        assertEquals("reponse", d.reponse)
     }
 
     @Test fun aRealEndOfReasoningStillWorksAfterAFinishedFence() {
@@ -130,7 +143,7 @@ class ReflexionTest {
         assertEquals("Suite.", d.reponse)
     }
 
-    @Test fun fenceLinesInsideAFileMarkerDoNotConfuseTheCount() {
+    @Test fun markersAndFencesInsideTheReasoningDoNotConfuseTheEnd() {
         val texte = "=== FICHIER: a.md ===\n```\nx\n=== FIN ===\nreflexion finie</think>\nok"
         val d = Reflexion.separer(texte)
         assertEquals("ok", d.reponse)

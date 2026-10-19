@@ -25,6 +25,9 @@ class DemandeCreationTest {
             "peux tu m'ajouter une page contact",
             "Fais moi 3 fichiers: html, css et js",
             "Programme un jeu de morpion",
+            "Comment ça marche ? Puis corrige le bug dans app.js",
+            "C'est quoi un site web ? Fais-moi un exemple",
+            "Modifie le fichier index.html",
             "Mets-moi un bouton bleu",
             "Change la couleur du fond"
         ).forEach { assertTrue(it, DemandeCreation.estUneDemande(it)) }
@@ -40,6 +43,8 @@ class DemandeCreationTest {
             "bonjour",
             "merci beaucoup",
             "Mon programme fait quoi ?",
+            "Comment modifier index.html ?",
+            "Pourquoi app.js ne marche pas. Explique-moi",
             "Fais-moi voir le contenu de README.md",
             "fais voir le fichier index.html",
             "Fais-moi savoir ce que fait ce code",
