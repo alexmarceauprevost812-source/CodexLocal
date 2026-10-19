@@ -67,6 +67,25 @@ class ReflexionTest {
         assertEquals(listOf("vrai.txt"), ecritures.map { it.chemin })
     }
 
+    @Test fun aClosingTagInsideTheAnswerIsNotTheEndOfTheReasoning() {
+        val texte = "<think>\nUn parseur.\n</think>\n=== FICHIER: parseur.js ===\n" +
+            "const STOP = \"</think>\";\nconsole.log(STOP);\n=== FIN ==="
+        val d = Reflexion.separer(texte)
+        assertEquals("Un parseur.", d.reflexion)
+        assertTrue(d.reponse.contains("const STOP = \"</think>\";"))
+        val ecriture = ActionsFichiers.extraire(texte).filterIsInstance<ActionFichier.Ecrire>().single()
+        assertEquals("parseur.js", ecriture.chemin)
+        assertTrue(ecriture.contenu.contains("</think>"))
+        assertEquals(texte.lines().size, Reflexion.masquer(texte).lines().size)
+    }
+
+    @Test fun aClosingTagInsideACodeBlockKeepsTheWholeBlockInTheChat() {
+        val texte = "Il faut:\n```js\nconst STOP = \"</think>\";\nconsole.log(STOP);\n```"
+        // sans raisonnement avant, le premier </think> est celui du code : rien ne doit disparaitre
+        val blocs = DecoupageMessage.decouper(texte)
+        assertTrue(blocs.any { it is BlocMessage.Code && it.corps.contains("console.log(STOP);") })
+    }
+
     @Test fun anUnfinishedReasoningCreatesNothing() {
         assertTrue(ActionsFichiers.extraire("<think>\n=== FICHIER: a.txt ===\nx\n=== FIN ===").isEmpty())
     }

@@ -16,7 +16,15 @@ class DemandeCreationTest {
             "Modifie le fichier index.html",
             "corrige l'erreur dans app.js",
             "génère une calculatrice",
-            "Mets un fond noir"
+            "Mets un fond noir",
+            "salut, fais un site pour mon chien",
+            "ok change la couleur du titre",
+            "J'aimerais ajouter un menu",
+            "j'ai besoin d'ajouter une page",
+            "il faut corriger le bouton",
+            "peux tu m'ajouter une page contact",
+            "Fais moi 3 fichiers: html, css et js",
+            "Programme un jeu de morpion"
         ).forEach { assertTrue(it, DemandeCreation.estUneDemande(it)) }
     }
 
@@ -29,6 +37,13 @@ class DemandeCreationTest {
             "Quel est le meilleur langage pour faire un jeu",
             "bonjour",
             "merci beaucoup",
+            "Mon programme fait quoi ?",
+            "Je voudrais savoir comment ce programme marche",
+            "ce programme fait des erreurs",
+            "Fais-tu des erreurs ?",
+            "il fait beau et le programme est long",
+            "Est-ce que le site marche",
+            "je veux savoir si ca va changer quelque chose",
             "",
             "   "
         ).forEach { assertFalse(it, DemandeCreation.estUneDemande(it)) }

@@ -17,8 +17,36 @@ object Reflexion {
      */
     data class Decoupe(val reflexion: String?, val enCours: Boolean, val reponse: String)
 
+    private val OUVERTURE_FICHIER = Regex("""^\s*=+\s*FICHIER\s*:""", RegexOption.IGNORE_CASE)
+    private val FIN_FICHIER = Regex("""^\s*=+\s*FIN\s*=+\s*$""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Le raisonnement se termine au PREMIER `</think>` : un `</think>` ecrit plus loin dans la
+     * reponse (le code d'un fichier qui parle de cette balise, par exemple) n'en fait pas partie.
+     * Quand le texte ne commence pas par `<think>`, un `</think>` qui se trouve DANS un bloc de
+     * code ou un fichier encore ouvert est du code, pas la fin d'un raisonnement.
+     */
+    private fun finDuRaisonnement(texte: String): Int {
+        val ouvert = texte.trimStart().startsWith(OUVRE)
+        var depuis = 0
+        while (true) {
+            val i = texte.indexOf(FERME, depuis)
+            if (i < 0) return -1
+            if (ouvert || !dansUnBloc(texte.substring(0, i))) return i
+            depuis = i + FERME.length
+        }
+    }
+
+    private fun dansUnBloc(avant: String): Boolean {
+        val lignes = avant.lines()
+        val clotures = lignes.count { it.trimStart().startsWith("```") }
+        val ouvertures = lignes.count { OUVERTURE_FICHIER.containsMatchIn(it) }
+        val fermetures = lignes.count { FIN_FICHIER.matches(it) }
+        return clotures % 2 == 1 || ouvertures > fermetures
+    }
+
     fun separer(texte: String): Decoupe {
-        val fin = texte.lastIndexOf(FERME)
+        val fin = finDuRaisonnement(texte)
         if (fin >= 0) {
             val raisonnement = texte.substring(0, fin).trim().removePrefix(OUVRE).trim()
             return Decoupe(raisonnement, false, texte.substring(fin + FERME.length).trimStart('\n', ' '))
@@ -38,11 +66,10 @@ object Reflexion {
      * remplace par des lignes vides, pour que les numeros de ligne restent justes.
      */
     fun masquer(texte: String): String {
-        val fin = texte.lastIndexOf(FERME)
+        val fin = finDuRaisonnement(texte)
         if (fin >= 0) {
-            val finDuRaisonnement = fin + FERME.length
-            return "\n".repeat(texte.substring(0, finDuRaisonnement).count { it == '\n' }) +
-                texte.substring(finDuRaisonnement)
+            val apres = fin + FERME.length
+            return "\n".repeat(texte.substring(0, apres).count { it == '\n' }) + texte.substring(apres)
         }
         val debut = texte.indexOf(OUVRE)
         if (debut >= 0 && texte.substring(0, debut).isBlank()) {
