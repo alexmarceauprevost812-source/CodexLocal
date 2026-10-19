@@ -86,6 +86,32 @@ class ReflexionTest {
         assertTrue(blocs.any { it is BlocMessage.Code && it.corps.contains("console.log(STOP);") })
     }
 
+    @Test fun aClosingTagMentionedInAnAnswerIsNotReasoning() {
+        listOf(
+            "La balise `</think>` termine le raisonnement.",
+            "La balise </think> termine le raisonnement.",
+            "Utilise \"</think>\" pour couper.",
+            "Voici l'astuce : la fin c'est </think> et c'est tout"
+        ).forEach { texte ->
+            val d = Reflexion.separer(texte)
+            assertNull(texte, d.reflexion)
+            assertEquals(texte, d.reponse)
+            assertEquals(texte, Reflexion.masquer(texte))
+        }
+    }
+
+    @Test fun aClosingTagGluedToTheEndOfTheReasoningStillCounts() {
+        val d = Reflexion.separer("Il faut un site.</think>Voici le site.")
+        assertEquals("Il faut un site.", d.reflexion)
+        assertEquals("Voici le site.", d.reponse)
+    }
+
+    @Test fun aMentionedTagAfterTheRealEndStaysInTheAnswer() {
+        val d = Reflexion.separer("<think>\nje reflechis\n</think>\nLa balise `</think>` ferme tout.")
+        assertEquals("je reflechis", d.reflexion)
+        assertEquals("La balise `</think>` ferme tout.", d.reponse)
+    }
+
     @Test fun anUnfinishedReasoningCreatesNothing() {
         assertTrue(ActionsFichiers.extraire("<think>\n=== FICHIER: a.txt ===\nx\n=== FIN ===").isEmpty())
     }

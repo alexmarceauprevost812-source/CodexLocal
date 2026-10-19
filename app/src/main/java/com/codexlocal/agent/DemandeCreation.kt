@@ -9,9 +9,23 @@ import java.text.Normalizer
  */
 object DemandeCreation {
 
-    private const val IMPERATIFS =
-        "fais|fabrique|cree|construis|genere|ecris|developpe|programme|realise|ajoute|rajoute|" +
-            "modifie|corrige|change|refais|mets|monte|invente|complete|remplace"
+    /** Des verbes qui ne sont jamais un nom : « Fais-moi un site », « Ajoute un bouton ». */
+    private const val IMPERATIFS_SURS =
+        "fais|fabrique|cree|construis|genere|ecris|developpe|realise|ajoute|rajoute|" +
+            "modifie|corrige|refais|invente|remplace"
+
+    /**
+     * Des mots qui sont aussi des noms (« Programme TV », « Mets preferes », « le change ») :
+     * ce sont des ordres seulement s'ils sont suivis d'un article ou d'un pronom (« Mets un fond noir »).
+     */
+    private const val IMPERATIFS_AMBIGUS = "mets|programme|change|monte|complete"
+
+    private const val ARTICLES =
+        "un|une|des|le|la|les|l'|ce|cet|cette|ces|mon|ma|mes|ton|ta|tes|son|sa|ses|" +
+            "notre|nos|moi|nous|tout|toute|tous"
+
+    private const val DEBUT =
+        """(?:^|[.!?;:,\n]\s*|\b(?:et|puis|ensuite|alors|donc|maintenant|ok|salut|bonjour|bon|stp|svp|plait)\s+)"""
 
     private const val INFINITIFS =
         "faire|fabriquer|creer|construire|generer|ecrire|developper|programmer|realiser|ajouter|" +
@@ -23,8 +37,11 @@ object DemandeCreation {
      * (« mon programme fait quoi ? ») ne comptent pas, ni « fais-tu ... ? ».
      */
     private val ORDRE = Regex(
-        """(?:^|[.!?;:,\n]\s*|\b(?:et|puis|ensuite|alors|donc|maintenant|ok|salut|bonjour|bon|stp|svp|plait)\s+)""" +
-            """(?:$IMPERATIFS)\b(?!-tu\b|-t-|-il\b|-elle\b|-on\b|-vous\b)"""
+        DEBUT + """(?:$IMPERATIFS_SURS)\b(?!-tu\b|-t-|-il\b|-elle\b|-on\b|-vous\b)"""
+    )
+
+    private val ORDRE_AMBIGU = Regex(
+        DEBUT + """(?:$IMPERATIFS_AMBIGUS)(?:-moi|-nous)?\s+(?:$ARTICLES)\b"""
     )
 
     /** Une demande polie ou un souhait : « peux-tu me faire », « je voudrais ajouter », « il faut corriger ». */
@@ -46,7 +63,8 @@ object DemandeCreation {
         val texte = normaliser(message)
         if (texte.isBlank()) return false
         if (QUESTION.containsMatchIn(texte)) return false
-        return ORDRE.containsMatchIn(texte) || SOUHAIT.containsMatchIn(texte)
+        return ORDRE.containsMatchIn(texte) || ORDRE_AMBIGU.containsMatchIn(texte) ||
+            SOUHAIT.containsMatchIn(texte)
     }
 
     private fun normaliser(s: String): String =

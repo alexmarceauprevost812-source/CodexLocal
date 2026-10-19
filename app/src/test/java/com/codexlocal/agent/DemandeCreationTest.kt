@@ -24,7 +24,9 @@ class DemandeCreationTest {
             "il faut corriger le bouton",
             "peux tu m'ajouter une page contact",
             "Fais moi 3 fichiers: html, css et js",
-            "Programme un jeu de morpion"
+            "Programme un jeu de morpion",
+            "Mets-moi un bouton bleu",
+            "Change la couleur du fond"
         ).forEach { assertTrue(it, DemandeCreation.estUneDemande(it)) }
     }
 
@@ -38,6 +40,11 @@ class DemandeCreationTest {
             "bonjour",
             "merci beaucoup",
             "Mon programme fait quoi ?",
+            "Programme TV de ce soir ?",
+            "Mets préférés en France ?",
+            "Mets et vins du Québec",
+            "Change du jour en euros ?",
+            "Programme du jour",
             "Je voudrais savoir comment ce programme marche",
             "ce programme fait des erreurs",
             "Fais-tu des erreurs ?",
