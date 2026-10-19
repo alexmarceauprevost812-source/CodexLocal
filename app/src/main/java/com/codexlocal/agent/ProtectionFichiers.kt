@@ -25,16 +25,47 @@ object ProtectionFichiers {
     fun reduitTrop(ancien: String, nouveau: String): Boolean =
         ancien.length >= TAILLE_MIN_REDUCTION && nouveau.length * 5 < ancien.length * 2
 
-    /** Mots qui disent qu'on veut retirer du contenu ou tout refaire : la reduction est alors voulue. */
-    private val REDUCTION_VOULUE = Regex(
-        """\b(?:supprim|enlev|retir|effac|vid(?:e|er|ez)\b|simplifi|raccourci|reduis|reduit|reduire|""" +
-            """reduction|allege|nettoy|nettoi|epur|recommenc|a zero|de zero|from scratch|""" +
-            """(?:refais|refait|refaire|reecris|reecrire|remplace|remplacer)\s+tout)"""
+    /** Tout refaire : la reduction est voulue pour tous les fichiers. */
+    private val REDUCTION_GLOBALE = Regex(
+        """\b(?:recommenc|a zero|de zero|from scratch|""" +
+            """(?:refais|refait|refaire|reecris|reecrire|remplace|remplacer)\s+tout|""" +
+            """tout\s+(?:refaire|reecrire|remplacer))"""
     )
 
-    /** Vrai si la demande de l'utilisateur veut retirer du contenu ou tout refaire. */
-    fun reductionVoulue(demande: String): Boolean =
-        REDUCTION_VOULUE.containsMatchIn(DemandeCreation.normaliser(demande))
+    /** Retirer du contenu : voulu pour le fichier dont parle la meme phrase. */
+    private val REDUCTION_LOCALE = Regex(
+        """\b(?:supprim|enlev|retir|effac|vid(?:e|er|ez)\b|simplifi|raccourci|reduis|reduit|reduire|""" +
+            """reduction|allege|nettoy|nettoi|epur)"""
+    )
+
+    /** Un nom de fichier dans la phrase : « index.html », « css/style.css ». */
+    private val NOM_DE_FICHIER = Regex("""[\w./-]+\.[a-z][a-z0-9]{0,4}\b""")
+
+    /** Les parties de la demande : coupees aux . ! ? ; suivis d'un espace, aux virgules et aux « puis », « et »... */
+    private val PARTIES = Regex(
+        """[.!?;]+(?=\s|$)|[,\n]|\b(?:puis|ensuite|apres|avant|mais|sauf|et)\b"""
+    )
+
+    private fun nomme(texteNormalise: String, chemin: String): Boolean {
+        val c = DemandeCreation.normaliser(chemin)
+        val nom = c.substringAfterLast('/')
+        return texteNormalise.contains(c) || (nom.length >= 3 && texteNormalise.contains(nom))
+    }
+
+    /**
+     * Vrai si la demande de l'utilisateur veut que le fichier [chemin] perde du contenu : elle dit
+     * de tout refaire (« recommence a zero »), ou de retirer quelque chose dans une phrase qui
+     * nomme ce fichier ou aucun fichier (« supprime le menu »). « Vide README.md puis corrige
+     * index.html » ne le permet que pour README.md.
+     */
+    fun reductionVoulue(demande: String, chemin: String): Boolean {
+        val texte = DemandeCreation.normaliser(demande)
+        if (REDUCTION_GLOBALE.containsMatchIn(texte)) return true
+        return texte.split(PARTIES).any { partie ->
+            REDUCTION_LOCALE.containsMatchIn(partie) &&
+                (nomme(partie, chemin) || !NOM_DE_FICHIER.containsMatchIn(partie))
+        }
+    }
 
     data class Candidat(val chemin: String, val taille: Long)
 
@@ -44,13 +75,8 @@ object ProtectionFichiers {
      */
     fun ordreApercu(candidats: List<Candidat>, demande: String): List<Candidat> {
         val texte = DemandeCreation.normaliser(demande)
-        fun nomme(chemin: String): Boolean {
-            val c = DemandeCreation.normaliser(chemin)
-            val nom = c.substringAfterLast('/')
-            return texte.contains(c) || (nom.length >= 3 && texte.contains(nom))
-        }
         fun rang(c: Candidat) = when {
-            nomme(c.chemin) -> 0
+            nomme(texte, c.chemin) -> 0
             c.chemin.equals("index.html", ignoreCase = true) -> 1
             else -> 2
         }

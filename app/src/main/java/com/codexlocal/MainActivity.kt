@@ -1159,7 +1159,7 @@ class MainActivity : AppCompatActivity() {
 
             val bilan = appliquerActions(
                 projet, assistant, cfg, actions, fichiersConnus.instantane(),
-                reductionPermise = ProtectionFichiers.reductionVoulue(user.content),
+                reductionPermise = { chemin -> ProtectionFichiers.reductionVoulue(user.content, chemin) },
                 placeLectures = placePourFichiers(cfg, 0)
             )
             annulations += bilan.annulations
@@ -1310,7 +1310,7 @@ class MainActivity : AppCompatActivity() {
         cfg: AppConfig,
         actions: List<ActionFichier> = ActionsFichiers.extraire(assistant.content),
         connus: Map<String, String>? = null,
-        reductionPermise: Boolean = false,
+        reductionPermise: (String) -> Boolean = { false },
         placeLectures: Int? = null
     ): Bilan {
         if (actions.isEmpty()) return Bilan()
@@ -1448,7 +1448,7 @@ class MainActivity : AppCompatActivity() {
         }
         // Les redacteurs ne peuvent pas relire de fichiers : on leur montre ceux qui existent deja,
         // et ils ne peuvent remplacer que ceux-la (voir AgentProjet.appliquer).
-        val reductionPermise = ProtectionFichiers.reductionVoulue(demande)
+        val reductionPermise: (String) -> Boolean = { chemin -> ProtectionFichiers.reductionVoulue(demande, chemin) }
 
         panneauEquipe.reinitialiser()
         panneauEquipe.afficher(true)
@@ -1528,7 +1528,7 @@ class MainActivity : AppCompatActivity() {
         base: AppConfig,
         annulations: MutableList<Annulation>,
         connus: Map<String, String>? = null,
-        reductionPermise: Boolean = false
+        reductionPermise: (String) -> Boolean = { false }
     ): Pair<String, Bilan> {
         panneauEquipe.commencer(role)
         binding.status.text =

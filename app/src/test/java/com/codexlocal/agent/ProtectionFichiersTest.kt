@@ -23,13 +23,35 @@ class ProtectionFichiersTest {
         assertTrue(ProtectionFichiers.reduitTrop("a".repeat(ProtectionFichiers.TAILLE_MIN_REDUCTION), "a"))
     }
 
-    @Test fun requestsThatWantToRemoveOrRedoEverything() {
+    @Test fun requestsToRedoEverythingAllowShrinkingAnyFile() {
         listOf(
-            "supprime le menu", "Enlève la section contact", "simplifie la page", "Recommence à zéro",
-            "refais tout", "Efface le footer", "vide le fichier", "réduis la taille du texte",
-            "retire le titre", "réécris tout en plus court", "remplace tout par une version simple",
-            "nettoie le code", "repars de zero", "fais le jeu from scratch"
-        ).forEach { assertTrue(it, ProtectionFichiers.reductionVoulue(it)) }
+            "Recommence à zéro", "refais tout", "réécris tout en plus court",
+            "remplace tout par une version simple", "repars de zero", "fais le jeu from scratch",
+            "il faut tout refaire"
+        ).forEach {
+            assertTrue(it, ProtectionFichiers.reductionVoulue(it, "index.html"))
+            assertTrue(it, ProtectionFichiers.reductionVoulue(it, "css/style.css"))
+        }
+    }
+
+    @Test fun requestsToRemoveSomethingWithoutNamingAFileAllowTheMainFiles() {
+        listOf(
+            "supprime le menu", "Enlève la section contact", "simplifie la page", "Efface le footer",
+            "vide le fichier", "réduis la taille du texte", "retire le titre", "nettoie le code"
+        ).forEach { assertTrue(it, ProtectionFichiers.reductionVoulue(it, "index.html")) }
+    }
+
+    @Test fun removingFromOneNamedFileDoesNotAllowShrinkingTheOthers() {
+        assertTrue(ProtectionFichiers.reductionVoulue("vide README.md", "README.md"))
+        assertFalse(ProtectionFichiers.reductionVoulue("vide README.md", "index.html"))
+        val demande = "vide README.md puis corrige index.html"
+        assertTrue(ProtectionFichiers.reductionVoulue(demande, "README.md"))
+        assertFalse(ProtectionFichiers.reductionVoulue(demande, "index.html"))
+        val deux = "supprime le bouton de index.html et ajoute une page contact.html"
+        assertTrue(ProtectionFichiers.reductionVoulue(deux, "index.html"))
+        assertFalse(ProtectionFichiers.reductionVoulue(deux, "contact.html"))
+        assertTrue(ProtectionFichiers.reductionVoulue("enlève le titre dans css/style.css", "css/style.css"))
+        assertFalse(ProtectionFichiers.reductionVoulue("enlève le titre dans css/style.css", "js/app.js"))
     }
 
     @Test fun ordinaryRequestsDoNotAllowShrinking() {
@@ -37,7 +59,7 @@ class ProtectionFichiersTest {
             "ajoute un bouton rouge", "change la couleur du titre", "fais un jeu avec des vidéos",
             "Refais le menu", "ajoute une page contact", "corrige le bug du score",
             "mets un fond noir", "écris la commande que je tape"
-        ).forEach { assertFalse(it, ProtectionFichiers.reductionVoulue(it)) }
+        ).forEach { assertFalse(it, ProtectionFichiers.reductionVoulue(it, "index.html")) }
     }
 
     private val fichiers = listOf(

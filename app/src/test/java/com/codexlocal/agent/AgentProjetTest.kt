@@ -384,7 +384,7 @@ class AgentProjetTest {
             ActionsFichiers.extraire("=== FICHIER: index.html ===\nsimple\n=== FIN ==="),
             ignorerIncomplets = false,
             connus = mapOf("index.html" to FichiersConnus.empreinte(gros)),
-            reductionPermise = true
+            reductionPermise = { true }
         )
         assertEquals(listOf("index.html"), bilan.modifies)
         assertEquals("simple\n", File(p.uri, "index.html").readText())
@@ -485,5 +485,25 @@ class AgentProjetTest {
         File(p.uri, "long.txt").writeText("é".repeat(AgentProjet.MAX_CARACTERES_LECTURE + 1))
         val apercu = AgentProjet.apercuFichiers(ctx, p, "modifie long.txt", 100_000)
         assertFalse(apercu.connus.containsKey("long.txt"))
+    }
+
+    @Test fun theShrinkPermissionIsPerFile() {
+        val p = projet()
+        val gros = "ligne de code\n".repeat(100)
+        File(p.uri, "a.html").writeText(gros)
+        File(p.uri, "b.html").writeText(gros)
+        val bilan = AgentProjet.appliquer(
+            ctx, p,
+            ActionsFichiers.extraire(
+                "=== FICHIER: a.html ===\nsimple\n=== FIN ===\n=== FICHIER: b.html ===\nsimple\n=== FIN ==="
+            ),
+            ignorerIncomplets = false,
+            connus = mapOf("a.html" to FichiersConnus.empreinte(gros), "b.html" to FichiersConnus.empreinte(gros)),
+            reductionPermise = { it == "a.html" }
+        )
+        assertEquals(listOf("a.html"), bilan.modifies)
+        assertEquals(1, bilan.ignores.size)
+        assertTrue(bilan.ignores[0].startsWith("b.html"))
+        assertEquals(gros, File(p.uri, "b.html").readText())
     }
 }

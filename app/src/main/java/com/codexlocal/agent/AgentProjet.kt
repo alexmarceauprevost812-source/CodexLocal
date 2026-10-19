@@ -35,7 +35,8 @@ object AgentProjet {
      *
      * Avec [connus], un fichier connu n'est pas non plus remplace par une version beaucoup plus
      * courte ([ProtectionFichiers.reduitTrop]) sauf si [reductionPermise] : l'IA a alors presque
-     * certainement oublie une grande partie du fichier.
+     * certainement oublie une grande partie du fichier. [reductionPermise] dit, pour un chemin, si
+     * la demande de l'utilisateur voulait justement retirer du contenu de ce fichier.
      */
     fun appliquer(
         context: Context,
@@ -43,7 +44,7 @@ object AgentProjet {
         actions: List<ActionFichier>,
         ignorerIncomplets: Boolean,
         connus: Map<String, String>? = null,
-        reductionPermise: Boolean = false
+        reductionPermise: (String) -> Boolean = { false }
     ): Bilan {
         val crees = ArrayList<String>()
         val modifies = ArrayList<String>()
@@ -93,7 +94,7 @@ object AgentProjet {
         projet: Projet,
         action: ActionFichier.Ecrire,
         connus: Map<String, String>?,
-        reductionPermise: Boolean,
+        reductionPermise: (String) -> Boolean,
         crees: MutableList<String>,
         modifies: MutableList<String>,
         proteges: MutableList<String>,
@@ -124,7 +125,9 @@ object AgentProjet {
             }
             return
         }
-        if (connus != null && !reductionPermise && ProtectionFichiers.reduitTrop(ancien, action.contenu)) {
+        if (connus != null && !reductionPermise(existant.chemin) &&
+            ProtectionFichiers.reduitTrop(ancien, action.contenu)
+        ) {
             ignores.add(
                 "${existant.chemin} (la nouvelle version est beaucoup plus courte : ${ancien.length} → " +
                     "${action.contenu.length} caractères. Rien n'a été remplacé pour ne rien perdre : " +
