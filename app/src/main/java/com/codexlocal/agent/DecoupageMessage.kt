@@ -7,6 +7,9 @@ sealed interface BlocMessage {
 
     data class Texte(val texte: String) : BlocMessage
 
+    /** Le raisonnement d'un modele « qui reflechit » : seulement son nombre de mots est affiche. */
+    data class Reflexion(val mots: Int, val enCours: Boolean) : BlocMessage
+
     /**
      * Du code, avec le titre (nom du fichier) quand on le connait. [ferme] est faux tant que
      * la fin du bloc n'est pas arrivee (reponse encore en cours, ou coupee).
@@ -29,6 +32,15 @@ object DecoupageMessage {
     private val ouvertureBloc = Regex("""^\s*```+(.*)$""")
 
     fun decouper(reponse: String): List<BlocMessage> {
+        val coupe = Reflexion.separer(reponse)
+        if (coupe.reflexion == null) return decouperReponse(reponse)
+        val blocs = ArrayList<BlocMessage>()
+        blocs.add(BlocMessage.Reflexion(Reflexion.mots(coupe.reflexion), coupe.enCours))
+        blocs.addAll(decouperReponse(coupe.reponse).filterNot { it is BlocMessage.Texte && it.texte.isBlank() })
+        return blocs
+    }
+
+    private fun decouperReponse(reponse: String): List<BlocMessage> {
         val blocs = ArrayList<BlocMessage>()
         val texte = ArrayList<String>()
 

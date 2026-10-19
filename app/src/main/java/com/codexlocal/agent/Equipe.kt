@@ -38,6 +38,24 @@ object AgentPrompts {
             "telephone (balise viewport, gros boutons). Les images deja ajoutees au projet sont " +
             "listees avec leur nom exact entre crochets : utilise-les telles quelles."
 
+    /**
+     * Rappel colle a la fin de CHAQUE message de l'utilisateur en mode Codex : les petits modeles
+     * oublient les consignes du debut, mais suivent la derniere phrase.
+     */
+    const val RAPPEL_FICHIERS =
+        "(Consigne : si je te demande de creer ou de modifier quelque chose, n'explique pas " +
+            "comment faire : ecris directement les fichiers complets, chacun ainsi : " +
+            "=== FICHIER: nom.ext === puis son contenu puis === FIN ===. Sinon reponds normalement.)"
+
+    /** Message envoye une seule fois quand l'IA a seulement parle au lieu d'ecrire les fichiers. */
+    const val RELANCE_FICHIERS =
+        "Tu as seulement explique. Ne m'explique rien : ecris maintenant les fichiers complets, " +
+            "un par un, chacun exactement ainsi :\n" +
+            "=== FICHIER: index.html ===\n" +
+            "(contenu complet du fichier)\n" +
+            "=== FIN ===\n" +
+            "Commence directement par === FICHIER: suivi du nom du premier fichier."
+
     /** Sans projet ouvert, l'equipe donne le code dans la conversation. */
     const val SANS_PROJET =
         "Aucun projet n'est ouvert : donne chaque fichier dans un bloc avec triple backquote, " +

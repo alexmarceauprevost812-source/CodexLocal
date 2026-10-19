@@ -25,6 +25,7 @@ import com.codexlocal.agent.ActionsFichiers
 import com.codexlocal.agent.AgentProjet
 import com.codexlocal.agent.Annulation
 import com.codexlocal.agent.Bilan
+import com.codexlocal.agent.DemandeCreation
 import com.codexlocal.agent.AgentPrompts
 import com.codexlocal.agent.Equipe
 import com.codexlocal.agent.NommageIA
@@ -939,14 +940,17 @@ class MainActivity : AppCompatActivity() {
         val projetDepart = if (codex) projetActif else null
         var projet = projetDepart
         val cfg = if (codex) avecActionsFichiers(base) else base
-        if (projetDepart != null) {
-            val contexte = withContext(Dispatchers.IO) {
-                AgentProjet.contexteProjet(this@MainActivity, projetDepart)
+        if (codex) {
+            val contexte = projetDepart?.let { p ->
+                withContext(Dispatchers.IO) { AgentProjet.contexteProjet(this@MainActivity, p) }
             }
-            user.envoi = contexte + "\n\n" + user.content
+            // Le rappel de fin de message : les petits modeles suivent la derniere phrase, pas le debut.
+            user.envoi = (if (contexte != null) contexte + "\n\n" else "") + user.content +
+                "\n\n" + AgentPrompts.RAPPEL_FICHIERS
         }
 
         var tours = 0
+        var relance = false
         while (true) {
             val assistant = Message.assistant()
             messages.add(assistant)
@@ -961,6 +965,17 @@ class MainActivity : AppCompatActivity() {
             if (!codex) return
 
             var actions = ActionsFichiers.extraire(assistant.content)
+            // L'IA a seulement parle alors qu'on lui demandait de creer quelque chose : une seule relance.
+            if (!relance && DemandeCreation.estUneDemande(user.content) &&
+                actions.none { it is ActionFichier.Ecrire || it is ActionFichier.SansNom || it is ActionFichier.Lire }
+            ) {
+                relance = true
+                val suite = Message.user(getString(R.string.agent_relance))
+                suite.envoi = AgentPrompts.RELANCE_FICHIERS
+                messages.add(suite)
+                adapter.notifyItemInserted(messages.size - 1)
+                continue
+            }
             // Du code sans nom de fichier : l'IA choisit le nom, qui devient le titre du fichier.
             val sansNom = actions.filterIsInstance<ActionFichier.SansNom>()
             if (sansNom.isNotEmpty()) {
@@ -1076,7 +1091,7 @@ class MainActivity : AppCompatActivity() {
     private fun avecActionsFichiers(base: AppConfig) = base.copy(
         systemPrompt = base.systemPrompt + "\n\n" + AgentPrompts.FICHIERS,
         maxTokens = base.maxTokens.coerceAtLeast(
-            if (base.provider == ProviderType.LOCAL) 2048 else 4096
+            if (base.provider == ProviderType.LOCAL) 3072 else 4096
         )
     )
 
