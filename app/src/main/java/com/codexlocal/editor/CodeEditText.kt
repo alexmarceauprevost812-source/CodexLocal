@@ -6,8 +6,6 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.text.Editable
 import android.text.TextWatcher
-import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
 import android.util.AttributeSet
 import android.view.inputmethod.BaseInputConnection
 import androidx.appcompat.widget.AppCompatEditText
@@ -71,14 +69,12 @@ class CodeEditText @JvmOverloads constructor(
 
     private fun colorer() {
         val editable = text ?: return
-        if (editable.isEmpty() || editable.length > 120_000) return
+        if (editable.isEmpty()) return
         // on ne touche pas au texte pendant que le clavier compose (accents, prediction)
         if (BaseInputConnection.getComposingSpanStart(editable) != -1) return
 
-        editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
-            .forEach { editable.removeSpan(it) }
-        editable.getSpans(0, editable.length, StyleSpan::class.java)
-            .forEach { editable.removeSpan(it) }
+        // seules nos propres couleurs sont retirees : celles d'autres sources restent
+        SyntaxHighlighter.effacer(editable)
         SyntaxHighlighter.colorize(editable, 0, editable.toString(), langage)
     }
 

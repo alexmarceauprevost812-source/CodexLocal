@@ -80,11 +80,12 @@ object Langages {
         "cs" to "csharp", "go" to "go", "rs" to "rust", "rb" to "ruby",
         "php" to "php", "swift" to "swift", "dart" to "dart",
         "sh" to "bash", "bash" to "bash", "zsh" to "bash", "ps1" to "powershell",
-        "html" to "xml", "htm" to "xml", "xml" to "xml", "svg" to "xml",
+        "html" to "html", "htm" to "html", "xml" to "xml", "svg" to "xml",
         "yml" to "yaml", "yaml" to "yaml", "toml" to "toml",
         "ini" to "ini", "cfg" to "ini", "conf" to "ini", "properties" to "ini",
-        "sh2" to "bash", "sql" to "sql", "gradle" to "kotlin", "cmake" to "cmake",
-        "dockerfile" to "bash", "makefile" to "makefile"
+        "sh2" to "bash", "sql" to "sql", "gradle" to "groovy", "cmake" to "cmake",
+        "dockerfile" to "dockerfile", "makefile" to "makefile",
+        "gitignore" to "plain", "dockerignore" to "plain", "gitattributes" to "plain"
     )
 
     private val extensionsTexte = parExtension.keys + setOf(
@@ -105,10 +106,20 @@ object Langages {
         return l("Fichier", 0xFF8C8C8C, if (ext.isEmpty()) "?" else ext.take(4))
     }
 
-    /** Langage au sens du colorateur syntaxique. */
+    /**
+     * Langage au sens du colorateur syntaxique. Les fichiers connus par leur nom
+     * (Dockerfile, Makefile, CMakeLists.txt) passent avant l'extension ; une extension
+     * inconnue est rendue telle quelle : le colorateur sait lire d'autres noms (md, scss, vue, lua...).
+     */
     fun pourColoration(nomFichier: String): String {
         val nom = nomFichier.substringAfterLast('/')
-        val ext = nom.substringAfterLast('.', "").lowercase()
+        val bas = nom.lowercase()
+        when {
+            bas == "dockerfile" || bas.startsWith("dockerfile.") -> return "dockerfile"
+            bas == "makefile" || bas == "gnumakefile" -> return "makefile"
+            bas == "cmakelists.txt" -> return "cmake"
+        }
+        val ext = bas.substringAfterLast('.', "")
         return langageColoration[ext] ?: ext
     }
 

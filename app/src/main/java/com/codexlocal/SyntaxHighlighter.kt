@@ -3,205 +3,127 @@ package com.codexlocal
 import android.graphics.Typeface
 import android.text.Spannable
 import android.text.Spanned
+import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
-import java.util.Locale
+import com.codexlocal.coloration.AnalyseurCode
+import com.codexlocal.coloration.CouleursCode
+import com.codexlocal.coloration.Genre
+import com.codexlocal.coloration.Jeton
 
 /**
- * Coloration syntaxique maison, sans dependance externe.
+ * Coloration du code a l'ecran (editeur et blocs de code du chat).
  *
- * Principe : une grosse expression reguliere a groupes nommes reconnait les
- * commentaires, chaines, nombres, annotations, mots et ponctuation ; chaque
- * famille recoit une couleur. Le langage est deduit de l'etiquette du bloc
- * de code (```kotlin, ```python, ...).
+ * [AnalyseurCode] lit le texte et dit ce que chaque morceau est (mot-cle, chaine, fonction, couleur...) ;
+ * ici on transforme ce « genre » en couleur et en style, puis on pose les spans sur un texte deja affiche :
+ * `colorize(sb, offset, code, lang)`.
  *
- * Le rendu se fait en ajoutant des spans a un SpannableStringBuilder deja
- * rempli : `colorize(sb, offset, code, lang)`.
+ * Les spans posees sont de nos propres classes : [effacer] ne retire que celles-la et laisse intactes
+ * celles d'autres sources (selection, correcteur...).
  */
 object SyntaxHighlighter {
 
-    // ------------------------------------------------------------------ couleurs
-    private const val C_KEYWORD = 0xFFFF9A3D.toInt()
-    private const val C_STRING = 0xFF9ECE6A.toInt()
+    /** Couleur de texte posee par la coloration. */
+    class CouleurCode(couleur: Int) : ForegroundColorSpan(couleur)
+
+    /** Gras ou italique pose par la coloration. */
+    class StyleCode(style: Int) : StyleSpan(style)
+
+    /** Pastille derriere une couleur ecrite dans le code (#FF9A3D, rgb(...)). */
+    class PastilleCode(couleur: Int) : BackgroundColorSpan(couleur)
+
+    // ------------------------------------------------------------------ palette (fond sombre)
     private const val C_COMMENT = 0xFF6B7280.toInt()
+    private const val C_STRING = 0xFF9ECE6A.toInt()
+    private const val C_ESCAPE = 0xFF89DDFF.toInt()
     private const val C_NUMBER = 0xFFFFC777.toInt()
-    private const val C_FUNCTION = 0xFF7AA2F7.toInt()
+    private const val C_KEYWORD = 0xFFFF9A3D.toInt()
+    private const val C_CONSTANT = 0xFFFF757F.toInt()
     private const val C_TYPE = 0xFF2AC3DE.toInt()
+    private const val C_FUNCTION = 0xFF7AA2F7.toInt()
+    private const val C_DECLARATION = 0xFFFFD866.toInt()
+    private const val C_PROPERTY = 0xFF73DACA.toInt()
+    private const val C_BUILTIN = 0xFF7DCFFF.toInt()
     private const val C_ANNOTATION = 0xFFBB9AF7.toInt()
+    private const val C_VARIABLE = 0xFFFF9E64.toInt()
+    private const val C_OPERATOR = 0xFFC0CAF5.toInt()
     private const val C_PUNCT = 0xFF9AA5B1.toInt()
+    private const val C_PAREN_1 = 0xFFFFD866.toInt()
+    private const val C_PAREN_2 = 0xFFC792EA.toInt()
+    private const val C_PAREN_3 = 0xFF4FC3F7.toInt()
     private const val C_TAG = 0xFFFF7A00.toInt()
     private const val C_ATTR = 0xFF2AC3DE.toInt()
+    private const val C_KEY = 0xFF73DACA.toInt()
+    private const val C_SELECTOR = 0xFFE0AF68.toInt()
+    private const val C_HEADING = 0xFFFF9A3D.toInt()
+    private const val C_LINK = 0xFF7AA2F7.toInt()
 
-    /** Au-dela, on ne colore pas : on garde l'affichage instantane. */
-    private const val MAX_LENGTH = 24_000
+    /** Couleur d'un genre, ou 0 pour « couleur normale ». */
+    internal fun couleurDe(genre: Genre): Int = when (genre) {
+        Genre.COMMENTAIRE -> C_COMMENT
+        Genre.TEXTE -> C_STRING
+        Genre.ECHAPPEMENT -> C_ESCAPE
+        Genre.NOMBRE -> C_NUMBER
+        Genre.MOT_CLE -> C_KEYWORD
+        Genre.CONSTANTE -> C_CONSTANT
+        Genre.TYPE -> C_TYPE
+        Genre.FONCTION -> C_FUNCTION
+        Genre.DECLARATION -> C_DECLARATION
+        Genre.PROPRIETE -> C_PROPERTY
+        Genre.INTEGRE -> C_BUILTIN
+        Genre.ANNOTATION -> C_ANNOTATION
+        Genre.VARIABLE -> C_VARIABLE
+        Genre.OPERATEUR -> C_OPERATOR
+        Genre.PONCTUATION -> C_PUNCT
+        Genre.PAREN_1 -> C_PAREN_1
+        Genre.PAREN_2 -> C_PAREN_2
+        Genre.PAREN_3 -> C_PAREN_3
+        Genre.BALISE -> C_TAG
+        Genre.ATTRIBUT -> C_ATTR
+        Genre.CLE -> C_KEY
+        Genre.SELECTEUR -> C_SELECTOR
+        Genre.TITRE -> C_HEADING
+        Genre.LIEN -> C_LINK
+        Genre.COULEUR -> 0
+    }
 
-    // ------------------------------------------------------------------ expressions
-
-    private const val ALT_STR =
-        """|(?<str>\"\"\"[\s\S]*?\"\"\"|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)"""
-    private const val ALT_NUM =
-        """|(?<num>\b\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?[fFlLuU]*\b|\b0[xX][0-9a-fA-F_]+\b)"""
-    private const val ALT_REST =
-        """|(?<ann>@[A-Za-z_]\w*)|(?<word>[A-Za-z_]\w*)|(?<punct>[{}()\[\];:,.<>=+\-*/%!&|^~?]+)"""
-
-    /** Familles C / Java / Kotlin / JS / Go / Rust... : commentaires // et bloc. */
-    private val RE_C = Regex(
-        """(?<comment>//[^\n]*|/\*[\s\S]*?\*/)""" + ALT_STR + ALT_NUM + ALT_REST
-    )
-
-    /** Python, shell, YAML... : le diese commente. */
-    private val RE_HASH = Regex(
-        """(?<comment>#[^\n]*|//[^\n]*|/\*[\s\S]*?\*/)""" + ALT_STR + ALT_NUM + ALT_REST
-    )
-
-    /** SQL : -- commente. */
-    private val RE_SQL = Regex(
-        """(?<comment>--[^\n]*|/\*[\s\S]*?\*/)""" + ALT_STR + ALT_NUM + ALT_REST
-    )
-
-    /** Balisage XML / HTML. */
-    private val RE_MARKUP = Regex(
-        """(?<comment><!--[\s\S]*?-->)|(?<str>"[^"]*"|'[^']*')""" +
-            """|(?<attr>[A-Za-z_][\w:.\-]*(?=\s*=))""" +
-            """|(?<tag></?[A-Za-z_][\w:.\-]*|/?>)"""
-    )
-
-    // ------------------------------------------------------------------ listes
-
-    private val HASH_LANGS = setOf(
-        "py", "python", "py3", "sh", "bash", "zsh", "shell", "console", "yaml", "yml",
-        "rb", "ruby", "pl", "perl", "r", "toml", "ini", "cfg", "conf", "properties",
-        "dockerfile", "makefile", "ps1", "powershell", "cmake", "gitignore"
-    )
-
-    private val MARKUP_LANGS = setOf("xml", "html", "htm", "svg", "xaml", "vue", "cshtml", "xhtml")
-
-    private val SQL_LANGS = setOf("sql", "mysql", "postgres", "postgresql", "sqlite", "tsql")
-
-    private val KEYWORDS: Set<String> = hashSetOf(
-        // structures / controle
-        "if", "else", "elif", "unless", "then", "fi", "for", "foreach", "while", "do",
-        "switch", "case", "default", "when", "match", "break", "continue", "return",
-        "goto", "yield", "await", "async", "defer", "panic", "recover", "select",
-        "try", "catch", "finally", "except", "raise", "throw", "throws", "assert",
-        // declarations
-        "fun", "func", "function", "fn", "def", "lambda", "val", "var", "let", "const",
-        "class", "struct", "interface", "trait", "enum", "object", "record", "type",
-        "typealias", "namespace", "module", "package", "import", "from", "export",
-        "require", "include", "using", "use", "mod", "crate", "pub", "new", "delete",
-        "init", "constructor", "companion", "extension", "protocol", "impl", "dyn",
-        // modificateurs
-        "public", "private", "protected", "internal", "static", "final", "abstract",
-        "sealed", "open", "override", "virtual", "inline", "noinline", "crossinline",
-        "reified", "suspend", "lateinit", "const", "mutable", "volatile", "transient",
-        "synchronized", "native", "explicit", "extern", "register", "auto", "friend",
-        "operator", "infix", "tailrec", "vararg", "out", "in", "as", "is", "where",
-        "actual", "expect", "unsafe", "mut", "ref", "value", "data", "annotation",
-        // types
-        "void", "int", "long", "short", "byte", "char", "float", "double", "boolean",
-        "bool", "string", "String", "any", "Any", "dynamic", "size_t", "unsigned",
-        "signed", "struct", "union", "typedef", "typename", "template", "sizeof",
-        // litteraux / valeurs
-        "true", "false", "null", "nil", "None", "True", "False", "undefined", "NaN",
-        "Infinity", "this", "self", "super", "base", "parent",
-        // divers
-        "with", "without", "pass", "global", "nonlocal", "and", "or", "not", "is",
-        "instanceof", "typeof", "extends", "implements", "interface", "package",
-        "print", "echo", "puts", "printf", "range", "len", "local", "end", "begin",
-        // SQL (minuscules : la comparaison est insensible a la casse pour SQL)
-        "select", "insert", "update", "delete", "create", "alter", "drop", "table",
-        "index", "view", "join", "inner", "left", "right", "outer", "full", "cross",
-        "on", "group", "order", "by", "having", "limit", "offset", "distinct", "union",
-        "all", "exists", "between", "like", "asc", "desc", "into", "values", "set",
-        "primary", "key", "foreign", "references", "constraint", "unique", "not",
-        "and", "or", "null", "is", "as", "count", "sum", "avg", "min", "max", "case",
-        "when", "then", "else", "end", "begin", "commit", "rollback", "transaction"
-    )
+    /** Style d'un genre : gras pour ce qui structure, italique pour les commentaires. */
+    internal fun styleDe(genre: Genre): Int = when (genre) {
+        Genre.COMMENTAIRE -> Typeface.ITALIC
+        Genre.MOT_CLE, Genre.DECLARATION, Genre.BALISE, Genre.TITRE -> Typeface.BOLD
+        else -> Typeface.NORMAL
+    }
 
     // ------------------------------------------------------------------ API
 
-    /**
-     * Colore le texte `code` deja present dans [sb] a partir de [offset].
-     */
+    /** Colore le texte [code], deja present dans [sb] a partir de [offset]. */
     fun colorize(sb: Spannable, offset: Int, code: String, lang: String) {
-        if (code.length > MAX_LENGTH || code.isEmpty()) return
-        val l = lang.trim().lowercase(Locale.US).substringBefore(' ')
+        for (jeton in AnalyseurCode.analyser(code, lang)) appliquer(sb, offset, jeton)
+    }
 
-        when {
-            l in MARKUP_LANGS -> colorizeMarkup(sb, offset, code)
-            l in SQL_LANGS -> colorizeGeneric(sb, offset, code, RE_SQL, foldCase = true)
-            l in HASH_LANGS -> colorizeGeneric(sb, offset, code, RE_HASH, foldCase = false)
-            else -> colorizeGeneric(sb, offset, code, RE_C, foldCase = false)
-        }
+    /** Retire toutes les spans posees par [colorize] (et seulement celles-la). */
+    fun effacer(sb: Spannable) {
+        sb.getSpans(0, sb.length, CouleurCode::class.java).forEach { sb.removeSpan(it) }
+        sb.getSpans(0, sb.length, StyleCode::class.java).forEach { sb.removeSpan(it) }
+        sb.getSpans(0, sb.length, PastilleCode::class.java).forEach { sb.removeSpan(it) }
     }
 
     // ------------------------------------------------------------------ interne
 
-    private fun colorizeGeneric(
-        sb: Spannable,
-        offset: Int,
-        code: String,
-        regex: Regex,
-        foldCase: Boolean
-    ) {
-        for (m in regex.findAll(code)) {
-            val g = m.groups
-            val start = offset + m.range.first
-            val end = offset + m.range.last + 1
-            when {
-                g["comment"] != null -> span(sb, start, end, C_COMMENT, italic = true)
-                g["str"] != null -> span(sb, start, end, C_STRING)
-                g["num"] != null -> span(sb, start, end, C_NUMBER)
-                g["ann"] != null -> span(sb, start, end, C_ANNOTATION)
-                g["punct"] != null -> span(sb, start, end, C_PUNCT)
-                g["word"] != null -> {
-                    val w = m.value
-                    val isKeyword = w in KEYWORDS ||
-                        (foldCase && w.lowercase(Locale.US) in KEYWORDS)
-                    when {
-                        isKeyword -> span(sb, start, end, C_KEYWORD, bold = true)
-                        w.length > 1 && w[0].isUpperCase() -> span(sb, start, end, C_TYPE)
-                        isCall(sb, end) -> span(sb, start, end, C_FUNCTION)
-                    }
-                }
-            }
+    private fun appliquer(sb: Spannable, offset: Int, jeton: Jeton) {
+        val debut = offset + jeton.debut
+        val fin = offset + jeton.fin
+        if (debut < 0 || fin > sb.length || debut >= fin) return
+        if (jeton.genre == Genre.COULEUR) {
+            // la couleur ecrite dans le code sert de fond, et le texte passe en noir ou blanc pour rester lisible
+            sb.setSpan(PastilleCode(jeton.couleur), debut, fin, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.setSpan(CouleurCode(CouleursCode.texteSur(jeton.couleur)), debut, fin, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            return
         }
-    }
-
-    private fun colorizeMarkup(sb: Spannable, offset: Int, code: String) {
-        for (m in RE_MARKUP.findAll(code)) {
-            val g = m.groups
-            val start = offset + m.range.first
-            val end = offset + m.range.last + 1
-            when {
-                g["comment"] != null -> span(sb, start, end, C_COMMENT, italic = true)
-                g["str"] != null -> span(sb, start, end, C_STRING)
-                g["attr"] != null -> span(sb, start, end, C_ATTR)
-                g["tag"] != null -> span(sb, start, end, C_TAG, bold = true)
-            }
-        }
-    }
-
-    /** Vrai si le prochain caractere non blanc est une parenthese ouvrante. */
-    private fun isCall(sb: CharSequence, from: Int): Boolean {
-        var i = from
-        while (i < sb.length && (sb[i] == ' ' || sb[i] == '\t')) i++
-        return i < sb.length && sb[i] == '('
-    }
-
-    private fun span(
-        sb: Spannable,
-        start: Int,
-        end: Int,
-        color: Int,
-        bold: Boolean = false,
-        italic: Boolean = false
-    ) {
-        if (start < 0 || end > sb.length || start >= end) return
-        sb.setSpan(ForegroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        if (bold || italic) {
-            val style = (if (bold) Typeface.BOLD else 0) or (if (italic) Typeface.ITALIC else 0)
-            sb.setSpan(StyleSpan(style), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(CouleurCode(couleurDe(jeton.genre)), debut, fin, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val style = styleDe(jeton.genre)
+        if (style != Typeface.NORMAL) {
+            sb.setSpan(StyleCode(style), debut, fin, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 }
