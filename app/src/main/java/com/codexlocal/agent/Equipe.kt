@@ -15,7 +15,8 @@ object AgentPrompts {
             "=== FICHIER: chemin/relatif.ext ===\n" +
             "(le contenu complet du fichier)\n" +
             "=== FIN ===\n" +
-            "Exemple avec deux fichiers :\n" +
+            "Exemple avec deux fichiers (il montre seulement le FORMAT : ne le recopie pas, " +
+            "ecris le vrai contenu demande) :\n" +
             "=== FICHIER: index.html ===\n" +
             "<!DOCTYPE html>\n" +
             "<html><head><link rel=\"stylesheet\" href=\"css/style.css\"></head>\n" +
@@ -39,19 +40,34 @@ object AgentPrompts {
             "listees avec leur nom exact entre crochets : utilise-les telles quelles."
 
     /**
+     * Consignes du mode Codex : les fichiers + la protection des fichiers existants (en dernier,
+     * les petits modeles suivent surtout la fin). L'equipe, elle, ne relit pas de fichiers : elle
+     * garde [FICHIERS] seul.
+     */
+    const val FICHIERS_CODEX = FICHIERS + "\n" +
+        "IMPORTANT : un fichier qui existe deja dans le projet ne se remplace JAMAIS de memoire " +
+        "(ce qu'il contient serait perdu). Avant de le modifier, ecris seule sur une ligne " +
+        "=== LIRE: chemin/relatif.ext === puis arrete-toi : son contenu te sera envoye. Un " +
+        "fichier que tu viens d'ecrire toi-meme dans cette conversation peut etre reecrit " +
+        "directement. N'ecris QUE les fichiers qui changent, jamais les autres."
+
+    /**
      * Rappel colle a la fin de CHAQUE message de l'utilisateur en mode Codex : les petits modeles
      * oublient les consignes du debut, mais suivent la derniere phrase.
      */
     const val RAPPEL_FICHIERS =
-        "(Consigne : si je te demande de creer ou de modifier quelque chose, n'explique pas " +
-            "comment faire : ecris directement les fichiers complets, chacun ainsi : " +
-            "=== FICHIER: nom.ext === puis son contenu puis === FIN ===. Sinon reponds normalement.)"
+        "(Consigne : si je te demande de creer quelque chose, n'explique pas comment faire : " +
+            "ecris directement les fichiers complets, chacun ainsi : " +
+            "=== FICHIER: nom.ext === puis son contenu puis === FIN ===. Pour MODIFIER un " +
+            "fichier du projet que tu n'as pas ecrit toi-meme dans cette conversation, lis-le " +
+            "d'abord : ecris seule sur une ligne === LIRE: nom.ext === et arrete-toi. " +
+            "N'ecris que les fichiers qui changent. Sinon reponds normalement.)"
 
     /** Message envoye une seule fois quand l'IA a seulement parle au lieu d'ecrire les fichiers. */
     const val RELANCE_FICHIERS =
         "Tu as seulement explique. Ne m'explique rien : ecris maintenant les fichiers complets, " +
             "un par un, chacun exactement ainsi :\n" +
-            "=== FICHIER: index.html ===\n" +
+            "=== FICHIER: nom.ext ===\n" +
             "(contenu complet du fichier)\n" +
             "=== FIN ===\n" +
             "Commence directement par === FICHIER: suivi du nom du premier fichier."

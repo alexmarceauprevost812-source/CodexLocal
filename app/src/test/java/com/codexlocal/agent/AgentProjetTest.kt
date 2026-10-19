@@ -178,4 +178,184 @@ class AgentProjetTest {
         assertEquals(listOf("main_2.py"), bilan.crees)
         assertEquals("precieux\n", File(p.uri, "main.py").readText())
     }
+
+    // ------------------------------------------- fichiers existants que l'IA n'a pas lus
+
+    private fun appliquerAvecConnus(p: Projet, reponse: String, connus: Map<String, String>) =
+        AgentProjet.appliquer(ctx, p, ActionsFichiers.extraire(reponse), ignorerIncomplets = false, connus = connus)
+
+    @Test fun existingFileTheAiHasNotSeenIsKeptAndShownBack() {
+        val p = projet()
+        File(p.uri, "index.html").writeText("<h1>Mon site</h1>\n")
+        val bilan = appliquerAvecConnus(
+            p, "=== FICHIER: index.html ===\n<h1>Bonjour</h1>\n=== FIN ===", emptyMap()
+        )
+        assertEquals("<h1>Mon site</h1>\n", File(p.uri, "index.html").readText())
+        assertTrue(bilan.crees.isEmpty() && bilan.modifies.isEmpty() && bilan.annulations.isEmpty())
+        assertEquals(listOf("index.html"), bilan.proteges)
+        assertEquals(1, bilan.lectures.size)
+        assertEquals("index.html", bilan.lectures[0].chemin)
+        assertEquals("<h1>Mon site</h1>\n", bilan.lectures[0].texte)
+        assertTrue(bilan.texteLectures().contains("n'a PAS été remplacé"))
+        assertTrue(bilan.resume().contains("🔒 Protégé : index.html"))
+    }
+
+    @Test fun fileTheAiHasSeenCanBeReplacedAndUndone() {
+        val p = projet()
+        File(p.uri, "index.html").writeText("avant\n")
+        val bilan = appliquerAvecConnus(
+            p, "=== FICHIER: index.html ===\naprès\n=== FIN ===",
+            mapOf("index.html" to FichiersConnus.empreinte("avant\n"))
+        )
+        assertEquals(listOf("index.html"), bilan.modifies)
+        assertTrue(bilan.proteges.isEmpty() && bilan.lectures.isEmpty())
+        assertEquals("après\n", File(p.uri, "index.html").readText())
+        AgentProjet.annuler(ctx, bilan.annulations)
+        assertEquals("avant\n", File(p.uri, "index.html").readText())
+    }
+
+    @Test fun onlyTheUnseenFilesAreProtectedInAMixedReply() {
+        val p = projet()
+        File(p.uri, "vu.txt").writeText("vu avant\n")
+        File(p.uri, "inconnu.txt").writeText("precieux\n")
+        val bilan = appliquerAvecConnus(
+            p,
+            "=== FICHIER: vu.txt ===\nvu après\n=== FIN ===\n" +
+                "=== FICHIER: inconnu.txt ===\nécrasé\n=== FIN ===\n" +
+                "=== FICHIER: neuf.txt ===\nnouveau\n=== FIN ===",
+            mapOf("vu.txt" to FichiersConnus.empreinte("vu avant\n"))
+        )
+        assertEquals(listOf("neuf.txt"), bilan.crees)
+        assertEquals(listOf("vu.txt"), bilan.modifies)
+        assertEquals(listOf("inconnu.txt"), bilan.proteges)
+        assertEquals("vu après\n", File(p.uri, "vu.txt").readText())
+        assertEquals("precieux\n", File(p.uri, "inconnu.txt").readText())
+        assertEquals("nouveau\n", File(p.uri, "neuf.txt").readText())
+    }
+
+    @Test fun aFileCreatedEarlierInTheSameReplyCanBeWrittenAgain() {
+        val p = projet()
+        val bilan = appliquerAvecConnus(
+            p,
+            "=== FICHIER: neuf.txt ===\npremier\n=== FIN ===\n=== FICHIER: neuf.txt ===\nsecond\n=== FIN ===",
+            emptyMap()
+        )
+        assertTrue(bilan.proteges.isEmpty())
+        assertEquals("second\n", File(p.uri, "neuf.txt").readText())
+    }
+
+    @Test fun readingAndWritingTheSameUnseenFileReadsItOnlyOnce() {
+        val p = projet()
+        File(p.uri, "a.txt").writeText("contenu\n")
+        val bilan = appliquerAvecConnus(
+            p, "=== LIRE: a.txt ===\n=== FICHIER: a.txt ===\nautre\n=== FIN ===", emptyMap()
+        )
+        assertEquals(1, bilan.lectures.size)
+        assertEquals(listOf("a.txt"), bilan.proteges)
+        assertEquals("contenu\n", File(p.uri, "a.txt").readText())
+    }
+
+    @Test fun writingBeforeReadingTheSameFileAlsoReadsItOnlyOnce() {
+        val p = projet()
+        File(p.uri, "a.txt").writeText("contenu\n")
+        val bilan = appliquerAvecConnus(
+            p, "=== FICHIER: a.txt ===\nautre\n=== FIN ===\n=== LIRE: a.txt ===", emptyMap()
+        )
+        assertEquals(1, bilan.lectures.size)
+        assertEquals("contenu\n", File(p.uri, "a.txt").readText())
+    }
+
+    @Test fun aBigFileIsProtectedAndNeverCountsAsFullySeen() {
+        val p = projet()
+        File(p.uri, "gros.js").writeText("x".repeat(AgentProjet.MAX_CARACTERES_LECTURE + 500))
+        val bilan = appliquerAvecConnus(
+            p, "=== FICHIER: gros.js ===\npetit\n=== FIN ===", emptyMap()
+        )
+        assertEquals(listOf("gros.js"), bilan.proteges)
+        assertTrue(bilan.lectures[0].tronque)
+        assertTrue(bilan.lusEnEntier.isEmpty())
+        assertTrue(bilan.texteLectures().contains("NOUVEAU fichier"))
+        assertEquals(AgentProjet.MAX_CARACTERES_LECTURE + 500, File(p.uri, "gros.js").readText().length)
+    }
+
+    @Test fun anExplicitReadIsFullySeenWhenShortEnough() {
+        val p = projet()
+        File(p.uri, "petit.txt").writeText("bonjour\n")
+        val bilan = appliquerAvecConnus(p, "=== LIRE: petit.txt ===", emptyMap())
+        assertEquals(setOf("petit.txt"), bilan.lusEnEntier.keys)
+        assertTrue(bilan.proteges.isEmpty())
+    }
+
+    @Test fun existingBinaryFileIsStillRefusedWithAReason() {
+        val p = projet()
+        File(p.uri, "logo.png").writeBytes(byteArrayOf(1, 2, 3))
+        val bilan = appliquerAvecConnus(p, "=== FICHIER: logo.png ===\nx\n=== FIN ===", emptyMap())
+        assertTrue(bilan.proteges.isEmpty() && bilan.lectures.isEmpty())
+        assertEquals(1, bilan.ignores.size)
+        assertEquals(3, File(p.uri, "logo.png").length().toInt())
+    }
+
+    @Test fun codeBlocksWithATitleAreProtectedToo() {
+        val p = projet()
+        File(p.uri, "index.html").writeText("<p>a moi</p>\n")
+        val bilan = appliquerAvecConnus(
+            p, "**index.html**\n```html\n<p>remplace</p>\n```", emptyMap()
+        )
+        assertEquals(listOf("index.html"), bilan.proteges)
+        assertEquals("<p>a moi</p>\n", File(p.uri, "index.html").readText())
+    }
+
+    @Test fun aFileChangedSinceTheAiSawItIsProtectedAgain() {
+        val p = projet()
+        File(p.uri, "index.html").writeText("version de l'IA\n")
+        val connus = mapOf("index.html" to FichiersConnus.empreinte("version de l'IA\n"))
+        // l'utilisateur la modifie a la main : l'IA ne la connait plus
+        File(p.uri, "index.html").writeText("version de l'IA + mes retouches\n")
+        val bilan = appliquerAvecConnus(p, "=== FICHIER: index.html ===\nreecrit\n=== FIN ===", connus)
+        assertEquals(listOf("index.html"), bilan.proteges)
+        assertEquals("version de l'IA + mes retouches\n", File(p.uri, "index.html").readText())
+        assertEquals("version de l'IA + mes retouches\n", bilan.lectures[0].texte)
+    }
+
+    @Test fun whatTheAiWritesBecomesKnownToTheAi() {
+        val p = projet()
+        File(p.uri, "a.txt").writeText("avant\n")
+        val bilan = appliquerAvecConnus(
+            p,
+            "=== FICHIER: a.txt ===\naprès\n=== FIN ===\n=== FICHIER: b.txt ===\nneuf\n=== FIN ===",
+            mapOf("a.txt" to FichiersConnus.empreinte("avant\n"))
+        )
+        assertEquals(
+            mapOf(
+                "a.txt" to FichiersConnus.empreinte("après\n"),
+                "b.txt" to FichiersConnus.empreinte("neuf\n")
+            ),
+            bilan.ecrits
+        )
+        // et ce qui est connu correspond bien au contenu du disque
+        assertEquals(FichiersConnus.empreinte(File(p.uri, "a.txt").readText()), bilan.ecrits["a.txt"])
+        assertEquals(FichiersConnus.empreinte(File(p.uri, "b.txt").readText()), bilan.ecrits["b.txt"])
+    }
+
+    @Test fun nextTurnCanRewriteWhatWasWrittenTheTurnBefore() {
+        val p = projet()
+        val premier = appliquerAvecConnus(p, "=== FICHIER: jeu.js ===\nlet a = 1;\n=== FIN ===", emptyMap())
+        val second = appliquerAvecConnus(p, "=== FICHIER: jeu.js ===\nlet a = 2;\n=== FIN ===", premier.ecrits)
+        assertTrue(second.proteges.isEmpty())
+        assertEquals(listOf("jeu.js"), second.modifies)
+        assertEquals("let a = 2;\n", File(p.uri, "jeu.js").readText())
+    }
+
+    @Test fun afterAnUndoTheFileIsNoLongerWhatTheAiKnows() {
+        val p = projet()
+        File(p.uri, "a.txt").writeText("original\n")
+        val premier = appliquerAvecConnus(
+            p, "=== FICHIER: a.txt ===\nmodifie\n=== FIN ===",
+            mapOf("a.txt" to FichiersConnus.empreinte("original\n"))
+        )
+        AgentProjet.annuler(ctx, premier.annulations)
+        val second = appliquerAvecConnus(p, "=== FICHIER: a.txt ===\nencore\n=== FIN ===", premier.ecrits)
+        assertEquals(listOf("a.txt"), second.proteges)
+        assertEquals("original\n", File(p.uri, "a.txt").readText())
+    }
 }

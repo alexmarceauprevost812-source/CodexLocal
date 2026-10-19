@@ -74,4 +74,26 @@ class EquipeTest {
         // Le chef et le planificateur n'ecrivent pas de fichiers : pas de regles de fichiers pour eux.
         assertFalse(Role.CHEF.systemPrompt(true).contains("index.html"))
     }
+
+    @Test fun codexPromptProtectsExistingFilesAndEndsWithTheRule() {
+        val prompt = AgentPrompts.FICHIERS_CODEX
+        assertTrue(prompt.startsWith(AgentPrompts.FICHIERS))
+        assertTrue(prompt.endsWith("jamais les autres."))
+        assertTrue(prompt.contains("JAMAIS de memoire") && prompt.contains("=== LIRE:"))
+        assertTrue(prompt.contains("que tu viens d'ecrire toi-meme"))
+    }
+
+    @Test fun theTeamKeepsTheSharedPromptWithoutTheReadFirstRule() {
+        val codeur = Role.CODEUR.systemPrompt(true)
+        assertTrue(codeur.endsWith(AgentPrompts.FICHIERS))
+        assertFalse(codeur.contains("JAMAIS de memoire"))
+    }
+
+    @Test fun reminderAndRetryDoNotPushToRewriteExistingFiles() {
+        assertTrue(AgentPrompts.RAPPEL_FICHIERS.contains("=== LIRE: nom.ext ==="))
+        assertTrue(AgentPrompts.RAPPEL_FICHIERS.contains("MODIFIER"))
+        assertTrue(AgentPrompts.RAPPEL_FICHIERS.contains("N'ecris que les fichiers qui changent"))
+        assertFalse(AgentPrompts.RELANCE_FICHIERS.contains("index.html"))
+        assertTrue(AgentPrompts.RELANCE_FICHIERS.contains("=== FICHIER: nom.ext ==="))
+    }
 }

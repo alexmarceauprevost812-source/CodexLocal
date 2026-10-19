@@ -28,6 +28,7 @@ import com.codexlocal.agent.Bilan
 import com.codexlocal.agent.DemandeCreation
 import com.codexlocal.agent.AgentPrompts
 import com.codexlocal.agent.Equipe
+import com.codexlocal.agent.FichiersConnus
 import com.codexlocal.agent.NommageIA
 import com.codexlocal.agent.PanneauEquipe
 import com.codexlocal.agent.Role
@@ -70,6 +71,9 @@ class MainActivity : AppCompatActivity() {
     private var lastUiUpdate = 0L
     private var isGenerating = false
     private var modelSessionId: String? = null
+
+    /** Les fichiers dont l'IA connait le contenu : elle ne remplace que ceux-la (voir FichiersConnus). */
+    private val fichiersConnus = FichiersConnus()
 
     // ----- boutons de mode (barre du haut) et panneau de l'equipe -----
     private lateinit var boutonChat: TextView
@@ -1062,6 +1066,7 @@ class MainActivity : AppCompatActivity() {
         val codex = mode == AssistantMode.CODEX
         val projetDepart = if (codex) projetActif else null
         var projet = projetDepart
+        if (codex) fichiersConnus.pour(cleConnus(projetDepart))
         val cfg = if (codex) avecActionsFichiers(base) else base
         if (codex) {
             val contexte = projetDepart?.let { p ->
@@ -1083,6 +1088,10 @@ class MainActivity : AppCompatActivity() {
             if (!preparerModele(cfg, repartirDeZero = false)) {
                 retirerMessage(assistant)
                 return
+            }
+            // Memoire du modele local remise a zero : il ne connait plus le contenu d'aucun fichier.
+            if (codex && cfg.provider == ProviderType.LOCAL && LocalEngine.conversationVide) {
+                fichiersConnus.oublier()
             }
             diffuser(assistant, messages.subList(0, messages.size - 1).toList(), cfg)
             if (!codex) return
@@ -1128,6 +1137,7 @@ class MainActivity : AppCompatActivity() {
             // Des fichiers sont ecrits mais aucun projet n'est ouvert : on en cree un tout seul.
             if (projet == null && actions.any { it is ActionFichier.Ecrire }) {
                 projet = projetAutomatique("Codex_", R.string.codex_projet_auto)
+                fichiersConnus.pour(cleConnus(projet))
             }
             if (projet == null) {
                 // rien n'est ecrit sans projet, mais on dit pourquoi quand l'IA a donne du code sans nom
@@ -1142,10 +1152,13 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            val bilan = appliquerActions(projet, assistant, cfg, actions)
+            val bilan = appliquerActions(projet, assistant, cfg, actions, fichiersConnus.instantane())
             annulations += bilan.annulations
+            fichiersConnus.ajouter(bilan.ecrits)
             tours++
             if (bilan.lectures.isEmpty() || tours >= MAX_TOURS_LECTURE) return
+            // Ces fichiers vont etre montres a l'IA : elle pourra les remplacer au prochain tour.
+            fichiersConnus.ajouter(bilan.lusEnEntier)
 
             val suite = Message.user(
                 "📖 Lecture : " + bilan.lectures.joinToString(", ") { it.chemin }
@@ -1212,7 +1225,7 @@ class MainActivity : AppCompatActivity() {
 
     /** Consignes de fichiers ajoutees au prompt, avec de la place pour des fichiers entiers. */
     private fun avecActionsFichiers(base: AppConfig) = base.copy(
-        systemPrompt = base.systemPrompt + "\n\n" + AgentPrompts.FICHIERS,
+        systemPrompt = base.systemPrompt + "\n\n" + AgentPrompts.FICHIERS_CODEX,
         maxTokens = base.maxTokens.coerceAtLeast(
             if (base.provider == ProviderType.LOCAL) 3072 else 4096
         )
@@ -1282,13 +1295,16 @@ class MainActivity : AppCompatActivity() {
         projet: Projet,
         assistant: Message,
         cfg: AppConfig,
-        actions: List<ActionFichier> = ActionsFichiers.extraire(assistant.content)
+        actions: List<ActionFichier> = ActionsFichiers.extraire(assistant.content),
+        connus: Map<String, String>? = null
     ): Bilan {
         if (actions.isEmpty()) return Bilan()
         // Reponse proche de la limite de longueur : un fichier sans "=== FIN ===" est peut-etre coupe.
         val peutEtreCoupee = assistant.content.length >= cfg.maxTokens * 2
         val bilan = withContext(Dispatchers.IO) {
-            AgentProjet.appliquer(this@MainActivity, projet, actions, ignorerIncomplets = peutEtreCoupee)
+            AgentProjet.appliquer(
+                this@MainActivity, projet, actions, ignorerIncomplets = peutEtreCoupee, connus = connus
+            )
         }
         val resume = bilan.resume()
         if (resume.isNotEmpty()) {
@@ -1299,6 +1315,9 @@ class MainActivity : AppCompatActivity() {
         }
         return bilan
     }
+
+    /** Une conversation dans un projet : la liste des fichiers connus de l'IA ne vaut que pour elle. */
+    private fun cleConnus(projet: Projet?): String = (session?.id ?: "") + "|" + (projet?.uri ?: "")
 
     private fun proposerAnnulation(annulations: List<Annulation>) {
         val creations = annulations.count { it.ancien == null }
