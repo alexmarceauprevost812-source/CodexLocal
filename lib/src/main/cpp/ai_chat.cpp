@@ -395,6 +395,9 @@ static bool rebuild_cache(const llama_tokens &keep) {
     return decode_append(keep, true) == 0;
 }
 
+static int g_discards = 0;       // combien de fois de vieux messages ont ete retires de la memoire
+static int g_truncations = 0;    // combien de fois un message trop long a ete coupe en son milieu
+
 /** Les positions des messages apres que [from, to) a ete retire du cache. */
 static void forget_turn_starts(const llama_pos from, const llama_pos to) {
     const llama_pos n = to - from;
@@ -412,6 +415,7 @@ static bool discard_range(const llama_pos from, const llama_pos to) {
     const llama_pos n_discard = to - from;
     if (n_discard <= 0) return true;
     LOGi("%s: Discarding %d tokens [%d, %d)", __func__, (int) n_discard, (int) from, (int) to);
+    g_discards++;
 
     auto *mem = llama_get_memory(g_context);
     if (llama_memory_can_shift(mem) && llama_memory_seq_rm(mem, 0, from, to)) {
@@ -595,6 +599,7 @@ Java_com_codexlocal_engine_internal_InferenceEngineImpl_processUserPrompt(
         cut.insert(cut.end(), marker.begin(), marker.end());
         cut.insert(cut.end(), user_tokens.end() - tail, user_tokens.end());
         LOGw("%s: User prompt too long! Skipped %d tokens!", __func__, user_prompt_size - (int) cut.size());
+        g_truncations++;
         user_tokens.swap(cut);
     }
 
@@ -802,6 +807,22 @@ JNIEXPORT jint JNICALL
 Java_com_codexlocal_engine_internal_InferenceEngineImpl_nativeContextSize(
         JNIEnv * /*unused*/, jobject /*unused*/) {
     return (jint) usable_context();
+}
+
+/** CodexLocal : combien de fois un message trop long a ete coupe en son milieu avant d'etre lu par le modele. */
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_codexlocal_engine_internal_InferenceEngineImpl_nativeTruncationCount(
+        JNIEnv * /*unused*/, jobject /*unused*/) {
+    return (jint) g_truncations;
+}
+
+/** CodexLocal : combien de fois de vieux messages ont ete retires de la memoire du modele (conversation trop longue). */
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_codexlocal_engine_internal_InferenceEngineImpl_nativeDiscardCount(
+        JNIEnv * /*unused*/, jobject /*unused*/) {
+    return (jint) g_discards;
 }
 
 /** CodexLocal : combien de fois la memoire du modele a du etre remise a son point de depart apres un incident. */

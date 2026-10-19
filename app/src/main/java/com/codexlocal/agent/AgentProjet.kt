@@ -1,50 +1,10 @@
 package com.codexlocal.agent
 
 import android.content.Context
-import com.codexlocal.project.FichierProjet
 import com.codexlocal.project.Langages
 import com.codexlocal.project.ImagesProjet
 import com.codexlocal.project.ProjectStore
 import com.codexlocal.project.Projet
-
-/** Pour revenir en arriere : `ancien` vaut null quand le fichier a ete cree. */
-data class Annulation(val fichier: FichierProjet, val ancien: String?)
-
-data class LectureFichier(val chemin: String, val texte: String?, val erreur: String?)
-
-/** Ce qui s'est reellement passe dans le projet pour une reponse de l'IA. */
-data class Bilan(
-    val crees: List<String> = emptyList(),
-    val modifies: List<String> = emptyList(),
-    val ignores: List<String> = emptyList(),
-    val lectures: List<LectureFichier> = emptyList(),
-    val annulations: List<Annulation> = emptyList()
-) {
-    val aEcrit: Boolean get() = crees.isNotEmpty() || modifies.isNotEmpty()
-
-    /** Texte ajoute sous la reponse de l'IA dans le chat. Vide si rien ne s'est passe. */
-    fun resume(): String = buildList {
-        if (crees.isNotEmpty()) add("📁 Créé : " + crees.joinToString(", "))
-        if (modifies.isNotEmpty()) add("✏️ Modifié : " + modifies.joinToString(", "))
-        if (lectures.isNotEmpty()) add("📖 Lu : " + lectures.joinToString(", ") { it.chemin })
-        ignores.forEach { add("⚠️ Ignoré : $it") }
-    }.joinToString("\n")
-
-    /** Message renvoye a l'IA avec le contenu des fichiers qu'elle a demande a lire. */
-    fun texteLectures(): String = buildString {
-        append("Voici le contenu des fichiers demandés.\n")
-        lectures.forEach { l ->
-            append("\n--- Fichier ").append(l.chemin).append(" ---\n")
-            if (l.texte != null) append(l.texte).append('\n') else append("(").append(l.erreur).append(")\n")
-        }
-        append("\nContinue ta tâche avec ces fichiers.")
-    }
-
-    operator fun plus(autre: Bilan) = Bilan(
-        crees + autre.crees, modifies + autre.modifies, ignores + autre.ignores,
-        lectures + autre.lectures, annulations + autre.annulations
-    )
-}
 
 /** Execute dans le projet ce que l'IA demande : creer, ecrire, lire. */
 object AgentProjet {
@@ -53,22 +13,46 @@ object AgentProjet {
     const val MAX_CARACTERES_LECTURE = 12_000
     private const val MAX_FICHIERS_CONTEXTE = 60
 
+    /** Nombre maximal de fichiers examines pour l'apercu de l'equipe (chacun doit etre lu pour compter ses caracteres). */
+    private const val MAX_FICHIERS_APERCU = 60
+
+    private const val INTRODUCTION_APERCU =
+        "Contenu actuel des fichiers du projet (pour en modifier un, réécris-le EN ENTIER " +
+            "en gardant tout ce qui existe) :"
+    private const val FIN_APERCU = "--- Fin des fichiers ---"
+
     /**
      * Applique les actions. Un fichier existant est remplace (l'ancien contenu est garde dans
      * les [Annulation]) ; un bloc possiblement coupe est ignore plutot qu'ecrit a moitie.
      * Aucune exception : chaque probleme devient une ligne dans `ignores`.
+     *
+     * [connus] : ce que l'IA connait des fichiers (chemin -> empreinte du contenu qu'elle a lu ou
+     * ecrit, voir [FichiersConnus]). Quand il est donne, un fichier existant dont le contenu actuel
+     * n'est pas exactement celui-la n'est JAMAIS remplace : l'IA l'ecrivait de memoire et aurait
+     * perdu ce qu'il contient. Il reste tel quel, apparait dans `proteges` et son contenu est
+     * ajoute aux `lectures` pour que l'IA le revoie et recommence en connaissance de cause.
+     * `null` : aucune protection.
+     *
+     * Avec [connus], un fichier connu n'est pas non plus remplace par une version beaucoup plus
+     * courte ([ProtectionFichiers.reduitTrop]) sauf si [reductionPermise] : l'IA a alors presque
+     * certainement oublie une grande partie du fichier. [reductionPermise] dit, pour un chemin, si
+     * la demande de l'utilisateur voulait justement retirer du contenu de ce fichier.
      */
     fun appliquer(
         context: Context,
         projet: Projet,
         actions: List<ActionFichier>,
-        ignorerIncomplets: Boolean
+        ignorerIncomplets: Boolean,
+        connus: Map<String, String>? = null,
+        reductionPermise: (String) -> Boolean = { false }
     ): Bilan {
         val crees = ArrayList<String>()
         val modifies = ArrayList<String>()
         val ignores = ArrayList<String>()
         val lectures = ArrayList<LectureFichier>()
         val annulations = ArrayList<Annulation>()
+        val proteges = ArrayList<String>()
+        val ecrits = LinkedHashMap<String, String>()
 
         for (action in actions) {
             when (action) {
@@ -80,18 +64,24 @@ object AgentProjet {
                             ignores.add("${action.chemin} (contenu vide)")
                         action.contenu.length > MAX_CARACTERES_ECRITURE ->
                             ignores.add("${action.chemin} (fichier trop gros)")
-                        else -> ecrire(context, projet, action, crees, modifies, annulations)
+                        else -> ecrire(
+                            context, projet, action, connus, reductionPermise,
+                            crees, modifies, proteges, lectures, annulations, ecrits, ignores
+                        )
                     }
                 } catch (e: Exception) {
                     // Fonction non suspendante : on peut tout attraper, un probleme sur un
                     // fichier ne doit pas empecher les suivants.
                     ignores.add("${action.chemin} : ${e.message ?: e.toString()}")
                 }
-                is ActionFichier.Lire -> lectures.add(lire(context, projet, action.chemin))
+                is ActionFichier.Lire -> {
+                    val lue = lire(context, projet, action.chemin)
+                    if (lectures.none { it.chemin == lue.chemin }) lectures.add(lue)
+                }
                 is ActionFichier.SansNom -> ignores.add(texteSansNom(action))
             }
         }
-        return Bilan(crees, modifies, ignores, lectures, annulations)
+        return Bilan(crees, modifies, ignores, lectures, annulations, proteges, ecrits)
     }
 
     /** Pourquoi un gros bloc de code sans nom de fichier n'a rien cree. */
@@ -103,19 +93,49 @@ object AgentProjet {
         context: Context,
         projet: Projet,
         action: ActionFichier.Ecrire,
+        connus: Map<String, String>?,
+        reductionPermise: (String) -> Boolean,
         crees: MutableList<String>,
         modifies: MutableList<String>,
-        annulations: MutableList<Annulation>
+        proteges: MutableList<String>,
+        lectures: MutableList<LectureFichier>,
+        annulations: MutableList<Annulation>,
+        ecrits: MutableMap<String, String>,
+        ignores: MutableList<String>
     ) {
         val existant = ProjectStore.trouverFichier(context, projet, action.chemin)
         if (existant == null) {
             val fichier = ProjectStore.creerFichier(context, projet, action.chemin, action.contenu)
             crees.add(fichier.chemin)
             annulations.add(Annulation(fichier, null))
+            ecrits[fichier.chemin] = FichiersConnus.empreinte(action.contenu)
             return
         }
         require(Langages.estTexte(existant.nom)) { "ce n'est pas un fichier texte" }
         val ancien = ProjectStore.lireTexte(context, existant)
+        // L'IA connait le fichier s'il est tel qu'elle l'a lu ou ecrit (ecrit plus haut dans la meme
+        // reponse compris). Change depuis (modifie a la main, annule...) : elle ne le connait plus.
+        val connu = connus == null ||
+            existant.chemin in crees || existant.chemin in modifies ||
+            connus[existant.chemin] == FichiersConnus.empreinte(ancien)
+        if (!connu) {
+            if (existant.chemin !in proteges) proteges.add(existant.chemin)
+            if (lectures.none { it.chemin == existant.chemin }) {
+                lectures.add(lire(context, projet, existant.chemin))
+            }
+            return
+        }
+        if (connus != null && !reductionPermise(existant.chemin) &&
+            ProtectionFichiers.reduitTrop(ancien, action.contenu)
+        ) {
+            ignores.add(
+                "${existant.chemin} (la nouvelle version est beaucoup plus courte : ${ancien.length} → " +
+                    "${action.contenu.length} caractères. Rien n'a été remplacé pour ne rien perdre : " +
+                    "redemande en disant de garder le reste)"
+            )
+            return
+        }
+        ecrits[existant.chemin] = FichiersConnus.empreinte(action.contenu)
         if (ancien == action.contenu) return
         ProjectStore.ecrireTexte(context, existant, action.contenu)
         modifies.add(existant.chemin)
@@ -128,15 +148,49 @@ object AgentProjet {
             LectureFichier(chemin, null, "fichier introuvable")
         } else {
             val texte = ProjectStore.lireTexte(context, fichier)
-            val coupe = if (texte.length > MAX_CARACTERES_LECTURE) {
+            val tronque = texte.length > MAX_CARACTERES_LECTURE
+            val coupe = if (tronque) {
                 texte.take(MAX_CARACTERES_LECTURE) + "\n… (fichier tronqué)"
             } else {
                 texte
             }
-            LectureFichier(chemin, coupe, null)
+            LectureFichier(fichier.chemin, coupe, null, tronque)
         }
     } catch (e: Exception) {
         LectureFichier(chemin, null, e.message ?: "lecture impossible")
+    }
+
+    /**
+     * Le contenu des fichiers a montrer a une IA qui ne peut pas les relire (l'equipe), dans la
+     * limite de [budget] caracteres : d'abord les fichiers que la [demande] nomme, puis index.html,
+     * puis les plus petits. Un fichier trop long ou qui ne tient plus n'est pas montre : l'IA ne le
+     * connait pas et ne pourra pas le remplacer.
+     */
+    fun apercuFichiers(context: Context, projet: Projet, demande: String, budget: Int): ApercuFichiers {
+        // `taille` est en octets, la limite en caracteres : un caractere fait jusqu'a 4 octets en UTF-8,
+        // le vrai controle se fait sur le texte lu.
+        val fichiers = runCatching { ProjectStore.listerFichiers(context, projet) }
+            .getOrDefault(emptyList())
+            .filter { Langages.estTexte(it.nom) && it.taille <= MAX_CARACTERES_LECTURE * 4L }
+        val parChemin = fichiers.associateBy { it.chemin }
+        val ordre = ProtectionFichiers.ordreApercu(
+            fichiers.map { ProtectionFichiers.Candidat(it.chemin, it.taille) }, demande
+        )
+        val connus = LinkedHashMap<String, String>()
+        val corps = StringBuilder()
+        // le budget compte le texte COMPLET : introduction, titre de chaque fichier et conclusion aussi
+        var total = INTRODUCTION_APERCU.length + FIN_APERCU.length
+        for (candidat in ordre.take(MAX_FICHIERS_APERCU)) {
+            val fichier = parChemin[candidat.chemin] ?: continue
+            val texte = runCatching { ProjectStore.lireTexte(context, fichier) }.getOrNull() ?: continue
+            val bloc = "\n--- Fichier ${fichier.chemin} ---\n" + texte + if (texte.endsWith("\n")) "" else "\n"
+            if (texte.length > MAX_CARACTERES_LECTURE || total + bloc.length > budget) continue
+            corps.append(bloc)
+            total += bloc.length
+            connus[fichier.chemin] = FichiersConnus.empreinte(texte)
+        }
+        if (connus.isEmpty()) return ApercuFichiers.VIDE
+        return ApercuFichiers(INTRODUCTION_APERCU + corps + FIN_APERCU, connus)
     }
 
     /** Remet le projet comme avant. Renvoie le nombre de fichiers retablis ou supprimes. */
