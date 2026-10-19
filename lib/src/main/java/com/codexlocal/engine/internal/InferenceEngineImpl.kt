@@ -3,6 +3,7 @@ package com.codexlocal.engine.internal
 import android.content.Context
 import android.util.Log
 import com.codexlocal.engine.InferenceEngine
+import com.codexlocal.engine.PromptRejectedException
 import com.codexlocal.engine.UnsupportedArchitectureException
 import com.codexlocal.engine.internal.InferenceEngineImpl.Companion.getInstance
 import dalvik.annotation.optimization.FastNative
@@ -50,6 +51,9 @@ internal class InferenceEngineImpl private constructor(
     companion object {
         private val TAG = InferenceEngineImpl::class.java.simpleName
 
+        /** Memoire de conversation par defaut (celle du moteur natif), en jetons. */
+        const val DEFAULT_CONTEXT_TOKENS = 8192
+
         @Volatile
         private var instance: InferenceEngine? = null
 
@@ -95,6 +99,18 @@ internal class InferenceEngineImpl private constructor(
     private external fun nativeResetConversation()
 
     @FastNative
+    private external fun nativeSetContextSize(tokens: Int)
+
+    @FastNative
+    private external fun nativeContextUsed(): Int
+
+    @FastNative
+    private external fun nativeContextSize(): Int
+
+    @FastNative
+    private external fun nativeRecoveryCount(): Int
+
+    @FastNative
     private external fun systemInfo(): String
 
     @FastNative
@@ -122,6 +138,10 @@ internal class InferenceEngineImpl private constructor(
     private var _readyForSystemPrompt = false
     @Volatile
     private var _cancelGeneration = false
+
+    /** Taille de memoire de conversation voulue, transmise au moteur juste avant sa preparation. */
+    @Volatile
+    private var _wantedContext = DEFAULT_CONTEXT_TOKENS
 
     /** Vrai tant qu'un modele est charge cote natif (pour ne le liberer qu'une fois). */
     @Volatile
@@ -198,6 +218,7 @@ internal class InferenceEngineImpl private constructor(
                         )
                     }
                 }
+                nativeSetContextSize(_wantedContext)
                 prepare().let {
                     if (it != 0) {
                         // Le modele est deja en memoire : on le libere pour ne pas le garder en vain.
@@ -249,6 +270,20 @@ internal class InferenceEngineImpl private constructor(
             _state.value = InferenceEngine.State.ModelReady
         }
 
+    override fun setContextSize(tokens: Int) {
+        _wantedContext = tokens.coerceAtLeast(DEFAULT_CONTEXT_TOKENS / 2)
+    }
+
+    /** Les compteurs natifs n'existent qu'une fois la bibliotheque chargee. */
+    private fun nativeReady() = _state.value !is InferenceEngine.State.Uninitialized &&
+        _state.value !is InferenceEngine.State.Initializing
+
+    override fun contextUsed(): Int = if (nativeReady() && _modelLoaded) nativeContextUsed() else 0
+
+    override fun contextCapacity(): Int = if (nativeReady() && _modelLoaded) nativeContextSize() else 0
+
+    override fun recoveryCount(): Int = if (nativeReady()) nativeRecoveryCount() else 0
+
     /**
      * Regle l'echantillonnage cote natif.
      */
@@ -287,7 +322,8 @@ internal class InferenceEngineImpl private constructor(
             processUserPrompt(message, predictLength).let { result ->
                 if (result != 0) {
                     Log.e(TAG, "Failed to process user prompt: $result")
-                    return@flow
+                    // Le moteur a remis sa memoire en ordre : il reste utilisable, on ne le bloque pas.
+                    throw PromptRejectedException(result, messageRefuse(result))
                 }
             }
 
@@ -308,12 +344,24 @@ internal class InferenceEngineImpl private constructor(
             Log.i(TAG, "Assistant generation's flow collection cancelled.")
             _state.value = InferenceEngine.State.ModelReady
             throw e
+        } catch (e: PromptRejectedException) {
+            _state.value = InferenceEngine.State.ModelReady
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error during generation!", e)
             _state.value = InferenceEngine.State.Error(e)
             throw e
         }
     }.flowOn(llamaDispatcher)
+
+    private fun messageRefuse(code: Int) = when (code) {
+        1 -> "Les consignes de départ prennent trop de place dans la mémoire du modèle pour lire ce message. " +
+            "Raccourcis-les dans Réglages ou choisis un modèle avec une plus grande mémoire."
+        3 -> "Impossible de libérer assez de mémoire pour ce message. Raccourcis-le puis réessaie : " +
+            "la conversation reste ouverte."
+        else -> "Le moteur n'a pas réussi à lire ce message (erreur de calcul, code $code). " +
+            "La conversation reste ouverte : réessaie."
+    }
 
     /**
      * Benchmark the model

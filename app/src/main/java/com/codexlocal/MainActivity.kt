@@ -218,7 +218,8 @@ class MainActivity : AppCompatActivity() {
                 if (cfg.localModelPath.isBlank()) {
                     getString(R.string.msg_no_model_loaded)
                 } else {
-                    "Local : " + File(cfg.localModelPath).name
+                    "Local : " + File(cfg.localModelPath).name +
+                        (LocalEngine.memoireUtilisee()?.let { " · mémoire $it %" } ?: "")
                 }
             else -> cfg.provider.label + " : " + cfg.model + " · " +
                 CompteurUsage.resume(CompteurUsage(this).etat(cfg.provider))

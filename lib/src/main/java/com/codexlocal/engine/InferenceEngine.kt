@@ -38,7 +38,28 @@ interface InferenceEngine {
     suspend fun resetConversation()
 
     /**
+     * Taille de memoire de conversation voulue, en jetons. A regler avant [loadModel] :
+     * le moteur la plafonne a ce que le modele sait faire et la reduit si la memoire du telephone manque.
+     */
+    fun setContextSize(tokens: Int)
+
+    /** Jetons deja utilises dans la memoire du modele, ou 0 si aucun modele n'est charge. */
+    fun contextUsed(): Int
+
+    /** Jetons que la memoire du modele peut contenir, ou 0 si aucun modele n'est charge. */
+    fun contextCapacity(): Int
+
+    /**
+     * Nombre de fois ou la memoire du modele a du etre remise au point de depart apres un incident
+     * de calcul. Quand ce nombre change, le modele a oublie la conversation en cours.
+     */
+    fun recoveryCount(): Int
+
+    /**
      * Sends a user prompt to the loaded model and returns a Flow of generated tokens.
+     *
+     * @throws PromptRejectedException si le moteur n'a pas pu lire le message : le moteur reste
+     * utilisable et la conversation continue.
      */
     fun sendUserPrompt(message: String, predictLength: Int = DEFAULT_PREDICT_LENGTH): Flow<String>
 
@@ -104,3 +125,9 @@ val State.isModelLoaded: Boolean
  * le message precise ce qu'il faut verifier.
  */
 class UnsupportedArchitectureException(message: String? = null) : Exception(message)
+
+/**
+ * Le moteur n'a pas pu lire un message, mais il est reste sain : la memoire du modele a ete
+ * ramenee au prompt systeme et on peut envoyer le message suivant sans changer de session.
+ */
+class PromptRejectedException(val code: Int, message: String) : Exception(message)
