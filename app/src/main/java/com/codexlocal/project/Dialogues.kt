@@ -4,8 +4,13 @@ import android.app.Activity
 import android.content.DialogInterface
 import android.widget.EditText
 import android.widget.ListView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.codexlocal.R
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Fenêtres de saisie partagées entre l'écran principal et le Studio. */
 object Dialogues {
@@ -121,10 +126,17 @@ object Dialogues {
 
     /**
      * Confirme la suppression d'un projet : un projet interne est efface avec tous ses fichiers,
-     * un dossier du telephone est seulement retire de la liste. `onFait` est appele une fois le
-     * projet supprime ; en cas d'echec un message l'indique.
+     * un dossier du telephone est seulement retire de la liste. `avant` est appele juste avant
+     * l'effacement (pour arreter ce qui travaille dans le projet) ; l'effacement se fait en
+     * arriere-plan, car un projet peut contenir des milliers de fichiers ; `onFait` est ensuite
+     * appele sur l'ecran. En cas d'echec un message l'indique.
      */
-    fun confirmerSuppressionProjet(activity: Activity, projet: Projet, onFait: () -> Unit) {
+    fun confirmerSuppressionProjet(
+        activity: AppCompatActivity,
+        projet: Projet,
+        avant: () -> Unit = {},
+        onFait: () -> Unit
+    ) {
         val interne = projet.interne
         confirmer(
             activity,
@@ -135,18 +147,22 @@ object Dialogues {
             activity.getString(if (interne) R.string.suppr_projet_msg else R.string.suppr_projet_retirer_msg),
             activity.getString(if (interne) R.string.btn_supprimer else R.string.btn_retirer)
         ) {
-            if (ProjectStore.supprimerProjet(activity, projet)) {
-                android.widget.Toast.makeText(
-                    activity,
-                    if (interne) R.string.msg_projet_efface else R.string.msg_projet_supprime,
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-                onFait()
-            } else {
-                android.widget.Toast.makeText(
-                    activity, activity.getString(R.string.msg_suppression_echec, projet.nom),
-                    android.widget.Toast.LENGTH_LONG
-                ).show()
+            avant()
+            activity.lifecycleScope.launch {
+                val ok = withContext(Dispatchers.IO) { ProjectStore.supprimerProjet(activity, projet) }
+                if (ok) {
+                    android.widget.Toast.makeText(
+                        activity,
+                        if (interne) R.string.msg_projet_efface else R.string.msg_projet_supprime,
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    onFait()
+                } else {
+                    android.widget.Toast.makeText(
+                        activity, activity.getString(R.string.msg_suppression_echec, projet.nom),
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
     }

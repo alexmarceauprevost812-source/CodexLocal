@@ -188,6 +188,15 @@ class MainActivity : AppCompatActivity() {
         Updater.reprendreInstallation(this)
         appliquerFond()
         refreshStatus()
+        verifierProjetActif()
+    }
+
+    /** Le projet ouvert a pu etre supprime depuis un autre ecran (Bureau, fiche du projet). */
+    private fun verifierProjetActif() {
+        val actif = projetActif ?: return
+        if (ProjectStore.lister(this).none { it.uri == actif.uri }) {
+            apresSuppressionProjets(setOf(actif.uri))
+        }
     }
 
     /** Fond d'ecran (35 % par defaut) ; le logo d'accueil n'est repete que sur une image perso. */
@@ -779,7 +788,10 @@ class MainActivity : AppCompatActivity() {
     /** Le « ✕ » d'un projet : on demande avant d'effacer. */
     private fun confirmerSuppressionProjet(uri: String) {
         val projet = ProjectStore.lister(this).firstOrNull { it.uri == uri } ?: return
-        Dialogues.confirmerSuppressionProjet(this, projet) { apresSuppressionProjets(setOf(uri)) }
+        Dialogues.confirmerSuppressionProjet(
+            this, projet,
+            avant = { if (projetActif?.uri == uri) stopGeneration() }
+        ) { apresSuppressionProjets(setOf(uri)) }
     }
 
     /** Le « 🗑 » des projets : cocher plusieurs projets, puis confirmer. */
@@ -819,14 +831,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun supprimerProjets(projets: List<Projet>) {
-        val echecs = projets.filterNot { ProjectStore.supprimerProjet(this, it) }
-        val faits = projets.filter { it !in echecs }.map { it.uri }.toSet()
-        apresSuppressionProjets(faits)
-        if (echecs.isNotEmpty()) {
-            Toast.makeText(
-                this, getString(R.string.msg_suppression_echec, echecs.joinToString { it.nom }),
-                Toast.LENGTH_LONG
-            ).show()
+        if (projetActif?.uri in projets.map { it.uri }) stopGeneration()
+        lifecycleScope.launch {
+            // l'effacement des fichiers se fait hors de l'ecran : un projet peut en contenir des milliers
+            val echecs = withContext(Dispatchers.IO) {
+                projets.filterNot { ProjectStore.supprimerProjet(this@MainActivity, it) }
+            }
+            val faits = projets.filter { it !in echecs }.map { it.uri }.toSet()
+            apresSuppressionProjets(faits)
+            if (echecs.isNotEmpty()) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.msg_suppression_echec, echecs.joinToString { it.nom }),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 

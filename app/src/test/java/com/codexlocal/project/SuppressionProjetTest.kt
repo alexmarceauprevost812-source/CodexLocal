@@ -38,6 +38,15 @@ class SuppressionProjetTest {
         return Robolectric.buildActivity(ProjetActivity::class.java, intent).setup().get()
     }
 
+    /** L'effacement se fait en arriere-plan : on laisse le temps de revenir sur l'ecran. */
+    private fun attendre(condition: () -> Boolean) {
+        repeat(200) {
+            shadowOf(Looper.getMainLooper()).idle()
+            if (condition()) return
+            Thread.sleep(25)
+        }
+    }
+
     private fun fenetre(): AlertDialog {
         shadowOf(Looper.getMainLooper()).idle()
         return ShadowDialog.getLatestDialog() as AlertDialog
@@ -103,9 +112,42 @@ class SuppressionProjetTest {
         val d = fenetre()
         assertTrue(File(p.uri).exists())
         d.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
-        shadowOf(Looper.getMainLooper()).idle()
-        assertFalse(File(p.uri).exists())
+        attendre { fait }
         assertTrue(fait)
+        assertFalse(File(p.uri).exists())
+        assertTrue(ProjectStore.lister(ctx).none { it.uri == p.uri })
+    }
+
+    @Test fun theStepBeforeDeletingRunsFirst() {
+        val activite = hote()
+        val p = projetInterne()
+        var avantVu = false
+        var existaitAvant = false
+        var fait = false
+        Dialogues.confirmerSuppressionProjet(
+            activite, p,
+            avant = { avantVu = true; existaitAvant = File(p.uri).exists() }
+        ) { fait = true }
+        fenetre().getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+        attendre { fait }
+        assertTrue(avantVu)
+        assertTrue(existaitAvant)
+        assertTrue(fait)
+    }
+
+    @Test fun aProjectFolderChosenOnThePhoneIsOnlyRemovedFromTheListByTheDialog() {
+        val activite = hote()
+        val dossier = File(ctx.cacheDir, "perso2_" + System.nanoTime()).apply { mkdirs() }
+        File(dossier, "photo.txt").writeText("important")
+        val p = Projet("perso2", dossier.absolutePath, System.currentTimeMillis(), interne = false)
+        ProjectStore.ajouter(ctx, p)
+        var fait = false
+        Dialogues.confirmerSuppressionProjet(activite, p) { fait = true }
+        fenetre().getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+        attendre { fait }
+        assertTrue(fait)
+        assertTrue(ProjectStore.lister(ctx).none { it.uri == p.uri })
+        assertEquals("important", File(dossier, "photo.txt").readText())
     }
 
     @Test fun cancellingKeepsTheProject() {
