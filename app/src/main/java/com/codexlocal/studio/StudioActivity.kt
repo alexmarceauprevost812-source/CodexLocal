@@ -598,6 +598,10 @@ class StudioActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_PROJET_URI = "projet_uri"
+
+        /** Ouvre directement un onglet du Studio (voir MODE_TEST). */
+        const val EXTRA_MODE = "studio_mode"
+        const val MODE_TEST = "test"
         private const val PREFS_STUDIO = "codexlocal_studio"
         private const val CLE_PROJET = "projet"
     }

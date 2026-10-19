@@ -57,6 +57,20 @@
             android:label="@string/studio_titre"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- Bureau : toutes les entrees de menu en icones, comme l'ecran d'accueil d'un telephone -->
+        <activity
+            android:name=".bureau.BureauActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
+            android:exported="false"
+            android:label="@string/bureau_titre" />
+
+        <!-- Vue « projet » facon GitHub : dossiers, fichiers, favori, ajout, modification -->
+        <activity
+            android:name=".projet.ProjetActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
+            android:exported="false"
+            android:label="@string/studio_titre" />
+
         <!-- Permet de passer l'APK telecharge au gestionnaire de paquets Android -->
         <provider
             android:name="androidx.core.content.FileProvider"

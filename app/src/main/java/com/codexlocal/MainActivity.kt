@@ -18,6 +18,8 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.codexlocal.bureau.ActionBureau
+import com.codexlocal.bureau.BureauActivity
 import com.codexlocal.agent.ActionsFichiers
 import com.codexlocal.agent.AgentProjet
 import com.codexlocal.agent.Annulation
@@ -67,6 +69,7 @@ class MainActivity : AppCompatActivity() {
     // ----- boutons de mode (barre du haut) et panneau de l'equipe -----
     private lateinit var boutonChat: TextView
     private lateinit var boutonEquipe: TextView
+    private lateinit var boutonBureau: TextView
     private lateinit var panneauEquipe: PanneauEquipe
 
     // ----- menu lateral : sessions et projets -----
@@ -80,6 +83,13 @@ class MainActivity : AppCompatActivity() {
     private val choisirDossier =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             uri?.let { ajouterProjet(it) }
+        }
+
+    /** Le Bureau renvoie la tuile choisie ; on l'execute ici, comme un appui sur le menu. */
+    private val bureau =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { resultat ->
+            ActionBureau.depuisCle(resultat.data?.getStringExtra(BureauActivity.EXTRA_ACTION))
+                ?.let { executerBureau(it) }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,6 +106,15 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.action_new_chat -> {
                     nouvelleSession(); true
+                }
+                R.id.action_studio -> {
+                    ouvrirStudio(); true
+                }
+                R.id.action_projets -> {
+                    binding.drawerLayout.openDrawer(binding.tiroir); true
+                }
+                R.id.action_ouvrir_dossier -> {
+                    choisirDossier.launch(null); true
                 }
                 R.id.action_settings -> {
                     openSettings(); true
@@ -204,7 +223,11 @@ class MainActivity : AppCompatActivity() {
         boutonChat.contentDescription = getString(R.string.mode_chat)
         boutonEquipe.text = "⛑️"
         boutonEquipe.contentDescription = getString(R.string.mode_equipe)
-        listOf(boutonChat, boutonEquipe).forEach { it.setTextColor(getColor(R.color.white)) }
+        boutonBureau = menu.findItem(R.id.action_bureau).actionView as TextView
+        boutonBureau.text = "🖥️"
+        boutonBureau.contentDescription = getString(R.string.action_bureau)
+        boutonBureau.setOnClickListener { ouvrirBureau() }
+        listOf(boutonChat, boutonEquipe, boutonBureau).forEach { it.setTextColor(getColor(R.color.white)) }
         boutonChat.setOnClickListener { changeMode(basculer(AssistantMode.CHAT)) }
         boutonEquipe.setOnClickListener { changeMode(basculer(AssistantMode.EQUIPE)) }
 
@@ -606,12 +629,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun ouvrirStudio() {
+    private fun ouvrirStudio(mode: String? = null) {
         binding.drawerLayout.closeDrawer(binding.tiroir)
         startActivity(
             Intent(this, StudioActivity::class.java)
                 .putExtra(StudioActivity.EXTRA_PROJET_URI, projetActif?.uri)
+                .putExtra(StudioActivity.EXTRA_MODE, mode)
         )
+    }
+
+    private fun ouvrirBureau() {
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        bureau.launch(Intent(this, BureauActivity::class.java))
+    }
+
+    /** Execute le choix fait dans le Bureau (memes actions que le menu « ⋮ » et le tiroir). */
+    private fun executerBureau(action: ActionBureau) {
+        when (action) {
+            ActionBureau.CODEX -> changeMode(AssistantMode.CODEX)
+            ActionBureau.CHAT -> changeMode(AssistantMode.CHAT)
+            ActionBureau.EQUIPE -> changeMode(AssistantMode.EQUIPE)
+            ActionBureau.STUDIO -> ouvrirStudio()
+            ActionBureau.TESTER -> ouvrirStudio(StudioActivity.MODE_TEST)
+            ActionBureau.PROJETS -> binding.drawerLayout.openDrawer(binding.tiroir)
+            ActionBureau.OUVRIR_DOSSIER -> choisirDossier.launch(null)
+            ActionBureau.NOUVELLE -> nouvelleSession()
+            ActionBureau.REGLAGES -> openSettings()
+            ActionBureau.MISES_A_JOUR -> checkUpdates()
+        }
     }
 
     private fun ouvrirFichier(f: FichierProjet) {

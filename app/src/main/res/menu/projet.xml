@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Comme sur GitHub : étoile (favori), ajouter un fichier, paramètres. -->
+    <item
+        android:id="@+id/action_etoile"
+        android:title="@string/projet_favori"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_ajouter"
+        android:title="@string/projet_ajouter"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_parametres_projet"
+        android:title="@string/projet_parametres"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="always" />
+
+</menu>

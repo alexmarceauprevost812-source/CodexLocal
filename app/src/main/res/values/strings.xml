@@ -185,4 +185,62 @@
     <string name="agent_annule">Modifications annulées (%1$d)</string>
     <string name="equipe_projet_auto">Projet « %1$s » créé pour l\'équipe</string>
 
+    <!-- Bureau : toutes les entrees de menu en tuiles -->
+    <string name="bureau_titre">Bureau</string>
+    <string name="action_bureau">Bureau</string>
+    <string name="action_studio">🛠️ Studio</string>
+    <string name="action_projets">📁 Projets et fichiers</string>
+    <string name="action_ouvrir_dossier">📂 Ouvrir un dossier</string>
+    <string name="bureau_codex">Codex</string>
+    <string name="bureau_codex_sous">Programmer avec l\'IA</string>
+    <string name="bureau_chat">Chat</string>
+    <string name="bureau_chat_sous">Discuter librement</string>
+    <string name="bureau_equipe">Équipe</string>
+    <string name="bureau_equipe_sous">Chef, plan, textes, code</string>
+    <string name="bureau_studio">Studio</string>
+    <string name="bureau_studio_sous">Créer, signer, construire</string>
+    <string name="bureau_tester">Tester mon appli</string>
+    <string name="bureau_tester_sous">Voir et installer l\'APK</string>
+    <string name="bureau_projets">Projets</string>
+    <string name="bureau_projets_sous">Dossiers et fichiers</string>
+    <string name="bureau_dossier">Ouvrir un dossier</string>
+    <string name="bureau_dossier_sous">Un dossier du téléphone</string>
+    <string name="bureau_nouvelle">Nouvelle conversation</string>
+    <string name="bureau_nouvelle_sous">Repartir de zéro</string>
+    <string name="bureau_reglages">Réglages</string>
+    <string name="bureau_reglages_sous">Modèle, fond, mises à jour</string>
+    <string name="bureau_maj">Mises à jour</string>
+    <string name="bureau_maj_sous">Chercher une nouvelle version</string>
+
+    <string name="bureau_favoris">⭐ Favoris</string>
+    <string name="bureau_rubrique_projets">📁 Projets</string>
+    <string name="bureau_aucun_projet">Aucun projet. Crée-en un dans le Studio.</string>
+    <string name="bureau_projet_vide">Ce projet est vide.</string>
+    <string name="bureau_fichiers_de">Fichiers de « %1$s »</string>
+    <string name="bureau_favori_ajoute">⭐ Ajouté aux favoris</string>
+    <string name="bureau_favori_retire">Retiré des favoris</string>
+    <string name="bureau_fichier_introuvable">Fichier introuvable</string>
+    <!-- Vue « projet » comme GitHub, mais locale -->
+    <string name="projet_favori">Favori</string>
+    <string name="projet_ajouter">Ajouter</string>
+    <string name="projet_parametres">Paramètres</string>
+    <string name="projet_sous_titre">Local · %1$d fichier(s)</string>
+    <string name="projet_introuvable">Projet introuvable</string>
+    <string name="projet_dossier_vide">Ce dossier est vide. Appuie sur ＋ pour ajouter un fichier.</string>
+    <string name="projet_remonter">Dossier parent</string>
+    <string name="projet_elements">%1$d élément(s)</string>
+    <string name="projet_nouveau_fichier">📄 Nouveau fichier</string>
+    <string name="projet_nouveau_dossier">🗂️ Nouveau dossier</string>
+    <string name="projet_modifier">✏️ Modifier le code</string>
+    <string name="projet_supprimer_fichier">🗑️ Supprimer le fichier</string>
+    <string name="projet_confirmer_suppression">Supprimer « %1$s » ? Cette action est définitive.</string>
+    <string name="projet_fichier_supprime">Fichier supprimé</string>
+    <string name="projet_echec_suppression">Suppression impossible</string>
+    <string name="projet_ouvrir_studio">🛠️ Ouvrir dans le Studio</string>
+    <string name="projet_retirer">Retirer de la liste</string>
+    <string name="projet_retirer_msg">Le projet disparaît de la liste. Ses fichiers restent sur le téléphone.</string>
+    <string name="projet_retire">Projet retiré de la liste</string>
+    <string name="projet_info_stockage">📍 %1$s</string>
+    <string name="projet_stockage_interne">Dossier de l\'appli (visible par USB)</string>
+    <string name="projet_stockage_externe">Dossier choisi sur le téléphone</string>
 </resources>
