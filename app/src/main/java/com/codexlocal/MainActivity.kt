@@ -1096,7 +1096,7 @@ class MainActivity : AppCompatActivity() {
             if (codex) oublierFichiersHorsMemoire(cfg, historique, apresReponse = false)
             diffuser(assistant, historique, cfg)
             // Le modele local a pu perdre sa memoire (ou ses plus vieux messages) pendant la reponse.
-            val memoirePerdue = codex && oublierFichiersHorsMemoire(cfg, historique, apresReponse = true)
+            var memoirePerdue = codex && oublierFichiersHorsMemoire(cfg, historique, apresReponse = true)
             if (!codex) return
 
             var actions = ActionsFichiers.extraire(assistant.content)
@@ -1130,6 +1130,8 @@ class MainActivity : AppCompatActivity() {
                     }.getOrDefault(false)
                 }
                 val noms = nommerBlocs(sansNom, pris, base, cfg, existe)
+                // les questions de nommage sont de vrais tours de conversation : la memoire a pu bouger
+                if (oublierFichiersHorsMemoire(cfg, historique, apresReponse = true)) memoirePerdue = true
                 if (noms.isNotEmpty()) {
                     assistant.content = ActionsFichiers.avecTitres(assistant.content, noms)
                     val i = messages.indexOfFirst { it === assistant }
@@ -1332,7 +1334,8 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * L'IA n'a plus en memoire tout ce qu'elle a lu ou ecrit plus tot dans une tres longue
-     * conversation : modele local qui a retire ses plus vieux messages, remis a zero ou recharge ;
+     * conversation : modele local qui a retire ses plus vieux messages, remis a zero ou recharge,
+     * ou qui a recu un message trop long pour sa memoire (le moteur en coupe le milieu) ;
      * service en ligne qui ne renvoie que les derniers messages (voir FenetreHistorique).
      * Les fichiers concernes redeviennent « inconnus » : l'IA devra les relire avant de les remplacer.
      *
@@ -1346,8 +1349,9 @@ class MainActivity : AppCompatActivity() {
     ): Boolean {
         val dernier = historique.size - 1
         if (cfg.provider == ProviderType.LOCAL) {
-            // le compteur du moteur est toujours lu, meme quand la memoire est deja vide
-            val retires = LocalEngine.anciensMessagesRetires()
+            // les compteurs du moteur sont toujours lus, meme quand la memoire est deja vide
+            val coupe = LocalEngine.messageCoupe()
+            val retires = LocalEngine.anciensMessagesRetires() || coupe
             val videe = LocalEngine.conversationVide
             if (videe) fichiersConnus.memoireVidee(dernier, apresReponse)
             else if (retires) fichiersConnus.memoireReduite(dernier, apresReponse)
@@ -1533,16 +1537,27 @@ class MainActivity : AppCompatActivity() {
         if (!preparerModele(cfg, repartirDeZero = true)) {
             error(getString(R.string.msg_no_model_loaded))
         }
+        val local = cfg.provider == ProviderType.LOCAL
+        if (local) {
+            // point de depart des compteurs du moteur : on ne regarde que ce qui arrive pendant ce role
+            LocalEngine.messageCoupe()
+            LocalEngine.anciensMessagesRetires()
+        }
         diffuser(assistant, listOf(Message.user(requete)), cfg) { contenu ->
             val ligne = Equipe.derniereLigne(contenu.removePrefix(role.entete))
             if (ligne.isNotEmpty()) panneauEquipe.activite("${role.emoji} $ligne")
         }
         val texte = assistant.content.removePrefix(role.entete).trim()
 
+        // Message coupe par le moteur local, ou debut de la conversation retire pendant la reponse :
+        // le role n'a pas vu tous les fichiers qu'on lui montrait, aucun n'est alors remplacable.
+        val coupe = local && LocalEngine.messageCoupe()
+        val retires = local && LocalEngine.anciensMessagesRetires()
+        val connusSurs: Map<String, String>? = if (coupe || retires) emptyMap() else connus
         var bilan = Bilan()
         if (role.ecrit) {
             bilan = appliquerActions(
-                projet, assistant, cfg, connus = connus, reductionPermise = reductionPermise
+                projet, assistant, cfg, connus = connusSurs, reductionPermise = reductionPermise
             )
             annulations += bilan.annulations
             val premiere = bilan.resume().lineSequence().firstOrNull().orEmpty()
