@@ -1332,10 +1332,9 @@ class MainActivity : AppCompatActivity() {
      */
     private fun oublierFichiersHorsMemoire(cfg: AppConfig, historique: List<Message>) {
         if (cfg.provider == ProviderType.LOCAL) {
-            // « | » et non « || » : on lit toujours le compteur du moteur
-            if (LocalEngine.conversationVide | LocalEngine.anciensMessagesRetires()) {
-                fichiersConnus.oublier()
-            }
+            // le compteur du moteur est toujours lu, meme quand la memoire est deja vide
+            val retires = LocalEngine.anciensMessagesRetires()
+            if (LocalEngine.conversationVide || retires) fichiersConnus.oublier()
         } else {
             // les memes textes que ceux reellement envoyes (voir ChatRepository)
             val envoyes = historique.map { m -> m.envoi?.let { m.copy(content = it) } ?: m }
