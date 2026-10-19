@@ -55,12 +55,31 @@ object Reflexion {
         return gauche.endsWith(" ") && droite.startsWith(" ") && gauche.isNotBlank() && droite.isNotBlank()
     }
 
+    /**
+     * Le texte [avant] se termine-t-il a l'interieur d'un bloc de code ou d'un fichier ouvert ?
+     * Comme dans [ActionsFichiers] : une cloture de N accents graves n'est fermee que par une
+     * ligne d'au moins N accents graves, et les clotures a l'interieur d'un fichier `=== FICHIER ===`
+     * ne comptent pas.
+     */
     private fun dansUnBloc(avant: String): Boolean {
-        val lignes = avant.lines()
-        val clotures = lignes.count { it.trimStart().startsWith("```") }
-        val ouvertures = lignes.count { OUVERTURE_FICHIER.containsMatchIn(it) }
-        val fermetures = lignes.count { FIN_FICHIER.matches(it) }
-        return clotures % 2 == 1 || ouvertures > fermetures
+        var longueurOuverte = 0
+        var dansFichier = false
+        for (ligne in avant.lines()) {
+            if (dansFichier) {
+                if (FIN_FICHIER.matches(ligne)) dansFichier = false
+                continue
+            }
+            if (longueurOuverte == 0 && OUVERTURE_FICHIER.containsMatchIn(ligne)) {
+                dansFichier = true
+                continue
+            }
+            val t = ligne.trimStart()
+            val n = t.takeWhile { it == '`' }.length
+            if (n < 3) continue
+            if (longueurOuverte == 0) longueurOuverte = n
+            else if (n >= longueurOuverte && t.drop(n).isBlank()) longueurOuverte = 0
+        }
+        return dansFichier || longueurOuverte > 0
     }
 
     fun separer(texte: String): Decoupe {

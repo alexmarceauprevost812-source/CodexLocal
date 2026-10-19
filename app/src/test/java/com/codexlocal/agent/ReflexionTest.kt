@@ -112,6 +112,27 @@ class ReflexionTest {
         assertEquals("La balise `</think>` ferme tout.", d.reponse)
     }
 
+    @Test fun aClosingTagInsideANestedFenceOfAFourBacktickFileIsCode() {
+        val texte = "Voici :\n**README.md**\n````markdown\n# Titre\n```js\nconst A = 1;\n</think>\n```\nfin\n````"
+        val d = Reflexion.separer(texte)
+        assertNull(d.reflexion)
+        assertEquals(texte, d.reponse)
+        assertEquals(texte, Reflexion.masquer(texte))
+    }
+
+    @Test fun aRealEndOfReasoningStillWorksAfterAFinishedFence() {
+        val texte = "Voila :\n```js\nlet a = 1\n```\net voila</think>\nSuite."
+        val d = Reflexion.separer(texte)
+        assertEquals("Voila :\n```js\nlet a = 1\n```\net voila", d.reflexion)
+        assertEquals("Suite.", d.reponse)
+    }
+
+    @Test fun fenceLinesInsideAFileMarkerDoNotConfuseTheCount() {
+        val texte = "=== FICHIER: a.md ===\n```\nx\n=== FIN ===\nreflexion finie</think>\nok"
+        val d = Reflexion.separer(texte)
+        assertEquals("ok", d.reponse)
+    }
+
     @Test fun anUnfinishedReasoningCreatesNothing() {
         assertTrue(ActionsFichiers.extraire("<think>\n=== FICHIER: a.txt ===\nx\n=== FIN ===").isEmpty())
     }
