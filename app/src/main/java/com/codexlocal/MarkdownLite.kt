@@ -28,6 +28,7 @@ object MarkdownLite {
     private const val CODE_BG = 0xFF070707.toInt()
     private const val INLINE_CODE = 0xFFFFC777.toInt()
     private const val TITRE_FG = 0xFF8AB4F8.toInt()
+    private const val REFLEXION = 0xFF8A8A8A.toInt()
 
     fun format(text: String): CharSequence {
         val out = SpannableStringBuilder()
@@ -38,9 +39,23 @@ object MarkdownLite {
                     appendProse(out, bloc.texte)
                 }
                 is BlocMessage.Code -> appendCodeBlock(out, bloc)
+                is BlocMessage.Reflexion -> appendReflexion(out, bloc)
             }
         }
         return out
+    }
+
+    // ------------------------------------------------------------- reflexion
+
+    /** Une seule ligne grise : le raisonnement du modele n'est pas affiche en entier. */
+    private fun appendReflexion(out: SpannableStringBuilder, bloc: BlocMessage.Reflexion) {
+        if (out.isNotEmpty() && out[out.length - 1] != '\n') out.append("\n")
+        val debut = out.length
+        out.append(if (bloc.enCours) "💭 Réflexion…" else "💭 Réflexion (${bloc.mots} mots)")
+        val fin = out.length
+        out.setSpan(ForegroundColorSpan(REFLEXION), debut, fin, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        out.setSpan(StyleSpan(Typeface.ITALIC), debut, fin, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        out.append("\n")
     }
 
     // ------------------------------------------------------------- bloc de code

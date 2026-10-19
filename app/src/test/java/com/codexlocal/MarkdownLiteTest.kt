@@ -79,4 +79,21 @@ class MarkdownLiteTest {
     @Test fun emptyOrOddTextDoesNotCrash() {
         listOf("", "```", "=== FICHIER: x.txt ===", "```\n```", "**a.txt**\n```").forEach { MarkdownLite.format(it) }
     }
+
+    @Test fun aReasoningIsOneGreyLineInsteadOfTheWholeText() {
+        val r = rendu("<think>\nun deux trois quatre\n</think>\nVoici le site.")
+        assertEquals("💭 Réflexion (4 mots)\nVoici le site.", r.toString().trimEnd())
+        assertFalse(r.toString().contains("trois"))
+    }
+
+    @Test fun aReasoningStillGoingOnIsShownAsSuch() {
+        val r = rendu("<think>\nje cherche encore")
+        assertEquals("💭 Réflexion…", r.toString().trim())
+    }
+
+    @Test fun filesAfterAReasoningStillGetTheirTitleBar() {
+        val r = rendu("<think>\nhmm\n</think>\n=== FICHIER: index.html ===\n<p>a</p>\n=== FIN ===")
+        assertEquals(1, r.getSpans(0, r.length, TitreFichierSpan::class.java).size)
+        assertTrue(r.toString().contains("<p>a</p>"))
+    }
 }

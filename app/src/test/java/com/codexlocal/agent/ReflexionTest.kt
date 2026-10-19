@@ -1,0 +1,177 @@
+package com.codexlocal.agent
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ReflexionTest {
+
+    @Test fun noReasoningMeansNothingToHide() {
+        val d = Reflexion.separer("Bonjour\n```kotlin\nval a = 1\n```")
+        assertNull(d.reflexion)
+        assertFalse(d.enCours)
+        assertEquals("Bonjour\n```kotlin\nval a = 1\n```", d.reponse)
+    }
+
+    @Test fun reasoningWithBothTags() {
+        val d = Reflexion.separer("<think>\nIl faut un site.\n</think>\n\nVoici le site.")
+        assertEquals("Il faut un site.", d.reflexion)
+        assertFalse(d.enCours)
+        assertEquals("Voici le site.", d.reponse)
+    }
+
+    @Test fun reasoningWithOnlyTheClosingTag() {
+        // le modele de conversation a deja ecrit <think> : seule la fermeture apparait
+        val d = Reflexion.separer("Il faut un site.\nFaisons-le simple.\n</think>\n\nVoici.")
+        assertEquals("Il faut un site.\nFaisons-le simple.", d.reflexion)
+        assertEquals("Voici.", d.reponse)
+    }
+
+    @Test fun reasoningStillGoingOn() {
+        val d = Reflexion.separer("<think>\nOn pourrait faire")
+        assertEquals("On pourrait faire", d.reflexion)
+        assertTrue(d.enCours)
+        assertEquals("", d.reponse)
+    }
+
+    @Test fun anOpeningTagInTheMiddleOfAnAnswerIsNotReasoning() {
+        val d = Reflexion.separer("Voici du HTML avec <think> dedans")
+        assertNull(d.reflexion)
+    }
+
+    @Test fun countsWords() {
+        assertEquals(4, Reflexion.mots("un  deux\ntrois quatre"))
+        assertEquals(0, Reflexion.mots("  "))
+    }
+
+    @Test fun maskingKeepsTheNumberOfLines() {
+        val texte = "<think>\nligne 1\nligne 2\n</think>\n```python\nprint(1)\n```"
+        val masque = Reflexion.masquer(texte)
+        assertEquals(texte.lines().size, masque.lines().size)
+        assertEquals(texte.lines().indexOf("```python"), masque.lines().indexOf("```python"))
+        assertFalse(masque.contains("ligne 1"))
+    }
+
+    @Test fun maskingAnUnfinishedReasoningLeavesNothing() {
+        val masque = Reflexion.masquer("<think>\nje cherche\n=== FICHIER: a.txt ===\nx")
+        assertTrue(masque.isBlank())
+        assertEquals(3, masque.count { it == '\n' })
+    }
+
+    @Test fun fileMarkersInsideTheReasoningCreateNothing() {
+        val texte = "<think>\nPeut-etre === FICHIER: faux.txt ===\nbof\n=== FIN ===\n</think>\n" +
+            "=== FICHIER: vrai.txt ===\nok\n=== FIN ==="
+        val ecritures = ActionsFichiers.extraire(texte).filterIsInstance<ActionFichier.Ecrire>()
+        assertEquals(listOf("vrai.txt"), ecritures.map { it.chemin })
+    }
+
+    @Test fun aClosingTagInsideTheAnswerIsNotTheEndOfTheReasoning() {
+        val texte = "<think>\nUn parseur.\n</think>\n=== FICHIER: parseur.js ===\n" +
+            "const STOP = \"</think>\";\nconsole.log(STOP);\n=== FIN ==="
+        val d = Reflexion.separer(texte)
+        assertEquals("Un parseur.", d.reflexion)
+        assertTrue(d.reponse.contains("const STOP = \"</think>\";"))
+        val ecriture = ActionsFichiers.extraire(texte).filterIsInstance<ActionFichier.Ecrire>().single()
+        assertEquals("parseur.js", ecriture.chemin)
+        assertTrue(ecriture.contenu.contains("</think>"))
+        assertEquals(texte.lines().size, Reflexion.masquer(texte).lines().size)
+    }
+
+    @Test fun aClosingTagInsideACodeBlockKeepsTheWholeBlockInTheChat() {
+        val texte = "Il faut:\n```js\nconst STOP = \"</think>\";\nconsole.log(STOP);\n```"
+        // sans raisonnement avant, le premier </think> est celui du code : rien ne doit disparaitre
+        val blocs = DecoupageMessage.decouper(texte)
+        assertTrue(blocs.any { it is BlocMessage.Code && it.corps.contains("console.log(STOP);") })
+    }
+
+    @Test fun aClosingTagMentionedInAnAnswerIsNotReasoning() {
+        listOf(
+            "La balise `</think>` termine le raisonnement.",
+            "La balise </think> termine le raisonnement.",
+            "La balise de fin est </think>.",
+            "Elle s'appelle </think>, ne l'oublie pas",
+            "(voir </think>)",
+            "Utilise \"</think>\" pour couper.",
+            "Voici l'astuce : la fin c'est </think> et c'est tout"
+        ).forEach { texte ->
+            val d = Reflexion.separer(texte)
+            assertNull(texte, d.reflexion)
+            assertEquals(texte, d.reponse)
+            assertEquals(texte, Reflexion.masquer(texte))
+        }
+    }
+
+    @Test fun aClosingTagGluedToTheEndOfTheReasoningStillCounts() {
+        val d = Reflexion.separer("Il faut un site.</think>Voici le site.")
+        assertEquals("Il faut un site.", d.reflexion)
+        assertEquals("Voici le site.", d.reponse)
+    }
+
+    @Test fun aMentionedTagAfterTheRealEndStaysInTheAnswer() {
+        val d = Reflexion.separer("<think>\nje reflechis\n</think>\nLa balise `</think>` ferme tout.")
+        assertEquals("je reflechis", d.reflexion)
+        assertEquals("La balise `</think>` ferme tout.", d.reponse)
+    }
+
+    @Test fun aReasoningThatQuotesTheFileFormatNeverCreatesFiles() {
+        // modele qui n'ecrit que </think> : son raisonnement cite le format, sans le fermer
+        val texte = "Je dois ecrire :\n=== FICHIER: index.html ===\nbrouillon\nOK, je sais.\n</think>\nVoila."
+        val d = Reflexion.separer(texte)
+        assertEquals("Voila.", d.reponse)
+        assertTrue(ActionsFichiers.extraire(texte).isEmpty())
+    }
+
+    @Test fun aReasoningThatDraftsCodeNeverCreatesFiles() {
+        val texte = "Brouillon :\n```html\n<h1>Salut</h1>\n<p>un</p>\n<p>deux</p>\n<p>trois</p>\n" +
+            "Voyons la suite.\n</think>\nVoila."
+        assertEquals("Voila.", Reflexion.separer(texte).reponse)
+        assertTrue(ActionsFichiers.extraire(texte).isEmpty())
+    }
+
+    @Test fun anExplicitOpeningOnOneLineIsAccepted() {
+        val d = Reflexion.separer("<think> plan </think> reponse")
+        assertEquals("plan", d.reflexion)
+        assertEquals("reponse", d.reponse)
+    }
+
+    @Test fun aRealEndOfReasoningStillWorksAfterAFinishedFence() {
+        val texte = "Voila :\n```js\nlet a = 1\n```\net voila</think>\nSuite."
+        val d = Reflexion.separer(texte)
+        assertEquals("Voila :\n```js\nlet a = 1\n```\net voila", d.reflexion)
+        assertEquals("Suite.", d.reponse)
+    }
+
+    @Test fun markersAndFencesInsideTheReasoningDoNotConfuseTheEnd() {
+        val texte = "=== FICHIER: a.md ===\n```\nx\n=== FIN ===\nreflexion finie</think>\nok"
+        val d = Reflexion.separer(texte)
+        assertEquals("ok", d.reponse)
+    }
+
+    @Test fun anUnfinishedReasoningCreatesNothing() {
+        assertTrue(ActionsFichiers.extraire("<think>\n=== FICHIER: a.txt ===\nx\n=== FIN ===").isEmpty())
+    }
+
+    @Test fun titlesStillGoBeforeTheRightBlockAfterAReasoning() {
+        val reponse = "<think>\nje reflechis\nencore\n</think>\nVoila :\n" +
+            "```python\na = 1\nb = 2\nc = 3\nprint(a + b + c)\n```"
+        val bloc = ActionsFichiers.extraire(reponse).filterIsInstance<ActionFichier.SansNom>().single()
+        val titree = ActionsFichiers.avecTitres(reponse, mapOf(bloc.ligneOuverture to "calcul.py"))
+        val ecriture = ActionsFichiers.extraire(titree).filterIsInstance<ActionFichier.Ecrire>().single()
+        assertEquals("calcul.py", ecriture.chemin)
+        assertTrue(titree.contains("**calcul.py**\n```python"))
+    }
+
+    @Test fun theChatShowsOneGreyLineInsteadOfTheReasoning() {
+        val blocs = DecoupageMessage.decouper("<think>\nun deux trois\n</think>\nVoici le texte.")
+        assertEquals(BlocMessage.Reflexion(3, false), blocs[0])
+        assertEquals(BlocMessage.Texte("Voici le texte."), blocs[1])
+        assertEquals(2, blocs.size)
+    }
+
+    @Test fun anUnfinishedReasoningIsShownAsInProgress() {
+        val blocs = DecoupageMessage.decouper("<think>\nje cherche")
+        assertEquals(listOf<BlocMessage>(BlocMessage.Reflexion(2, true)), blocs)
+    }
+}

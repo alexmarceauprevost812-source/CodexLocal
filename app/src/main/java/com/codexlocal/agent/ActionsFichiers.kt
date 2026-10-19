@@ -70,8 +70,10 @@ object ActionsFichiers {
 
     /** Les actions de la reponse : marqueurs `=== FICHIER ===`, sinon blocs de code ayant un nom de fichier. */
     fun extraire(reponse: String): List<ActionFichier> {
-        val parMarqueurs = extraireMarqueurs(reponse)
-        return if (parMarqueurs.isEmpty()) extraireBlocsDeCode(reponse) else parMarqueurs
+        // le raisonnement d'un modele « qui reflechit » ne cree rien (les numeros de ligne restent justes)
+        val texte = Reflexion.masquer(reponse)
+        val parMarqueurs = extraireMarqueurs(texte)
+        return if (parMarqueurs.isEmpty()) extraireBlocsDeCode(texte) else parMarqueurs
     }
 
     private fun extraireMarqueurs(reponse: String): List<ActionFichier> {

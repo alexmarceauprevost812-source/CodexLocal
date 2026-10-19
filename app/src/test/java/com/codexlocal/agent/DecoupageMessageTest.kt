@@ -124,6 +124,7 @@ class DecoupageMessageTest {
                     when (b) {
                         is BlocMessage.Texte -> b.texte.contains("val x = 1")
                         is BlocMessage.Code -> b.corps.contains("val x = 1")
+                        is BlocMessage.Reflexion -> false
                     }
                 } || reponse.lines().any { it.trim().startsWith("=== FICHIER") })
             }
