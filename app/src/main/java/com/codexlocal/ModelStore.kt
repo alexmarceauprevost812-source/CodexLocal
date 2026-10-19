@@ -40,15 +40,26 @@ object ModelStore {
     ): File {
         val safeName = displayName.ifBlank { "modele.gguf" }.replace('/', '_')
         val target = File(modelsDir(context), safeName)
+        val partiel = partiel(target)
         val input = context.contentResolver.openInputStream(uri)
             ?: error("Impossible d'ouvrir le fichier selectionne")
-        input.use { source ->
-            target.outputStream().use { output -> pump(source, output, onProgress) }
+        try {
+            input.use { source ->
+                partiel.outputStream().use { output -> pump(source, output, onProgress) }
+            }
+            terminer(partiel, target)
+        } catch (e: Exception) {
+            partiel.delete()
+            throw e
         }
         return target
     }
 
     fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {
+        // On ecrit dans un fichier ".part" : un telechargement interrompu ne laisse jamais
+        // un faux modele (incomplet) dans la liste.
+        val partiel = partiel(dest)
+        partiel.delete()
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 30_000
             readTimeout = 120_000
@@ -61,12 +72,39 @@ object ModelStore {
             val total = conn.contentLengthLong
             val input = conn.inputStream ?: error("Flux vide")
             input.use { source ->
-                dest.outputStream().use { output -> pump(source, output) { onProgress(it, total) } }
+                partiel.outputStream().use { output -> pump(source, output) { onProgress(it, total) } }
             }
+            val recu = partiel.length()
+            check(total <= 0 || recu == total) {
+                "Téléchargement incomplet (${recu / 1_048_576} / ${total / 1_048_576} Mo). " +
+                    "Vérifie la connexion puis recommence."
+            }
+            terminer(partiel, dest)
+        } catch (e: Exception) {
+            partiel.delete()
+            throw e
         } finally {
             conn.disconnect()
         }
     }
+
+    private fun partiel(cible: File) = File(cible.parentFile, cible.name + ".part")
+
+    /** Verifie le fichier recu puis le met a sa place definitive. */
+    private fun terminer(partiel: File, cible: File) {
+        check(estGguf(partiel)) {
+            "Ce fichier n'est pas un modèle GGUF valide (mauvaise adresse ou fichier abîmé)."
+        }
+        if (cible.exists()) cible.delete()
+        check(partiel.renameTo(cible)) { "Impossible d'enregistrer le modèle." }
+    }
+
+    /** Un fichier GGUF commence par les quatre octets "GGUF". */
+    fun estGguf(fichier: File): Boolean = runCatching {
+        val entete = ByteArray(4)
+        fichier.inputStream().use { it.read(entete) } == 4 &&
+            String(entete, Charsets.US_ASCII) == "GGUF"
+    }.getOrDefault(false)
 
     private fun pump(input: InputStream, output: OutputStream, onProgress: (Long) -> Unit) {
         val buffer = ByteArray(1 shl 16)

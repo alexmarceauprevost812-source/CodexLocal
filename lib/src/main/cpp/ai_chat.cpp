@@ -553,16 +553,27 @@ Java_com_codexlocal_engine_internal_InferenceEngineImpl_generateNextToken(
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_codexlocal_engine_internal_InferenceEngineImpl_unload(JNIEnv * /*unused*/, jobject /*unused*/) {
-    // Reset long-term & short-term states
-    reset_long_term_states();
+    // Reset long-term & short-term states.
+    // Le cache KV n'existe que si le contexte a ete cree (prepare() peut avoir echoue).
+    reset_long_term_states(g_context != nullptr);
     reset_short_term_states();
 
-    // Free up resources
-    common_sampler_free(g_sampler);
+    // Free up resources, puis remise a zero des pointeurs : un second unload()
+    // (apres un echec de chargement, par exemple) ne doit jamais liberer deux fois.
+    if (g_sampler != nullptr) {
+        common_sampler_free(g_sampler);
+        g_sampler = nullptr;
+    }
     g_chat_templates.reset();
     g_batch = common_batch();
-    llama_free(g_context);
-    llama_model_free(g_model);
+    if (g_context != nullptr) {
+        llama_free(g_context);
+        g_context = nullptr;
+    }
+    if (g_model != nullptr) {
+        llama_model_free(g_model);
+        g_model = nullptr;
+    }
 }
 
 extern "C"
