@@ -152,4 +152,30 @@ class AgentProjetTest {
         assertTrue(bilan.resume().contains("⚠️"))
         assertEquals(listOf("README.md"), ProjectStore.listerFichiers(ctx, p).map { it.chemin })
     }
+
+    @Test fun unnamedBlockNamedByTheAiIsCreatedWithThatName() {
+        val p = projet()
+        val reponse = "Voilà :\n```python\na = 1\nb = 2\nc = 3\nprint(a + b + c)\n```"
+        val sansNom = ActionsFichiers.extraire(reponse).filterIsInstance<ActionFichier.SansNom>()
+        val noms = NommageIA.attribuer(sansNom, listOf("<think>hmm</think>calcul.py"), setOf("README.md"))
+        val bilan = AgentProjet.appliquer(
+            ctx, p, ActionsFichiers.extraire(ActionsFichiers.avecTitres(reponse, noms)), ignorerIncomplets = false
+        )
+        assertEquals(listOf("calcul.py"), bilan.crees)
+        assertTrue(bilan.ignores.isEmpty())
+        assertEquals("a = 1\nb = 2\nc = 3\nprint(a + b + c)\n", File(p.uri, "calcul.py").readText())
+    }
+
+    @Test fun unnamedBlockNeverOverwritesAnExistingFile() {
+        val p = projet()
+        File(p.uri, "main.py").writeText("precieux\n")
+        val reponse = "```python\na = 1\nb = 2\nc = 3\nprint(a + b + c)\n```"
+        val sansNom = ActionsFichiers.extraire(reponse).filterIsInstance<ActionFichier.SansNom>()
+        val noms = NommageIA.attribuer(sansNom, listOf(null), setOf("README.md", "main.py"))
+        val bilan = AgentProjet.appliquer(
+            ctx, p, ActionsFichiers.extraire(ActionsFichiers.avecTitres(reponse, noms)), ignorerIncomplets = false
+        )
+        assertEquals(listOf("main_2.py"), bilan.crees)
+        assertEquals("precieux\n", File(p.uri, "main.py").readText())
+    }
 }

@@ -27,6 +27,7 @@ import com.codexlocal.agent.Annulation
 import com.codexlocal.agent.Bilan
 import com.codexlocal.agent.AgentPrompts
 import com.codexlocal.agent.Equipe
+import com.codexlocal.agent.NommageIA
 import com.codexlocal.agent.PanneauEquipe
 import com.codexlocal.agent.Role
 import com.codexlocal.databinding.ActivityMainBinding
@@ -959,7 +960,33 @@ class MainActivity : AppCompatActivity() {
             diffuser(assistant, messages.subList(0, messages.size - 1).toList(), cfg)
             if (!codex) return
 
-            val actions = ActionsFichiers.extraire(assistant.content)
+            var actions = ActionsFichiers.extraire(assistant.content)
+            // Du code sans nom de fichier : l'IA choisit le nom, qui devient le titre du fichier.
+            val sansNom = actions.filterIsInstance<ActionFichier.SansNom>()
+            if (sansNom.isNotEmpty()) {
+                val pris = HashSet<String>()
+                projet?.let { p ->
+                    pris += withContext(Dispatchers.IO) {
+                        runCatching { ProjectStore.listerFichiers(this@MainActivity, p).map { it.chemin } }
+                            .getOrDefault(emptyList())
+                    }
+                }
+                pris += actions.filterIsInstance<ActionFichier.Ecrire>().map { it.chemin }
+                // la liste des fichiers est limitee : chaque nom choisi est aussi verifie directement
+                val projetNomme = projet
+                val existe: (String) -> Boolean = { chemin ->
+                    projetNomme != null && runCatching {
+                        ProjectStore.trouverFichier(this@MainActivity, projetNomme, chemin) != null
+                    }.getOrDefault(false)
+                }
+                val noms = nommerBlocs(sansNom, pris, base, cfg, existe)
+                if (noms.isNotEmpty()) {
+                    assistant.content = ActionsFichiers.avecTitres(assistant.content, noms)
+                    val i = messages.indexOfFirst { it === assistant }
+                    if (i >= 0) adapter.notifyItemChanged(i)
+                    actions = ActionsFichiers.extraire(assistant.content)
+                }
+            }
             // Des fichiers sont ecrits mais aucun projet n'est ouvert : on en cree un tout seul.
             if (projet == null && actions.any { it is ActionFichier.Ecrire }) {
                 projet = projetAutomatique("Codex_", R.string.codex_projet_auto)
@@ -989,6 +1016,60 @@ class MainActivity : AppCompatActivity() {
             messages.add(suite)
             adapter.notifyItemInserted(messages.size - 1)
         }
+    }
+
+    /**
+     * Demande a l'IA le nom des blocs de code sans nom (une petite question par bloc).
+     * Renvoie numero de ligne -> nom ; un nom par defaut est donne quand l'IA ne repond pas bien.
+     * [pris] : les fichiers qui existent deja, dont le nom ne doit jamais etre repris ; [existe]
+     * le verifie aussi pour chaque nom choisi.
+     *
+     * Modele local : la question est posee DANS la conversation en cours ([cfgConversation]), car
+     * remettre sa memoire a zero ferait perdre le fil du dialogue. Service en ligne : question
+     * a part, sans historique.
+     */
+    private suspend fun nommerBlocs(
+        blocs: List<ActionFichier.SansNom>,
+        pris: Set<String>,
+        base: AppConfig,
+        cfgConversation: AppConfig,
+        existe: (String) -> Boolean
+    ): Map<Int, String> {
+        val local = cfgConversation.provider == ProviderType.LOCAL
+        val cfg = if (local) {
+            cfgConversation.copy(maxTokens = 320)
+        } else {
+            base.copy(systemPrompt = NommageIA.SYSTEME, maxTokens = 60)
+        }
+        val reponses = ArrayList<String?>()
+        for ((i, bloc) in blocs.withIndex()) {
+            if (i >= NommageIA.MAX_QUESTIONS) {
+                reponses.add(null)
+                continue
+            }
+            binding.status.text = getString(R.string.agent_nommage, i + 1, blocs.size)
+            reponses.add(
+                try {
+                    if (!preparerModele(cfg, repartirDeZero = false)) {
+                        null
+                    } else {
+                        val reponse = Message.assistant()
+                        val historique = if (local) {
+                            messages.toList() + Message.user(NommageIA.demandeDansLaConversation(bloc))
+                        } else {
+                            listOf(Message.user(NommageIA.demande(bloc, pris.toList())))
+                        }
+                        diffuser(reponse, historique, cfg)
+                        reponse.content
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
+            )
+        }
+        return withContext(Dispatchers.IO) { NommageIA.attribuer(blocs, reponses, pris, existe) }
     }
 
     /** Consignes de fichiers ajoutees au prompt, avec de la place pour des fichiers entiers. */

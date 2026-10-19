@@ -138,7 +138,9 @@ class ActionsFichiersTest {
     @Test fun bigCodeBlockWithoutNameIsReported() {
         val reponse = "Voici le code :\n```python\na = 1\nb = 2\nc = 3\nprint(a + b + c)\n```"
         val action = ActionsFichiers.extraire(reponse).single()
-        assertEquals(ActionFichier.SansNom("python", 4), action)
+        val sansNom = action as ActionFichier.SansNom
+        assertEquals("python", sansNom.langage)
+        assertEquals(4, sansNom.lignes)
     }
 
     @Test fun unclosedCodeBlockIsIncomplete() {
