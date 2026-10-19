@@ -169,4 +169,24 @@ class ActionsFichiersTest {
         val reponse = "**a.txt**\n```\nun\n```\nPuis lance ça :\n```bash\nls\n```"
         assertEquals(listOf("a.txt"), ecritures(reponse).map { it.chemin })
     }
+
+    @Test fun aFileWrappedInFourBackticksKeepsItsInnerBlocks() {
+        val reponse = "**LISEZMOI.md**\n````markdown\n# Titre\n\n```\ncode sans langage\n```\n\nFin\n````\nEt voilà."
+        val e = ecritures(reponse).single()
+        assertEquals("LISEZMOI.md", e.chemin)
+        assertTrue(e.complet)
+        assertTrue(e.contenu.contains("code sans langage"))
+        assertTrue(e.contenu.trimEnd().endsWith("Fin"))
+    }
+
+    @Test fun fourBacktickBlockIsIncompleteUntilItsOwnFence() {
+        val e = ecritures("**a.md**\n````md\ndébut\n```\nencore").single()
+        assertFalse(e.complet)
+        assertTrue(e.contenu.contains("encore"))
+    }
+
+    @Test fun commentTitleAfterBlankLinesIsStillTheFileName() {
+        val e = ecritures("```html\n\n<!-- index.html -->\n<p>x</p>\n```").single()
+        assertEquals("index.html", e.chemin)
+    }
 }

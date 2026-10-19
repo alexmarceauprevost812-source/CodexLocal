@@ -90,13 +90,21 @@ object DecoupageMessage {
                     }
                     viderTexte()
                     val corps = ArrayList<String>()
+                    val longueur = ActionsFichiers.nombreDeBackticks(ligne)
                     var profondeur = 0
                     var ferme = false
                     i++
                     while (i < lignes.size) {
                         val l = lignes[i]
                         val f = ouvertureBloc.matchEntire(l)
-                        if (f != null && f.groupValues[1].isNotBlank()) {
+                        if (f != null && longueur >= 4) {
+                            // bloc ouvert avec 4 ` ou plus : seul un ` assez long le ferme
+                            if (f.groupValues[1].isBlank() && ActionsFichiers.nombreDeBackticks(l) >= longueur) {
+                                ferme = true
+                                i++
+                                break
+                            }
+                        } else if (f != null && f.groupValues[1].isNotBlank()) {
                             profondeur++
                         } else if (f != null && profondeur > 0) {
                             profondeur--
@@ -109,7 +117,7 @@ object DecoupageMessage {
                         i++
                     }
                     val titre = NomsFichiers.nomDansInfo(info) ?: titreAvant
-                        ?: corps.firstOrNull()?.let { NomsFichiers.nomDansPremiereLigne(it) }
+                        ?: corps.firstOrNull { it.isNotBlank() }?.let { NomsFichiers.nomDansPremiereLigne(it) }
                     val langage = NomsFichiers.langageDansInfo(info).ifBlank { langageDe(titre.orEmpty(), "") }
                     blocs.add(
                         BlocMessage.Code(titre, langage, corps.joinToString("\n").trim('\n'), ferme)

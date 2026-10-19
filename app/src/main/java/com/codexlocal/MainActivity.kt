@@ -964,7 +964,18 @@ class MainActivity : AppCompatActivity() {
             if (projet == null && actions.any { it is ActionFichier.Ecrire }) {
                 projet = projetAutomatique("Codex_", R.string.codex_projet_auto)
             }
-            if (projet == null) return
+            if (projet == null) {
+                // rien n'est ecrit sans projet, mais on dit pourquoi quand l'IA a donne du code sans nom
+                val avertissements = actions.filterIsInstance<ActionFichier.SansNom>()
+                    .map { AgentProjet.texteSansNom(it) }
+                if (avertissements.isNotEmpty()) {
+                    assistant.content += "\n\n" + Bilan(ignores = avertissements).resume()
+                    val i = messages.indexOfFirst { it === assistant }
+                    if (i >= 0) adapter.notifyItemChanged(i)
+                    scrollToEnd()
+                }
+                return
+            }
 
             val bilan = appliquerActions(projet, assistant, cfg, actions)
             annulations += bilan.annulations
@@ -1097,8 +1108,15 @@ class MainActivity : AppCompatActivity() {
     /** Le projet ouvert, ou un nouveau projet (nom = [prefixe] + date) cree et ouvert tout seul. */
     private suspend fun projetAutomatique(prefixe: String, messageToast: Int): Projet {
         projetActif?.let { return it }
-        val nom = prefixe + SimpleDateFormat("yyyyMMdd_HHmm", Locale.CANADA_FRENCH).format(Date())
-        val cree = withContext(Dispatchers.IO) { ProjectStore.creerProjetInterne(this@MainActivity, nom) }
+        val base = prefixe + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.CANADA_FRENCH).format(Date())
+        val cree = withContext(Dispatchers.IO) {
+            // jamais un dossier qui existe deja : sinon le « nouveau » projet rouvrirait l'ancien
+            val dossiers = ProjectStore.dossierInterne(this@MainActivity)
+            var nom = base
+            var n = 2
+            while (File(dossiers, nom).exists()) nom = base + "_" + n++
+            ProjectStore.creerProjetInterne(this@MainActivity, nom)
+        }
         ProjectStore.ajouter(this, cree)
         ouvrirProjet(cree)
         Toast.makeText(this, getString(messageToast, cree.nom), Toast.LENGTH_SHORT).show()

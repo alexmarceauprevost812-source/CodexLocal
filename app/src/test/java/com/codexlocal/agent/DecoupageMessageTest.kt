@@ -129,4 +129,19 @@ class DecoupageMessageTest {
             }
         }
     }
+
+    @Test fun fourBacktickBlockKeepsItsInnerFences() {
+        val blocs = DecoupageMessage.decouper("**LISEZMOI.md**\n````markdown\n# T\n```\ncode\n```\nFin\n````\nVoilà.")
+        val c = blocs.filterIsInstance<BlocMessage.Code>().single()
+        assertEquals("LISEZMOI.md", c.titre)
+        assertTrue(c.ferme)
+        assertTrue(c.corps.contains("code"))
+        assertTrue(c.corps.endsWith("Fin"))
+        assertEquals(BlocMessage.Texte("Voilà."), blocs.last())
+    }
+
+    @Test fun commentTitleAfterBlankLinesGivesTheTitle() {
+        val c = codes("```html\n\n<!-- index.html -->\n<p>x</p>\n```").single()
+        assertEquals("index.html", c.titre)
+    }
 }

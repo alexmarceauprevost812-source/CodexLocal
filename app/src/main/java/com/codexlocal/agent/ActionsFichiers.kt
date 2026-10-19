@@ -55,6 +55,9 @@ object ActionsFichiers {
 
     private val ouvertureBloc = Regex("""^\s*```+(.*)$""")
 
+    /** Nombre de ` au debut de la ligne : un bloc ouvert avec 4 ne se ferme qu'avec 4 ou plus. */
+    internal fun nombreDeBackticks(ligne: String): Int = ligne.trimStart().takeWhile { it == '`' }.length
+
     /** Les actions de la reponse : marqueurs `=== FICHIER ===`, sinon blocs de code ayant un nom de fichier. */
     fun extraire(reponse: String): List<ActionFichier> {
         val parMarqueurs = extraireMarqueurs(reponse)
@@ -112,6 +115,7 @@ object ActionsFichiers {
         val resultat = ArrayList<ActionFichier>()
         var enBloc = false
         var profondeur = 0
+        var longueur = 0
         var info = ""
         var titreAvant: String? = null
         var avant1 = ""
@@ -137,6 +141,7 @@ object ActionsFichiers {
             }
             enBloc = false
             profondeur = 0
+            longueur = 0
             info = ""
             titreAvant = null
             avant1 = ""
@@ -149,12 +154,21 @@ object ActionsFichiers {
             when {
                 !enBloc && fence != null -> {
                     enBloc = true
+                    longueur = nombreDeBackticks(ligne)
                     info = fence.groupValues[1].trim()
                     titreAvant = NomsFichiers.nomDansLigne(if (avant1.isNotBlank()) avant1 else avant2)
                 }
                 !enBloc -> {
                     avant2 = avant1
                     avant1 = ligne
+                }
+                fence != null && longueur >= 4 -> {
+                    // bloc ouvert avec 4 ` ou plus : seul un ` assez long ferme, le reste est du fichier
+                    if (fence.groupValues[1].isBlank() && nombreDeBackticks(ligne) >= longueur) {
+                        fermer(true)
+                    } else {
+                        contenu.add(ligne)
+                    }
                 }
                 fence != null && fence.groupValues[1].isNotBlank() -> {
                     // un bloc ouvert a l'interieur du fichier (README qui montre du code)
