@@ -102,8 +102,23 @@ class EquipeTest {
         assertEquals(null, Equipe.avecApercu("  ", ApercuFichiers.VIDE))
     }
 
-    @Test fun localModelsGetASmallerPreviewThanOnlineOnes() {
-        assertTrue(Equipe.BUDGET_APERCU_LOCAL in 1_000..6_000)
+    @Test fun localPreviewIsSizedToTheMemoryTheModelReallyHas() {
+        // 8 192 jetons, consignes de 4 000 caracteres, demande de 3 000, reponse de 3 000 jetons
+        val serre = Equipe.budgetLocal(8_192, 4_000, 3_000, 3_000)
+        assertTrue("reste un peu de place : $serre", serre in 1..Equipe.BUDGET_APERCU_LOCAL)
+        // la place demandee + la reponse + la marge ne depassent jamais la memoire
+        val jetons = Math.ceil((4_000 + 3_000 + serre) / 2.5).toInt() + 3_000
+        assertTrue(jetons <= 8_192)
+        // grande memoire : on est plafonne par le budget maximal
+        assertEquals(Equipe.BUDGET_APERCU_LOCAL, Equipe.budgetLocal(16_384, 4_000, 3_000, 3_000))
+        // demande enorme : plus de place du tout
+        assertEquals(0, Equipe.budgetLocal(8_192, 4_000, 12_000, 3_000))
+        // capacite inconnue (aucun modele charge) : on ne montre rien
+        assertEquals(0, Equipe.budgetLocal(0, 4_000, 3_000, 3_000))
+        assertEquals(0, Equipe.budgetLocal(-1, 0, 0, 0))
+    }
+
+    @Test fun onlinePreviewIsBiggerThanTheLocalOne() {
         assertTrue(Equipe.BUDGET_APERCU_DISTANT > Equipe.BUDGET_APERCU_LOCAL)
     }
 

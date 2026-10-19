@@ -40,6 +40,31 @@ data class Bilan(
     val lusEnEntier: Map<String, String>
         get() = lectures.mapNotNull { l -> l.empreinte?.let { l.chemin to it } }.toMap()
 
+    /**
+     * Garde seulement les lectures qui tiennent dans [budget] caracteres (la place que le modele
+     * local a vraiment en memoire). Les autres ne sont PAS montrees : un message trop long serait
+     * coupe en son milieu par le moteur, et l'IA croirait avoir lu des fichiers qu'elle n'a pas vus.
+     */
+    fun limiterLectures(budget: Int): Bilan {
+        var restant = budget
+        val limitees = lectures.map { l ->
+            val texte = l.texte
+            when {
+                texte == null -> l
+                texte.length <= restant -> {
+                    restant -= texte.length
+                    l
+                }
+                else -> LectureFichier(
+                    l.chemin, null,
+                    "pas assez de place dans la mémoire du modèle pour le montrer : ne le réécris pas, " +
+                        "mets ton code dans un NOUVEAU fichier"
+                )
+            }
+        }
+        return copy(lectures = limitees)
+    }
+
     /** Texte ajoute sous la reponse de l'IA dans le chat. Vide si rien ne s'est passe. */
     fun resume(): String = buildList {
         if (crees.isNotEmpty()) add("📁 Créé : " + crees.joinToString(", "))

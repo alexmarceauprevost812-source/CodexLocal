@@ -27,6 +27,7 @@ import com.codexlocal.agent.Annulation
 import com.codexlocal.agent.Bilan
 import com.codexlocal.agent.DemandeCreation
 import com.codexlocal.agent.AgentPrompts
+import com.codexlocal.agent.ApercuFichiers
 import com.codexlocal.agent.Equipe
 import com.codexlocal.agent.FichiersConnus
 import com.codexlocal.agent.NommageIA
@@ -1092,10 +1093,10 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             val historique = messages.subList(0, messages.size - 1).toList()
-            if (codex) oublierFichiersHorsMemoire(cfg, historique)
+            if (codex) oublierFichiersHorsMemoire(cfg, historique, apresReponse = false)
             diffuser(assistant, historique, cfg)
             // Le modele local a pu perdre sa memoire (ou ses plus vieux messages) pendant la reponse.
-            if (codex) oublierFichiersHorsMemoire(cfg, historique)
+            if (codex) oublierFichiersHorsMemoire(cfg, historique, apresReponse = true)
             if (!codex) return
 
             var actions = ActionsFichiers.extraire(assistant.content)
@@ -1156,7 +1157,8 @@ class MainActivity : AppCompatActivity() {
 
             val bilan = appliquerActions(
                 projet, assistant, cfg, actions, fichiersConnus.instantane(),
-                reductionPermise = ProtectionFichiers.reductionVoulue(user.content)
+                reductionPermise = ProtectionFichiers.reductionVoulue(user.content),
+                placeLectures = placePourFichiers(cfg, PLACE_TEXTE_LECTURES)
             )
             annulations += bilan.annulations
             // Ce que l'IA vient d'ecrire, elle le connait (a partir de son message dans la conversation).
@@ -1303,7 +1305,8 @@ class MainActivity : AppCompatActivity() {
         cfg: AppConfig,
         actions: List<ActionFichier> = ActionsFichiers.extraire(assistant.content),
         connus: Map<String, String>? = null,
-        reductionPermise: Boolean = false
+        reductionPermise: Boolean = false,
+        placeLectures: Int? = null
     ): Bilan {
         if (actions.isEmpty()) return Bilan()
         // Reponse proche de la limite de longueur : un fichier sans "=== FIN ===" est peut-etre coupe.
@@ -1313,7 +1316,7 @@ class MainActivity : AppCompatActivity() {
                 this@MainActivity, projet, actions, ignorerIncomplets = peutEtreCoupee,
                 connus = connus, reductionPermise = reductionPermise
             )
-        }
+        }.let { b -> if (placeLectures != null) b.limiterLectures(placeLectures) else b }
         val resume = bilan.resume()
         if (resume.isNotEmpty()) {
             assistant.content += "\n\n" + resume
@@ -1329,18 +1332,41 @@ class MainActivity : AppCompatActivity() {
      * conversation : modele local qui a retire ses plus vieux messages, remis a zero ou recharge ;
      * service en ligne qui ne renvoie que les derniers messages (voir FenetreHistorique).
      * Les fichiers concernes redeviennent « inconnus » : l'IA devra les relire avant de les remplacer.
+     *
+     * Le dernier message de [historique] (celui qu'on envoie) reste connu : les plus vieux messages
+     * sont toujours retires en premier. [apresReponse] : le modele a pu tout perdre pendant sa reponse.
      */
-    private fun oublierFichiersHorsMemoire(cfg: AppConfig, historique: List<Message>) {
+    private fun oublierFichiersHorsMemoire(
+        cfg: AppConfig, historique: List<Message>, apresReponse: Boolean
+    ) {
+        val dernier = historique.size - 1
         if (cfg.provider == ProviderType.LOCAL) {
             // le compteur du moteur est toujours lu, meme quand la memoire est deja vide
             val retires = LocalEngine.anciensMessagesRetires()
-            if (LocalEngine.conversationVide || retires) fichiersConnus.oublier()
+            when {
+                LocalEngine.conversationVide ->
+                    if (apresReponse) fichiersConnus.oublier() else fichiersConnus.oublierAvant(dernier)
+                retires -> fichiersConnus.oublierAvant(dernier)
+            }
         } else {
             // les memes textes que ceux reellement envoyes (voir ChatRepository)
             val envoyes = historique.map { m -> m.envoi?.let { m.copy(content = it) } ?: m }
             fichiersConnus.oublierAvant(FenetreHistorique.debut(envoyes))
         }
     }
+
+    /**
+     * Place (en caracteres) pour du contenu de fichiers dans le prochain message : sans limite
+     * pratique en ligne (null), ce qui tient dans la memoire du modele en local.
+     */
+    private fun placePourFichiers(cfg: AppConfig, caracteresMessage: Int): Int? =
+        if (cfg.provider != ProviderType.LOCAL) {
+            null
+        } else {
+            Equipe.budgetLocal(
+                LocalEngine.capaciteContexte(), cfg.systemPrompt.length, caracteresMessage, cfg.maxTokens
+            )
+        }
 
     /** Une conversation dans un projet : la liste des fichiers connus de l'IA ne vaut que pour elle. */
     private fun cleConnus(projet: Projet?): String = (session?.id ?: "") + "|" + (projet?.uri ?: "")
@@ -1405,12 +1431,7 @@ class MainActivity : AppCompatActivity() {
         }
         // Les redacteurs ne peuvent pas relire de fichiers : on leur montre ceux qui existent deja,
         // et ils ne peuvent remplacer que ceux-la (voir AgentProjet.appliquer).
-        val budget = if (cfg.provider == ProviderType.LOCAL) Equipe.BUDGET_APERCU_LOCAL
-        else Equipe.BUDGET_APERCU_DISTANT
         val reductionPermise = ProtectionFichiers.reductionVoulue(demande)
-        var apercu = withContext(Dispatchers.IO) {
-            AgentProjet.apercuFichiers(this@MainActivity, projet, demande, budget)
-        }
 
         panneauEquipe.reinitialiser()
         panneauEquipe.afficher(true)
@@ -1429,6 +1450,9 @@ class MainActivity : AppCompatActivity() {
                 Role.PLANIFICATEUR, Equipe.demandePlanificateur(demande, brief, contexte),
                 projet, cfg, annulations
             )
+            var apercu = apercuPour(
+                Role.REDACTEUR, Equipe.demandeRedacteur(demande, brief, plan, contexte), cfg, projet, demande
+            )
             val (textes, bilanTextes) = jouerRole(
                 Role.REDACTEUR,
                 Equipe.demandeRedacteur(demande, brief, plan, Equipe.avecApercu(contexte, apercu)),
@@ -1438,9 +1462,9 @@ class MainActivity : AppCompatActivity() {
             contexte = withContext(Dispatchers.IO) {
                 AgentProjet.contexteProjet(this@MainActivity, projet)
             }
-            apercu = withContext(Dispatchers.IO) {
-                AgentProjet.apercuFichiers(this@MainActivity, projet, demande, budget)
-            }
+            apercu = apercuPour(
+                Role.CODEUR, Equipe.demandeCodeur(demande, brief, plan, textes, contexte), cfg, projet, demande
+            )
             val (_, bilanCode) = jouerRole(
                 Role.CODEUR,
                 Equipe.demandeCodeur(demande, brief, plan, textes, Equipe.avecApercu(contexte, apercu)),
@@ -1455,6 +1479,27 @@ class MainActivity : AppCompatActivity() {
             binding.status.text = getString(R.string.msg_projet_ouvert, projet.nom)
         } finally {
             chrono.cancel()
+        }
+    }
+
+    /**
+     * Le contenu des fichiers existants a montrer a un role de l'equipe, dans la place qui reste
+     * au modele : sa memoire moins ses consignes, la demande [requeteSansApercu] et sa reponse.
+     * Un fichier qui ne tient pas n'est pas montre, donc pas remplacable.
+     */
+    private suspend fun apercuPour(
+        role: Role, requeteSansApercu: String, base: AppConfig, projet: Projet, demande: String
+    ): ApercuFichiers {
+        val consignes = role.systemPrompt(projetOuvert = true)
+        val budget = if (base.provider == ProviderType.LOCAL) {
+            Equipe.budgetLocal(
+                LocalEngine.capaciteContexte(), consignes.length, requeteSansApercu.length, role.maxTokens(base)
+            )
+        } else {
+            Equipe.BUDGET_APERCU_DISTANT
+        }
+        return withContext(Dispatchers.IO) {
+            AgentProjet.apercuFichiers(this@MainActivity, projet, demande, budget)
         }
     }
 
@@ -1530,6 +1575,9 @@ class MainActivity : AppCompatActivity() {
 
         /** Combien de fois de suite l'IA peut demander a lire des fichiers pour une question. */
         private const val MAX_TOURS_LECTURE = 3
+
+        /** Caracteres du message de lecture hors contenu des fichiers (explications, titres). */
+        private const val PLACE_TEXTE_LECTURES = 800
 
         private const val CLE_NOUVELLE_SESSION = "nouvelle_session"
         private const val CLE_NOUVEAU_PROJET = "nouveau_projet"

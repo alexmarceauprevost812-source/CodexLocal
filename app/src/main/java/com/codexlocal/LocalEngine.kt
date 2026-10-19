@@ -154,6 +154,9 @@ object LocalEngine {
         return (e.contextUsed() * 100L / total).toInt().coerceIn(0, 100)
     }
 
+    /** Jetons que la memoire du modele peut contenir (0 si aucun modele n'est charge). */
+    fun capaciteContexte(): Int = engine?.contextCapacity() ?: 0
+
     private var elagagesVus = 0
 
     /**

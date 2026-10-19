@@ -162,9 +162,31 @@ object Equipe {
 
     const val NB_ETAPES = 5
 
-    /** Caracteres de fichiers existants montres aux redacteurs : modele local (memoire courte) / en ligne. */
-    const val BUDGET_APERCU_LOCAL = 4_000
+    /** Caracteres de fichiers existants montres aux redacteurs : au plus, en local / en ligne. */
+    const val BUDGET_APERCU_LOCAL = 8_000
     const val BUDGET_APERCU_DISTANT = 40_000
+
+    /** Un jeton vaut environ 2,5 caracteres : estimation prudente pour du code et du francais. */
+    private const val CARACTERES_PAR_JETON = 2.5
+
+    /** Place gardee pour le gabarit de conversation du modele et les erreurs d'estimation. */
+    private const val MARGE_JETONS = 300
+
+    /**
+     * Combien de caracteres de fichiers on peut ajouter a un message pour le modele local sans que
+     * son moteur ne le coupe en deux (il retire alors le milieu du message, et l'IA croirait avoir
+     * vu des fichiers qui ne lui sont jamais parvenus). On compte la memoire du modele
+     * ([capaciteJetons]) moins ses consignes, le message deja ecrit et la place de sa reponse.
+     * 0 quand la capacite est inconnue ou qu'il ne reste rien.
+     */
+    fun budgetLocal(
+        capaciteJetons: Int, caracteresConsignes: Int, caracteresMessage: Int, jetonsReponse: Int
+    ): Int {
+        if (capaciteJetons <= 0) return 0
+        val entree = Math.ceil((caracteresConsignes + caracteresMessage) / CARACTERES_PAR_JETON).toInt()
+        val libres = capaciteJetons - jetonsReponse - MARGE_JETONS - entree
+        return minOf(BUDGET_APERCU_LOCAL, maxOf(0, (libres * CARACTERES_PAR_JETON).toInt()))
+    }
 
     /** Le contexte du projet suivi du contenu des fichiers montres (null s'il n'y a rien a dire). */
     fun avecApercu(contexte: String?, apercu: ApercuFichiers): String? =

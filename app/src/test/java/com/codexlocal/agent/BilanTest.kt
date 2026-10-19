@@ -95,4 +95,38 @@ class BilanTest {
         assertEquals(listOf("c.txt"), somme.crees)
         assertEquals(mapOf("x" to "1", "y" to "2"), somme.ecrits)
     }
+
+    @Test fun readsThatDoNotFitInTheModelMemoryAreNotShown() {
+        val bilan = Bilan(
+            lectures = listOf(
+                lecture("a.txt", "a".repeat(400)),
+                lecture("gros.txt", "g".repeat(900)),
+                lecture("b.txt", "b".repeat(500))
+            ),
+            proteges = listOf("gros.txt")
+        )
+        val limite = bilan.limiterLectures(1_000)
+        // a.txt (400) tient, gros.txt (900) ne tient plus, b.txt (500) tient encore (400 + 500 <= 1000)
+        assertEquals(listOf("a.txt", "gros.txt", "b.txt"), limite.lectures.map { it.chemin })
+        assertEquals("a".repeat(400), limite.lectures[0].texte)
+        assertEquals(null, limite.lectures[1].texte)
+        assertTrue(limite.lectures[1].erreur!!.contains("NOUVEAU fichier"))
+        assertEquals("b".repeat(500), limite.lectures[2].texte)
+        // ce qui n'est pas montre n'est pas connu de l'IA
+        assertEquals(setOf("a.txt", "b.txt"), limite.lusEnEntier.keys)
+        assertEquals(listOf("gros.txt"), limite.proteges)
+        assertTrue(limite.texteLectures().contains("(pas assez de place"))
+    }
+
+    @Test fun roomForEverythingChangesNothing() {
+        val bilan = Bilan(lectures = listOf(lecture("a.txt"), lecture("b.txt")))
+        assertEquals(bilan, bilan.limiterLectures(10_000))
+    }
+
+    @Test fun noRoomAtAllShowsNothing() {
+        val bilan = Bilan(lectures = listOf(lecture("a.txt")), proteges = listOf("a.txt"))
+        val limite = bilan.limiterLectures(0)
+        assertTrue(limite.lusEnEntier.isEmpty())
+        assertEquals(null, limite.lectures[0].texte)
+    }
 }
