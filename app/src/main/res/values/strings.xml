@@ -60,6 +60,7 @@
     <string name="action_check_update">Mises à jour</string>
     <string name="update_none">Tu as déjà la dernière version (%1$s)</string>
     <string name="update_available_title">Mise à jour disponible</string>
+    <string name="update_signature_title">Mise à jour impossible par-dessus</string>
     <string name="update_available_msg">Version %1$s disponible — tu as la %2$s.\n\nTélécharger et installer maintenant ?</string>
     <string name="update_download">Télécharger et installer</string>
     <string name="update_error">Vérification impossible. Le dépôt GitHub doit être public pour que la mise à jour automatique fonctionne.</string>

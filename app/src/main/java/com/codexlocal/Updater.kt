@@ -26,6 +26,8 @@ object Updater {
         require(archive.longVersionCode > installed.longVersionCode) {
             "Choisissez un APK plus récent que la version installée."
         }
+        // Avant de lancer l'installation : une autre cle de signature la ferait echouer sans explication.
+        SignatureMiseAJour.verifier(context, apk)
     }
 
     suspend fun importer(context: Context, uri: Uri): File = withContext(Dispatchers.IO) {
