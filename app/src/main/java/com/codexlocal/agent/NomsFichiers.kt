@@ -1,5 +1,6 @@
 package com.codexlocal.agent
 
+import com.codexlocal.project.Langages
 import com.codexlocal.studio.StudioParser
 
 /**
@@ -53,10 +54,10 @@ object NomsFichiers {
         if (point < 0) return false
         val extension = nom.substring(point + 1)
         if (point == 0) return extension.lowercase() in POINT_CONNUS
-        return extension.length in 1..8 &&
-            extension.any { it.isLetter() } &&
-            extension.all { it.isLetterOrDigit() } &&
-            extension.lowercase() !in DOMAINES
+        if (!extension.any { it.isLetter() } || !extension.all { it.isLetterOrDigit() }) return false
+        if (extension.lowercase() in DOMAINES) return false
+        // les extensions longues connues (gradle.properties) comptent aussi
+        return extension.length in 1..8 || Langages.estTexte(nom)
     }
 
     /**

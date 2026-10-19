@@ -11,14 +11,14 @@ class NomsFichiersTest {
     @Test fun recognisesFileNames() {
         listOf(
             "index.html", "js/app.js", "src/main/Main.kt", "Dockerfile", "docs/Makefile", ".gitignore",
-            "style.css", "package.json", "README.md", "app.test.ts", "mon fichier".replace(' ', '_') + ".py"
+            "style.css", "gradle.properties", "package.json", "README.md", "app.test.ts", "mon fichier".replace(' ', '_') + ".py"
         ).forEach { assertTrue(it, NomsFichiers.ressembleAUnFichier(it)) }
     }
 
     @Test fun rejectsWhatIsNotAFile() {
         listOf(
             "", "bonjour", "exemple.com", "3.14", "v1.2", "a b.txt", "../secret.txt", "/etc/passwd",
-            "http://x.fr/a.html", "x.", "Voici.", "html", "python"
+            "http://x.fr/a.html", "x.", "Voici.", "html", "python", "fin.Ensuitelongue"
         ).forEach { assertFalse(it, NomsFichiers.ressembleAUnFichier(it)) }
     }
 

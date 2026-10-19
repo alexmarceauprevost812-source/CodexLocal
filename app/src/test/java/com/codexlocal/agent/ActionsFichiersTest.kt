@@ -189,4 +189,9 @@ class ActionsFichiersTest {
         val e = ecritures("```html\n\n<!-- index.html -->\n<p>x</p>\n```").single()
         assertEquals("index.html", e.chemin)
     }
+
+    @Test fun longKnownExtensionsAreFileNames() {
+        val e = ecritures("**gradle.properties**\n```\norg.gradle.jvmargs=-Xmx2g\n```").single()
+        assertEquals("gradle.properties", e.chemin)
+    }
 }
