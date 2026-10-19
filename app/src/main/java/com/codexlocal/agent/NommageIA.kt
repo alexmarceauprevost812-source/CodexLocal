@@ -33,7 +33,7 @@ object NommageIA {
         ajouter(listOf("ts", "typescript"), setOf("ts"), "main.ts")
         ajouter(listOf("tsx"), setOf("tsx"), "App.tsx")
         ajouter(listOf("json"), setOf("json"), "data.json")
-        ajouter(listOf("xml"), setOf("xml", "svg"), "data.xml")
+        ajouter(listOf("xml"), setOf("xml"), "data.xml")
         ajouter(listOf("yaml", "yml"), setOf("yml", "yaml"), "config.yml")
         ajouter(listOf("py", "python"), setOf("py"), "main.py")
         ajouter(listOf("kt", "kotlin"), setOf("kt", "kts"), "Main.kt")
@@ -53,6 +53,9 @@ object NommageIA {
         ajouter(listOf("toml"), setOf("toml"), "config.toml")
         ajouter(listOf("ini"), setOf("ini", "cfg", "conf"), "config.ini")
     }
+
+    /** Toutes les extensions acceptees pour un nom choisi par l'IA (verifiees par un test). */
+    internal fun extensionsAcceptees(): Set<String> = LANGAGES.values.flatMap { it.extensions }.toSet()
 
     /** La question posee a l'IA pour un bloc : un extrait du code et les noms deja pris. */
     fun demande(bloc: ActionFichier.SansNom, existants: List<String>): String {
@@ -98,10 +101,13 @@ object NommageIA {
     fun nomParDefaut(langage: String): String =
         LANGAGES[langage.lowercase()]?.nomParDefaut ?: "fichier." + langage.ifBlank { "txt" }
 
-    /** [nom] tel quel s'il est libre, sinon « nom_2.ext », « nom_3.ext »... */
-    fun unique(nom: String, pris: Set<String>): String {
+    /**
+     * [nom] tel quel s'il est libre, sinon « nom_2.ext », « nom_3.ext »... Un nom est pris quand il
+     * est dans [pris] ou quand [existe] le dit (verification directe dans le projet, sans limite de liste).
+     */
+    fun unique(nom: String, pris: Set<String>, existe: (String) -> Boolean = { false }): String {
         val prisBas = pris.map { it.lowercase() }.toSet()
-        if (nom.lowercase() !in prisBas) return nom
+        if (nom.lowercase() !in prisBas && !existe(nom)) return nom
         val dossier = nom.substringBeforeLast('/', "")
         val fichier = nom.substringAfterLast('/')
         val point = fichier.lastIndexOf('.')
@@ -110,7 +116,7 @@ object NommageIA {
         var n = 2
         while (true) {
             val essai = (if (dossier.isEmpty()) "" else "$dossier/") + base + "_" + n + extension
-            if (essai.lowercase() !in prisBas) return essai
+            if (essai.lowercase() !in prisBas && !existe(essai)) return essai
             n++
         }
     }
@@ -118,12 +124,13 @@ object NommageIA {
     /**
      * Le nom de chaque bloc sans nom (numero de la ligne d'ouverture -> nom). [reponsesIA] suit
      * l'ordre de [blocs] ; null = l'IA n'a pas repondu. [dejaPris] : fichiers du projet et de la
-     * reponse. Un nom n'est jamais donne deux fois et ne reprend jamais un fichier existant.
+     * reponse ; [existe] verifie aussi chaque nom choisi directement dans le projet. Un nom n'est jamais donne deux fois et ne reprend jamais un fichier existant.
      */
     fun attribuer(
         blocs: List<ActionFichier.SansNom>,
         reponsesIA: List<String?>,
-        dejaPris: Set<String>
+        dejaPris: Set<String>,
+        existe: (String) -> Boolean = { false }
     ): Map<Int, String> {
         val pris = dejaPris.toMutableSet()
         val noms = LinkedHashMap<Int, String>()
@@ -131,7 +138,7 @@ object NommageIA {
             if (bloc.ligneOuverture < 0) return@forEachIndexed
             val choisi = reponsesIA.getOrNull(i)?.let { lireNom(it, bloc.langage) }
                 ?: nomParDefaut(bloc.langage)
-            val nom = unique(choisi, pris)
+            val nom = unique(choisi, pris, existe)
             pris.add(nom)
             noms[bloc.ligneOuverture] = nom
         }

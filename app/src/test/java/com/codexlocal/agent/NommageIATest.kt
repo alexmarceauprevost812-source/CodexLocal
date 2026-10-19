@@ -150,4 +150,27 @@ class NommageIATest {
         assertTrue(q.contains("x1 = 1"))
         assertFalse(q.contains("x500 = 500"))
     }
+
+    @Test fun checksEachChosenNameDirectlyInTheProject() {
+        // le projet a des fichiers que la liste (limitee) ne montre pas
+        val existants = setOf("main.py", "main_2.py")
+        val noms = NommageIA.attribuer(sansNom(codePython), listOf("main.py"), emptySet()) { it in existants }
+        assertEquals(mapOf(0 to "main_3.py"), noms)
+    }
+
+    @Test fun onlyExtensionsTheProjectCanWriteAreAccepted() {
+        assertFalse(NommageIA.compatible("icone.svg", "xml"))
+        assertNull(NommageIA.lireNom("icone.svg", "xml"))
+        assertEquals("data.xml", NommageIA.lireNom("data.xml", "xml"))
+    }
+
+    @Test fun everyAcceptedExtensionCanBeWrittenByTheProject() {
+        // sinon un nom choisi par l'IA serait refuse par le projet, et le fichier perdu
+        NommageIA.extensionsAcceptees().forEach { extension ->
+            assertTrue(extension, com.codexlocal.project.Langages.estTexte("fichier.$extension"))
+        }
+        listOf("html", "css", "javascript", "python", "kotlin", "java", "sql", "markdown", "ini", "xml").forEach {
+            assertTrue(it, com.codexlocal.project.Langages.estTexte(NommageIA.nomParDefaut(it)))
+        }
+    }
 }

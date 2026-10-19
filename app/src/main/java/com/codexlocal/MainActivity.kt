@@ -972,7 +972,14 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 pris += actions.filterIsInstance<ActionFichier.Ecrire>().map { it.chemin }
-                val noms = nommerBlocs(sansNom, pris, base)
+                // la liste des fichiers est limitee : chaque nom choisi est aussi verifie directement
+                val projetNomme = projet
+                val existe: (String) -> Boolean = { chemin ->
+                    projetNomme != null && runCatching {
+                        ProjectStore.trouverFichier(this@MainActivity, projetNomme, chemin) != null
+                    }.getOrDefault(false)
+                }
+                val noms = nommerBlocs(sansNom, pris, base, existe)
                 if (noms.isNotEmpty()) {
                     assistant.content = ActionsFichiers.avecTitres(assistant.content, noms)
                     val i = messages.indexOfFirst { it === assistant }
@@ -1014,12 +1021,14 @@ class MainActivity : AppCompatActivity() {
     /**
      * Demande a l'IA, a part (une petite question par bloc), le nom des blocs de code sans nom.
      * Renvoie numero de ligne -> nom ; un nom par defaut est donne quand l'IA ne repond pas bien.
-     * [pris] : les fichiers qui existent deja, dont le nom ne doit jamais etre repris.
+     * [pris] : les fichiers qui existent deja, dont le nom ne doit jamais etre repris ; [existe]
+     * le verifie aussi pour chaque nom choisi.
      */
     private suspend fun nommerBlocs(
         blocs: List<ActionFichier.SansNom>,
         pris: Set<String>,
-        base: AppConfig
+        base: AppConfig,
+        existe: (String) -> Boolean
     ): Map<Int, String> {
         val cfg = base.copy(
             systemPrompt = NommageIA.SYSTEME,
@@ -1048,7 +1057,7 @@ class MainActivity : AppCompatActivity() {
                 }
             )
         }
-        return NommageIA.attribuer(blocs, reponses, pris)
+        return withContext(Dispatchers.IO) { NommageIA.attribuer(blocs, reponses, pris, existe) }
     }
 
     /** Consignes de fichiers ajoutees au prompt, avec de la place pour des fichiers entiers. */
