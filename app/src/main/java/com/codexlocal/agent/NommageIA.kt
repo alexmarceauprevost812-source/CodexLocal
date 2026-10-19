@@ -3,7 +3,8 @@ package com.codexlocal.agent
 import com.codexlocal.studio.StudioParser
 
 /**
- * Quand l'IA donne du code sans nom de fichier, l'appli lui redemande, a part, de choisir ce nom.
+ * Quand l'IA donne du code sans nom de fichier, l'appli lui redemande de choisir ce nom (a part pour
+ * un service en ligne ; dans la conversation en cours pour le modele local, dont la memoire reste intacte).
  * Ce fichier prepare la question, lit la reponse (meme avec le raisonnement `<think>` des modeles
  * « reflechis ») et trouve un nom qui ne reprend jamais un fichier existant. Si la reponse est
  * inutilisable, un nom par defaut (index.html, main.py...) est donne. Code pur, sans Android.
@@ -56,6 +57,16 @@ object NommageIA {
 
     /** Toutes les extensions acceptees pour un nom choisi par l'IA (verifiees par un test). */
     internal fun extensionsAcceptees(): Set<String> = LANGAGES.values.flatMap { it.extensions }.toSet()
+
+    /**
+     * La question posee dans la conversation en cours (modele local : sa memoire n'est pas remise a
+     * zero) : le code est deja dans la conversation, on le reconnait a ses premieres lignes.
+     */
+    fun demandeDansLaConversation(bloc: ActionFichier.SansNom): String {
+        val debut = bloc.contenu.lines().filter { it.isNotBlank() }.take(3).joinToString("\n").take(240)
+        return "Quel nom de fichier (avec son extension) pour le bloc de code ${bloc.langage} qui commence par :\n" +
+            debut + "\nReponds UNIQUEMENT par ce nom de fichier, rien d'autre."
+    }
 
     /** La question posee a l'IA pour un bloc : un extrait du code et les noms deja pris. */
     fun demande(bloc: ActionFichier.SansNom, existants: List<String>): String {

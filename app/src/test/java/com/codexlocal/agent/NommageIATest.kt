@@ -173,4 +173,18 @@ class NommageIATest {
             assertTrue(it, com.codexlocal.project.Langages.estTexte(NommageIA.nomParDefaut(it)))
         }
     }
+
+    @Test fun theConversationQuestionIdentifiesTheBlockByItsFirstLines() {
+        val q = NommageIA.demandeDansLaConversation(sansNom(codePython).single())
+        assertTrue(q.contains("python"))
+        assertTrue(q.contains("a = 1\nb = 2\nc = 3"))
+        assertFalse("pas tout le code : il est deja dans la conversation", q.contains("print(a + b + c)"))
+        assertTrue(q.contains("UNIQUEMENT"))
+    }
+
+    @Test fun aLongAnswerThatStartsWithTheNameIsStillRead() {
+        // dans la conversation, le modele peut repondre par un bloc entier au lieu du nom seul
+        val reponse = "=== FICHIER: calcul.py ===\na = 1\nb = 2"
+        assertEquals("calcul.py", NommageIA.lireNom(reponse, "python"))
+    }
 }

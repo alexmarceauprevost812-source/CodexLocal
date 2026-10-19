@@ -979,7 +979,7 @@ class MainActivity : AppCompatActivity() {
                         ProjectStore.trouverFichier(this@MainActivity, projetNomme, chemin) != null
                     }.getOrDefault(false)
                 }
-                val noms = nommerBlocs(sansNom, pris, base, existe)
+                val noms = nommerBlocs(sansNom, pris, base, cfg, existe)
                 if (noms.isNotEmpty()) {
                     assistant.content = ActionsFichiers.avecTitres(assistant.content, noms)
                     val i = messages.indexOfFirst { it === assistant }
@@ -1019,21 +1019,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Demande a l'IA, a part (une petite question par bloc), le nom des blocs de code sans nom.
+     * Demande a l'IA le nom des blocs de code sans nom (une petite question par bloc).
      * Renvoie numero de ligne -> nom ; un nom par defaut est donne quand l'IA ne repond pas bien.
      * [pris] : les fichiers qui existent deja, dont le nom ne doit jamais etre repris ; [existe]
      * le verifie aussi pour chaque nom choisi.
+     *
+     * Modele local : la question est posee DANS la conversation en cours ([cfgConversation]), car
+     * remettre sa memoire a zero ferait perdre le fil du dialogue. Service en ligne : question
+     * a part, sans historique.
      */
     private suspend fun nommerBlocs(
         blocs: List<ActionFichier.SansNom>,
         pris: Set<String>,
         base: AppConfig,
+        cfgConversation: AppConfig,
         existe: (String) -> Boolean
     ): Map<Int, String> {
-        val cfg = base.copy(
-            systemPrompt = NommageIA.SYSTEME,
-            maxTokens = if (base.provider == ProviderType.LOCAL) 320 else 60
-        )
+        val local = cfgConversation.provider == ProviderType.LOCAL
+        val cfg = if (local) {
+            cfgConversation.copy(maxTokens = 320)
+        } else {
+            base.copy(systemPrompt = NommageIA.SYSTEME, maxTokens = 60)
+        }
         val reponses = ArrayList<String?>()
         for ((i, bloc) in blocs.withIndex()) {
             if (i >= NommageIA.MAX_QUESTIONS) {
@@ -1043,11 +1050,16 @@ class MainActivity : AppCompatActivity() {
             binding.status.text = getString(R.string.agent_nommage, i + 1, blocs.size)
             reponses.add(
                 try {
-                    if (!preparerModele(cfg, repartirDeZero = true)) {
+                    if (!preparerModele(cfg, repartirDeZero = false)) {
                         null
                     } else {
                         val reponse = Message.assistant()
-                        diffuser(reponse, listOf(Message.user(NommageIA.demande(bloc, pris.toList()))), cfg)
+                        val historique = if (local) {
+                            messages.toList() + Message.user(NommageIA.demandeDansLaConversation(bloc))
+                        } else {
+                            listOf(Message.user(NommageIA.demande(bloc, pris.toList())))
+                        }
+                        diffuser(reponse, historique, cfg)
                         reponse.content
                     }
                 } catch (e: CancellationException) {
