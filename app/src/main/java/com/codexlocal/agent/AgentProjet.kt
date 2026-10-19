@@ -16,6 +16,11 @@ object AgentProjet {
     /** Nombre maximal de fichiers examines pour l'apercu de l'equipe (chacun doit etre lu pour compter ses caracteres). */
     private const val MAX_FICHIERS_APERCU = 60
 
+    private const val INTRODUCTION_APERCU =
+        "Contenu actuel des fichiers du projet (pour en modifier un, réécris-le EN ENTIER " +
+            "en gardant tout ce qui existe) :"
+    private const val FIN_APERCU = "--- Fin des fichiers ---"
+
     /**
      * Applique les actions. Un fichier existant est remplace (l'ancien contenu est garde dans
      * les [Annulation]) ; un bloc possiblement coupe est ignore plutot qu'ecrit a moitie.
@@ -170,22 +175,19 @@ object AgentProjet {
         )
         val connus = LinkedHashMap<String, String>()
         val corps = StringBuilder()
-        var total = 0
+        // le budget compte le texte COMPLET : introduction, titre de chaque fichier et conclusion aussi
+        var total = INTRODUCTION_APERCU.length + FIN_APERCU.length
         for (candidat in ordre.take(MAX_FICHIERS_APERCU)) {
             val fichier = parChemin[candidat.chemin] ?: continue
             val texte = runCatching { ProjectStore.lireTexte(context, fichier) }.getOrNull() ?: continue
-            if (texte.length > MAX_CARACTERES_LECTURE || total + texte.length > budget) continue
-            corps.append("\n--- Fichier ").append(fichier.chemin).append(" ---\n").append(texte)
-            if (!texte.endsWith("\n")) corps.append('\n')
-            total += texte.length
+            val bloc = "\n--- Fichier ${fichier.chemin} ---\n" + texte + if (texte.endsWith("\n")) "" else "\n"
+            if (texte.length > MAX_CARACTERES_LECTURE || total + bloc.length > budget) continue
+            corps.append(bloc)
+            total += bloc.length
             connus[fichier.chemin] = FichiersConnus.empreinte(texte)
         }
         if (connus.isEmpty()) return ApercuFichiers.VIDE
-        return ApercuFichiers(
-            "Contenu actuel des fichiers du projet (pour en modifier un, réécris-le EN ENTIER " +
-                "en gardant tout ce qui existe) :" + corps + "--- Fin des fichiers ---",
-            connus
-        )
+        return ApercuFichiers(INTRODUCTION_APERCU + corps + FIN_APERCU, connus)
     }
 
     /** Remet le projet comme avant. Renvoie le nombre de fichiers retablis ou supprimes. */

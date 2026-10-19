@@ -416,12 +416,25 @@ class AgentProjetTest {
         File(p.uri, "index.html").writeText("i".repeat(300))
         File(p.uri, "style.css").writeText("s".repeat(300))
         File(p.uri, "app.js").writeText("a".repeat(300))
-        val apercu = AgentProjet.apercuFichiers(ctx, p, "corrige app.js", 650)
-        // 650 caracteres : deux fichiers de 300 tiennent, pas trois (README.md compte aussi)
+        val apercu = AgentProjet.apercuFichiers(ctx, p, "corrige app.js", 850)
+        // le budget compte tout le texte (introduction, titres) : deux fichiers de 300 tiennent, pas trois
+        assertTrue(apercu.texte.length <= 850)
         assertTrue(apercu.connus.containsKey("app.js"))
         assertTrue(apercu.connus.containsKey("index.html"))
         assertFalse(apercu.connus.containsKey("style.css"))
-        assertTrue(apercu.connus.values.size <= 3)
+    }
+
+    @Test fun previewBudgetCountsTheFramingOfManySmallFiles() {
+        val p = projet()
+        val dossier = "dossier_avec_un_nom_assez_long_pour_compter"
+        File(p.uri, dossier).mkdirs()
+        repeat(30) { File(p.uri, "$dossier/fichier_numero_$it.txt").writeText("petit $it\n") }
+        for (budget in listOf(0, 200, 500, 1_000, 2_000, 5_000)) {
+            val apercu = AgentProjet.apercuFichiers(ctx, p, "", budget)
+            assertTrue("budget $budget, taille ${apercu.texte.length}", apercu.texte.length <= budget)
+            assertEquals(apercu.connus.isEmpty(), apercu.texte.isEmpty())
+        }
+        assertTrue(AgentProjet.apercuFichiers(ctx, p, "", 5_000).connus.size > 5)
     }
 
     @Test fun previewSkipsBigFilesAndBinaryFiles() {
