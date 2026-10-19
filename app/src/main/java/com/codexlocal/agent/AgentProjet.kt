@@ -88,6 +88,10 @@ object AgentProjet {
                     ignores.add("${action.chemin} : ${e.message ?: e.toString()}")
                 }
                 is ActionFichier.Lire -> lectures.add(lire(context, projet, action.chemin))
+                is ActionFichier.SansNom -> ignores.add(
+                    "un bloc de code ${action.langage} (${action.lignes} lignes) sans nom de fichier : " +
+                        "rien n'a été créé. Demande-lui d'écrire toujours le nom du fichier avant le code."
+                )
             }
         }
         return Bilan(crees, modifies, ignores, lectures, annulations)

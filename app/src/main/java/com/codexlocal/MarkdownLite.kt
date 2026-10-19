@@ -8,57 +8,69 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.text.style.TypefaceSpan
+import com.codexlocal.agent.BlocMessage
+import com.codexlocal.agent.DecoupageMessage
+
+/** Fond de la barre de titre d'un fichier ecrit par l'IA (sert aussi a la retrouver dans les tests). */
+internal class TitreFichierSpan : BackgroundColorSpan(0xFF16263A.toInt())
 
 /**
  * Rendu Markdown minimaliste adapte au code :
- *  - les blocs ```langage sont affiches en monospace sur fond tres sombre
- *    et colores par [SyntaxHighlighter] ;
+ *  - chaque fichier ou bloc de code ecrit par l'IA a sa barre de TITRE (« 📄 index.html »), puis son code
+ *    en monospace sur fond tres sombre, colore par [SyntaxHighlighter] selon l'extension du fichier ;
  *  - le `code en ligne` est en monospace orange ;
  *  - les **gras** sont mis en gras.
  *
- * Aucune dependance externe.
+ * Le decoupage (texte / fichiers / titres) est fait par [DecoupageMessage]. Aucune dependance externe.
  */
 object MarkdownLite {
 
     private const val CODE_BG = 0xFF070707.toInt()
     private const val INLINE_CODE = 0xFFFFC777.toInt()
+    private const val TITRE_FG = 0xFF8AB4F8.toInt()
 
     fun format(text: String): CharSequence {
         val out = SpannableStringBuilder()
-        val parts = text.split("```")
-        parts.forEachIndexed { index, part ->
-            if (index % 2 == 1) appendCodeBlock(out, part) else appendProse(out, part)
+        for (bloc in DecoupageMessage.decouper(text)) {
+            when (bloc) {
+                is BlocMessage.Texte -> if (bloc.texte.isNotBlank()) {
+                    if (out.isNotEmpty() && out[out.length - 1] != '\n') out.append("\n")
+                    appendProse(out, bloc.texte)
+                }
+                is BlocMessage.Code -> appendCodeBlock(out, bloc)
+            }
         }
         return out
     }
 
     // ------------------------------------------------------------- bloc de code
 
-    private fun appendCodeBlock(out: SpannableStringBuilder, raw: String) {
-        var body = raw
-        var lang = ""
-
-        val firstNewline = body.indexOf('\n')
-        if (firstNewline >= 0) {
-            val first = body.substring(0, firstNewline).trim()
-            if (first.isNotEmpty() && first.length <= 20 && !first.contains(' ')) {
-                lang = first
-                body = body.substring(firstNewline + 1)
-            }
-        }
-        body = body.trimEnd('\n')
-        if (body.isEmpty()) return
+    private fun appendCodeBlock(out: SpannableStringBuilder, bloc: BlocMessage.Code) {
+        val titre = bloc.titre
+        if (bloc.corps.isBlank() && titre == null) return
 
         if (out.isNotEmpty() && out[out.length - 1] != '\n') out.append("\n")
 
+        if (titre != null) {
+            val debutTitre = out.length
+            out.append(" 📄 ").append(titre).append(' ')
+            val finTitre = out.length
+            out.setSpan(TitreFichierSpan(), debutTitre, finTitre, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            out.setSpan(ForegroundColorSpan(TITRE_FG), debutTitre, finTitre, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            out.setSpan(StyleSpan(Typeface.BOLD), debutTitre, finTitre, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            out.setSpan(TypefaceSpan("monospace"), debutTitre, finTitre, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            out.append("\n")
+        }
+        if (bloc.corps.isEmpty()) return
+
         val start = out.length
-        out.append(body)
+        out.append(bloc.corps)
         val end = out.length
 
         out.setSpan(TypefaceSpan("monospace"), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         out.setSpan(BackgroundColorSpan(CODE_BG), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         out.setSpan(RelativeSizeSpan(0.94f), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        SyntaxHighlighter.colorize(out, start, body, lang)
+        SyntaxHighlighter.colorize(out, start, bloc.corps, bloc.langage)
 
         out.append("\n")
     }

@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.codexlocal.bureau.ActionBureau
 import com.codexlocal.bureau.BureauActivity
+import com.codexlocal.agent.ActionFichier
 import com.codexlocal.agent.ActionsFichiers
 import com.codexlocal.agent.AgentProjet
 import com.codexlocal.agent.Annulation
@@ -922,9 +923,10 @@ class MainActivity : AppCompatActivity() {
     // ------------------------------------------------- conversation + fichiers
 
     /**
-     * Conversation normale. En mode Codex avec un projet ouvert, l'IA cree, ecrit et lit
-     * les fichiers toute seule : ce qu'elle ecrit est applique, et si elle demande a lire
-     * un fichier, son contenu lui est renvoye automatiquement (quelques tours au plus).
+     * Conversation normale. En mode Codex, l'IA cree, ecrit et lit les fichiers toute seule :
+     * ce qu'elle ecrit est applique (dans un projet cree automatiquement s'il n'y en a pas), et
+     * si elle demande a lire un fichier, son contenu lui est renvoye automatiquement (quelques
+     * tours au plus).
      */
     private suspend fun converser(
         user: Message,
@@ -932,11 +934,13 @@ class MainActivity : AppCompatActivity() {
         base: AppConfig,
         annulations: MutableList<Annulation>
     ) {
-        val projet = if (mode == AssistantMode.CODEX) projetActif else null
-        val cfg = if (projet != null) avecActionsFichiers(base) else base
-        if (projet != null) {
+        val codex = mode == AssistantMode.CODEX
+        val projetDepart = if (codex) projetActif else null
+        var projet = projetDepart
+        val cfg = if (codex) avecActionsFichiers(base) else base
+        if (projetDepart != null) {
             val contexte = withContext(Dispatchers.IO) {
-                AgentProjet.contexteProjet(this@MainActivity, projet)
+                AgentProjet.contexteProjet(this@MainActivity, projetDepart)
             }
             user.envoi = contexte + "\n\n" + user.content
         }
@@ -953,9 +957,16 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             diffuser(assistant, messages.subList(0, messages.size - 1).toList(), cfg)
+            if (!codex) return
+
+            val actions = ActionsFichiers.extraire(assistant.content)
+            // Des fichiers sont ecrits mais aucun projet n'est ouvert : on en cree un tout seul.
+            if (projet == null && actions.any { it is ActionFichier.Ecrire }) {
+                projet = projetAutomatique("Codex_", R.string.codex_projet_auto)
+            }
             if (projet == null) return
 
-            val bilan = appliquerActions(projet, assistant, cfg)
+            val bilan = appliquerActions(projet, assistant, cfg, actions)
             annulations += bilan.annulations
             tours++
             if (bilan.lectures.isEmpty() || tours >= MAX_TOURS_LECTURE) return
@@ -1037,8 +1048,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Applique dans le projet ce que la reponse demande, et l'ecrit sous la reponse. */
-    private suspend fun appliquerActions(projet: Projet, assistant: Message, cfg: AppConfig): Bilan {
-        val actions = ActionsFichiers.extraire(assistant.content)
+    private suspend fun appliquerActions(
+        projet: Projet,
+        assistant: Message,
+        cfg: AppConfig,
+        actions: List<ActionFichier> = ActionsFichiers.extraire(assistant.content)
+    ): Bilan {
         if (actions.isEmpty()) return Bilan()
         // Reponse proche de la limite de longueur : un fichier sans "=== FIN ===" est peut-etre coupe.
         val peutEtreCoupee = assistant.content.length >= cfg.maxTokens * 2
@@ -1077,13 +1092,16 @@ class MainActivity : AppCompatActivity() {
     // ------------------------------------------------------------- equipe
 
     /** Le projet ouvert, ou un nouveau projet cree pour l'equipe s'il n'y en a pas. */
-    private suspend fun projetPourEquipe(): Projet {
+    private suspend fun projetPourEquipe(): Projet = projetAutomatique("Equipe_", R.string.equipe_projet_auto)
+
+    /** Le projet ouvert, ou un nouveau projet (nom = [prefixe] + date) cree et ouvert tout seul. */
+    private suspend fun projetAutomatique(prefixe: String, messageToast: Int): Projet {
         projetActif?.let { return it }
-        val nom = "Equipe_" + SimpleDateFormat("yyyyMMdd_HHmm", Locale.CANADA_FRENCH).format(Date())
+        val nom = prefixe + SimpleDateFormat("yyyyMMdd_HHmm", Locale.CANADA_FRENCH).format(Date())
         val cree = withContext(Dispatchers.IO) { ProjectStore.creerProjetInterne(this@MainActivity, nom) }
         ProjectStore.ajouter(this, cree)
         ouvrirProjet(cree)
-        Toast.makeText(this, getString(R.string.equipe_projet_auto, cree.nom), Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(messageToast, cree.nom), Toast.LENGTH_SHORT).show()
         return cree
     }
 

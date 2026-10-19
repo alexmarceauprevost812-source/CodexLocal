@@ -14,6 +14,9 @@ sealed interface ActionFichier {
 
     /** Lire un fichier existant : son contenu est renvoye a l'IA au tour suivant. */
     data class Lire(val chemin: String) : ActionFichier
+
+    /** Un gros bloc de code sans nom de fichier : on ne sait pas ou l'ecrire, donc rien n'est cree. */
+    data class SansNom(val langage: String, val lignes: Int) : ActionFichier
 }
 
 /**
@@ -26,20 +29,39 @@ sealed interface ActionFichier {
  * === FIN ===
  * === LIRE: README.md ===
  * ```
+ *
+ * Les petits modeles suivent mal ce format : quand il n'y a aucun marqueur, on lit aussi les blocs
+ * de code ``` dont le nom de fichier est ecrit juste avant, dans la ligne d'ouverture ou en
+ * commentaire (voir [NomsFichiers]).
  */
 object ActionsFichiers {
 
     const val MAX_ECRITURES = 20
     const val MAX_LECTURES = 4
 
-    private val marqueurEcrire =
+    internal val marqueurEcrire =
         Regex("""^\s*={2,}\s*FICHIER\s*:\s*(.+?)\s*=*\s*$""", RegexOption.IGNORE_CASE)
-    private val marqueurLire =
+    internal val marqueurLire =
         Regex("""^\s*={2,}\s*LIRE\s*:\s*(.+?)\s*=*\s*$""", RegexOption.IGNORE_CASE)
-    private val marqueurFin =
+    internal val marqueurFin =
         Regex("""^\s*={2,}\s*FIN\s*={2,}\s*$""", RegexOption.IGNORE_CASE)
 
+    /** Langages dont un gros bloc de code est presque toujours un fichier a creer. */
+    private val LANGAGES_DE_FICHIER = setOf(
+        "html", "css", "scss", "js", "javascript", "jsx", "ts", "typescript", "tsx", "json", "xml", "yaml", "yml",
+        "py", "python", "kt", "kotlin", "java", "php", "c", "cpp", "csharp", "cs", "go", "rust", "rs", "swift",
+        "dart", "ruby", "rb", "sql", "lua", "md", "markdown", "toml", "ini"
+    )
+
+    private val ouvertureBloc = Regex("""^\s*```+(.*)$""")
+
+    /** Les actions de la reponse : marqueurs `=== FICHIER ===`, sinon blocs de code ayant un nom de fichier. */
     fun extraire(reponse: String): List<ActionFichier> {
+        val parMarqueurs = extraireMarqueurs(reponse)
+        return if (parMarqueurs.isEmpty()) extraireBlocsDeCode(reponse) else parMarqueurs
+    }
+
+    private fun extraireMarqueurs(reponse: String): List<ActionFichier> {
         val resultat = ArrayList<ActionFichier>()
         var chemin: String? = null
         val lignes = ArrayList<String>()
@@ -78,6 +100,76 @@ object ActionsFichiers {
             }
         }
         fermer(false)
+        return resultat
+    }
+
+    /**
+     * Les blocs de code ``` d'une reponse qui donne un nom de fichier : dans la ligne d'ouverture,
+     * sur la ligne (ou les deux) juste avant, ou en commentaire sur la premiere ligne du code.
+     * Un gros bloc de langage « de fichier » sans nom devient [ActionFichier.SansNom].
+     */
+    internal fun extraireBlocsDeCode(reponse: String): List<ActionFichier> {
+        val resultat = ArrayList<ActionFichier>()
+        var enBloc = false
+        var profondeur = 0
+        var info = ""
+        var titreAvant: String? = null
+        var avant1 = ""
+        var avant2 = ""
+        var ecritures = 0
+        val contenu = ArrayList<String>()
+
+        fun fermer(complet: Boolean) {
+            val corps = contenu.dropWhile { it.isBlank() }.dropLastWhile { it.isBlank() }
+            val nom = NomsFichiers.nomDansInfo(info) ?: titreAvant
+                ?: corps.firstOrNull()?.let { NomsFichiers.nomDansPremiereLigne(it) }
+            if (nom != null) {
+                if (corps.isNotEmpty() && ecritures < MAX_ECRITURES) {
+                    resultat.add(ActionFichier.Ecrire(nom, corps.joinToString("\n") + "\n", complet))
+                    ecritures++
+                }
+            } else {
+                val langage = NomsFichiers.langageDansInfo(info).lowercase()
+                val utiles = corps.count { it.isNotBlank() }
+                if (langage in LANGAGES_DE_FICHIER && utiles >= 4) {
+                    resultat.add(ActionFichier.SansNom(langage, utiles))
+                }
+            }
+            enBloc = false
+            profondeur = 0
+            info = ""
+            titreAvant = null
+            avant1 = ""
+            avant2 = ""
+            contenu.clear()
+        }
+
+        for (ligne in reponse.lines()) {
+            val fence = ouvertureBloc.matchEntire(ligne)
+            when {
+                !enBloc && fence != null -> {
+                    enBloc = true
+                    info = fence.groupValues[1].trim()
+                    titreAvant = NomsFichiers.nomDansLigne(if (avant1.isNotBlank()) avant1 else avant2)
+                }
+                !enBloc -> {
+                    avant2 = avant1
+                    avant1 = ligne
+                }
+                fence != null && fence.groupValues[1].isNotBlank() -> {
+                    // un bloc ouvert a l'interieur du fichier (README qui montre du code)
+                    profondeur++
+                    contenu.add(ligne)
+                }
+                fence != null && profondeur > 0 -> {
+                    profondeur--
+                    contenu.add(ligne)
+                }
+                fence != null -> fermer(true)
+                else -> contenu.add(ligne)
+            }
+        }
+        if (enBloc) fermer(false)
         return resultat
     }
 
