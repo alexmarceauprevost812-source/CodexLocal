@@ -15,8 +15,18 @@ sealed interface ActionFichier {
     /** Lire un fichier existant : son contenu est renvoye a l'IA au tour suivant. */
     data class Lire(val chemin: String) : ActionFichier
 
-    /** Un gros bloc de code sans nom de fichier : on ne sait pas ou l'ecrire, donc rien n'est cree. */
-    data class SansNom(val langage: String, val lignes: Int) : ActionFichier
+    /**
+     * Un gros bloc de code sans nom de fichier : on ne sait pas ou l'ecrire. L'IA peut lui en
+     * choisir un (voir [NommageIA]) ; sinon rien n'est cree. [ligneOuverture] est le numero de la
+     * ligne ``` qui ouvre le bloc dans la reponse, [contenu] son code.
+     */
+    data class SansNom(
+        val langage: String,
+        val lignes: Int,
+        val contenu: String = "",
+        val ligneOuverture: Int = -1,
+        val complet: Boolean = true
+    ) : ActionFichier
 }
 
 /**
@@ -121,6 +131,7 @@ object ActionsFichiers {
         var avant1 = ""
         var avant2 = ""
         var ecritures = 0
+        var ouverture = -1
         val contenu = ArrayList<String>()
 
         fun fermer(complet: Boolean) {
@@ -136,7 +147,9 @@ object ActionsFichiers {
                 val langage = NomsFichiers.langageDansInfo(info).lowercase()
                 val utiles = corps.count { it.isNotBlank() }
                 if (langage in LANGAGES_DE_FICHIER && utiles >= 4) {
-                    resultat.add(ActionFichier.SansNom(langage, utiles))
+                    resultat.add(
+                        ActionFichier.SansNom(langage, utiles, corps.joinToString("\n") + "\n", ouverture, complet)
+                    )
                 }
             }
             enBloc = false
@@ -149,11 +162,12 @@ object ActionsFichiers {
             contenu.clear()
         }
 
-        for (ligne in reponse.lines()) {
+        reponse.lines().forEachIndexed { numero, ligne ->
             val fence = ouvertureBloc.matchEntire(ligne)
             when {
                 !enBloc && fence != null -> {
                     enBloc = true
+                    ouverture = numero
                     longueur = nombreDeBackticks(ligne)
                     info = fence.groupValues[1].trim()
                     titreAvant = NomsFichiers.nomDansLigne(if (avant1.isNotBlank()) avant1 else avant2)
@@ -185,6 +199,20 @@ object ActionsFichiers {
         }
         if (enBloc) fermer(false)
         return resultat
+    }
+
+    /**
+     * La reponse avec, juste avant chaque ligne d'ouverture donnee (numero de ligne -> nom), le
+     * nom du fichier en gras : c'est la forme que [extraire] et l'affichage reconnaissent.
+     */
+    fun avecTitres(reponse: String, noms: Map<Int, String>): String {
+        if (noms.isEmpty()) return reponse
+        val resultat = ArrayList<String>()
+        reponse.lines().forEachIndexed { numero, ligne ->
+            noms[numero]?.let { resultat.add("**$it**") }
+            resultat.add(ligne)
+        }
+        return resultat.joinToString("\n")
     }
 
     /**
