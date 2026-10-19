@@ -253,4 +253,37 @@
     <string name="usage_local">Le modèle local est gratuit : aucun compteur à surveiller.</string>
     <string name="usage_resume">Aujourd\'hui : ≈ %1$s jetons · %2$d requête(s)\nCe mois : ≈ %3$s jetons · %4$d requête(s)</string>
     <string name="usage_barre_jour">Limite du jour utilisée à %1$d %%</string>
+    <!-- Studio : onglet Test (apercu en direct, APK, installation) -->
+    <string name="studio_mode_test">Test</string>
+    <string name="test_construire">🔨 Construire l\'APK</string>
+    <string name="test_en_cours">Construction…</string>
+    <string name="test_installer">📲 Installer</string>
+    <string name="test_ouvrir">▶ Ouvrir</string>
+    <string name="test_enregistrer">💾 Garder</string>
+    <string name="test_desinstaller">🗑 Retirer</string>
+    <string name="test_aucun_projet">Choisis ou crée d\'abord un projet dans l\'onglet Espace.</string>
+    <string name="test_info">📱 %1$s\n%2$s\n%3$s</string>
+    <string name="test_etat_pas_installee">Pas encore installée sur ce téléphone</string>
+    <string name="test_etat_installee">Installée (version %1$d)</string>
+    <string name="test_etat_a_jour">✅ Installée et à jour</string>
+    <string name="test_etat_ancienne">Installée, mais une version plus récente est prête</string>
+    <string name="test_sans_page">Pas encore de page index.html.\nL\'aperçu apparaît dès qu\'un fichier index.html existe dans le projet.</string>
+    <string name="test_construire_d_abord">Construis d\'abord l\'APK.</string>
+    <string name="test_permission">Autorise CodexLocal à installer des applis dans l\'écran qui vient de s\'ouvrir, puis reviens ici : l\'installation reprend toute seule.</string>
+    <string name="test_installation_lancee">Installation lancée : valide dans la fenêtre d\'Android, puis appuie sur ▶ Ouvrir.</string>
+    <string name="test_pas_installee">L\'appli n\'est pas encore installée.</string>
+    <string name="test_echec_install">Impossible de lancer l\'installation.</string>
+    <string name="test_conflit_cle">Si Android refuse (« conflit » avec une version déjà installée), c\'est que la clé de signature a changé : appuie sur 🗑 Retirer puis réinstalle.</string>
+    <!-- Bouton ＋ : images du projet -->
+    <string name="plus_description">Ajouter une image ou une icône</string>
+    <string name="plus_image">🖼️ Ajouter une image au projet</string>
+    <string name="plus_icone">🎨 Choisir l\'icône de l\'appli</string>
+    <string name="plus_besoin_projet">Ouvre d\'abord un projet (menu 📁 Projets) pour y ajouter des images.</string>
+    <string name="plus_image_ajoutee">🖼️ Image ajoutée : %1$s</string>
+    <string name="plus_icone_definie">🎨 Icône de l\'appli définie (%1$s)</string>
+    <string name="plus_echec">Image impossible à ajouter : %1$s</string>
+    <string name="projet_image">Image</string>
+    <string name="projet_image_illisible">Image illisible</string>
+    <string name="projet_image_usage">Dans ton code : images/… utilise le chemin « %1$s ». Elle part dans l\'APK.</string>
+    <string name="plus_echec_titre">Image impossible à ajouter</string>
 </resources>

@@ -7,6 +7,8 @@ on:
     paths:
       - "app/**"
       - "lib/**"
+      - "shell/**"
+      - "scripts/**"
       - "pc/**"
       - "gradle/**"
       - "gradlew"
@@ -108,6 +110,9 @@ jobs:
           # Elle n'est valable que localement, pas sur le runner Linux.
           sed -i '/^[[:space:]]*org.gradle.java.home[[:space:]]*=/d' gradle.properties
           chmod +x gradlew
+          # Le modele d'APK du Studio (module :shell) d'abord : on le verifie avant les tests.
+          ./gradlew :app:copierModeleApk --stacktrace --no-daemon
+          python3 scripts/verifier_modele_apk.py app/build/generated/modeleApk/assets/modele-shell.apk
           ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
       - name: Publier APK telechargeable
         uses: actions/upload-artifact@v4

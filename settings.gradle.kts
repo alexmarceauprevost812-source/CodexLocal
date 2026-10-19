@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "CodexLocal"
 include(":app")
 include(":lib")
+include(":shell")

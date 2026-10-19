@@ -1,6 +1,7 @@
 package com.codexlocal.projet
 
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -15,6 +16,7 @@ import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -33,6 +35,7 @@ import com.codexlocal.databinding.ActivityProjetBinding
 import com.codexlocal.editor.CodeEditorActivity
 import com.codexlocal.project.Dialogues
 import com.codexlocal.project.FichierProjet
+import com.codexlocal.project.ImagesProjet
 import com.codexlocal.project.Langages
 import com.codexlocal.project.Projet
 import com.codexlocal.project.ProjectStore
@@ -59,6 +62,16 @@ class ProjetActivity : AppCompatActivity() {
     private var dossierCourant = ""
     private var fichiers: List<FichierProjet> = emptyList()
     private var dossiers: List<String> = emptyList()
+
+    private val choisirImage =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) ajouterImage(uri, commeIcone = false)
+        }
+
+    private val choisirIcone =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) ajouterImage(uri, commeIcone = true)
+        }
 
     /** Le bouton retour remonte d'un dossier avant de quitter le projet. */
     private val retour = object : OnBackPressedCallback(false) {
@@ -160,7 +173,17 @@ class ProjetActivity : AppCompatActivity() {
                     runCatching { ProjectStore.listerDossiers(this@ProjetActivity, p) }
                         .getOrDefault(emptyList())
             }
-            fichiers = listeFichiers
+            // Comme sur GitHub, on voit aussi les images du projet (elles partent dans l'APK).
+            val images = withContext(Dispatchers.IO) {
+                runCatching {
+                    ProjectStore.instantane(this@ProjetActivity, p)
+                        .filterKeys { ImagesProjet.estImage(it) }
+                        .map { (chemin, etat) ->
+                            FichierProjet(chemin.substringAfterLast('/'), chemin, "", etat.taille, p.interne)
+                        }
+                }.getOrDefault(emptyList())
+            }
+            fichiers = listeFichiers + images
             dossiers = listeDossiers
             // Si le dossier courant a disparu, on revient a la racine.
             if (dossierCourant.isNotEmpty() &&
@@ -222,7 +245,8 @@ class ProjetActivity : AppCompatActivity() {
 
     /** Barre colorée des langages du projet, avec la part de chacun. */
     private fun afficherLangages() {
-        val parts = StatsLangages.calculer(fichiers)
+        // Comme sur GitHub, les images ne comptent pas comme du code dans la barre des langages.
+        val parts = StatsLangages.calculer(fichiers.filterNot { ImagesProjet.estImage(it.chemin) })
         binding.barreLangages.removeAllViews()
         binding.barreLangages.isVisible = parts.isNotEmpty()
         binding.legendeLangages.isVisible = parts.isNotEmpty()
@@ -258,7 +282,9 @@ class ProjetActivity : AppCompatActivity() {
         when (ligne) {
             is Ligne.Haut -> ouvrirDossier(Arborescence.parent(dossierCourant))
             is Ligne.DossierLigne -> ouvrirDossier(ligne.dossier.chemin)
-            is Ligne.FichierLigne -> ouvrirEditeur(ligne.fichier)
+            is Ligne.FichierLigne ->
+                if (ImagesProjet.estImage(ligne.fichier.chemin)) voirImage(ligne.fichier)
+                else ouvrirEditeur(ligne.fichier)
             is Ligne.Info -> Unit
         }
     }
@@ -270,17 +296,23 @@ class ProjetActivity : AppCompatActivity() {
         val libelleFavori = getString(
             if (favoris.estFavori(cle)) R.string.bureau_favori_retire else R.string.bureau_favori_ajoute
         )
+        val image = ImagesProjet.estImage(fichier.chemin)
+        // Une image n'est pas du code : pas de favori (il s'ouvrirait dans l'editeur de texte), juste la suppression.
+        val libelles = if (image) {
+            arrayOf(getString(R.string.projet_supprimer_fichier))
+        } else {
+            arrayOf(libelleFavori, getString(R.string.projet_modifier), getString(R.string.projet_supprimer_fichier))
+        }
         MaterialAlertDialogBuilder(this)
             .setTitle(fichier.chemin)
-            .setItems(
-                arrayOf(libelleFavori, getString(R.string.projet_modifier), getString(R.string.projet_supprimer_fichier))
-            ) { _, choix ->
-                when (choix) {
-                    0 -> {
+            .setItems(libelles) { _, choix ->
+                when {
+                    image -> confirmerSuppression(fichier)
+                    choix == 0 -> {
                         favoris.basculer(cle)
                         afficher()
                     }
-                    1 -> ouvrirEditeur(fichier)
+                    choix == 1 -> ouvrirEditeur(fichier)
                     else -> confirmerSuppression(fichier)
                 }
             }
@@ -296,14 +328,56 @@ class ProjetActivity : AppCompatActivity() {
         )
     }
 
+    /** Montre l'image du projet dans une fenetre (reduite pour ne pas saturer la memoire). */
+    private fun voirImage(f: FichierProjet) {
+        val p = projet ?: return
+        lifecycleScope.launch {
+            val bitmap = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bornes = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    ProjectStore.ouvrirFlux(this@ProjetActivity, p, f.chemin)?.use {
+                        BitmapFactory.decodeStream(it, null, bornes)
+                    }
+                    var echantillon = 1
+                    while (bornes.outWidth / (echantillon * 2) >= 1200 || bornes.outHeight / (echantillon * 2) >= 1200) {
+                        echantillon *= 2
+                    }
+                    val options = BitmapFactory.Options().apply { inSampleSize = echantillon }
+                    ProjectStore.ouvrirFlux(this@ProjetActivity, p, f.chemin)?.use {
+                        BitmapFactory.decodeStream(it, null, options)
+                    }
+                }.getOrNull()
+            }
+            if (bitmap == null) {
+                Toast.makeText(this@ProjetActivity, R.string.projet_image_illisible, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val vue = ImageView(this@ProjetActivity).apply {
+                setImageBitmap(bitmap)
+                adjustViewBounds = true
+                setPadding(24, 24, 24, 24)
+            }
+            MaterialAlertDialogBuilder(this@ProjetActivity)
+                .setTitle(f.chemin)
+                .setMessage(getString(R.string.projet_image_usage, f.chemin))
+                .setView(vue)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
+    }
+
     private fun confirmerSuppression(f: FichierProjet) {
         MaterialAlertDialogBuilder(this)
             .setMessage(getString(R.string.projet_confirmer_suppression, f.chemin))
             .setPositiveButton(R.string.projet_supprimer_fichier) { _, _ ->
                 lifecycleScope.launch {
                     val ok = withContext(Dispatchers.IO) {
-                        runCatching { ProjectStore.supprimerFichier(this@ProjetActivity, f) }
-                            .getOrDefault(false)
+                        runCatching {
+                            val reel = if (f.uri.isEmpty()) {
+                                projet?.let { ProjectStore.trouverFichier(this@ProjetActivity, it, f.chemin) }
+                            } else f
+                            reel != null && ProjectStore.supprimerFichier(this@ProjetActivity, reel)
+                        }.getOrDefault(false)
                     }
                     Toast.makeText(
                         this@ProjetActivity,
@@ -320,8 +394,20 @@ class ProjetActivity : AppCompatActivity() {
     private fun menuAjouter() {
         MaterialAlertDialogBuilder(this)
             .setItems(
-                arrayOf(getString(R.string.projet_nouveau_fichier), getString(R.string.projet_nouveau_dossier))
-            ) { _, choix -> if (choix == 0) nouveauFichier() else nouveauDossier() }
+                arrayOf(
+                    getString(R.string.projet_nouveau_fichier),
+                    getString(R.string.projet_nouveau_dossier),
+                    getString(R.string.plus_image),
+                    getString(R.string.plus_icone)
+                )
+            ) { _, choix ->
+                when (choix) {
+                    0 -> nouveauFichier()
+                    1 -> nouveauDossier()
+                    2 -> choisirImage.launch("image/*")
+                    else -> choisirIcone.launch("image/*")
+                }
+            }
             .show()
     }
 
@@ -377,6 +463,32 @@ class ProjetActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     erreur(R.string.msg_echec_dossier, e)
                 }
+            }
+        }
+    }
+
+    private fun ajouterImage(uri: android.net.Uri, commeIcone: Boolean) {
+        val p = projet ?: return
+        lifecycleScope.launch {
+            try {
+                val chemin = withContext(Dispatchers.IO) {
+                    if (commeIcone) {
+                        ImagesProjet.definirIcone(this@ProjetActivity, p, uri)
+                    } else {
+                        val nom = contentResolver.query(
+                            uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null
+                        )?.use { if (it.moveToFirst()) it.getString(0) else null }
+                        ImagesProjet.importer(this@ProjetActivity, p, uri, nom)
+                    }
+                }
+                Toast.makeText(
+                    this@ProjetActivity,
+                    getString(if (commeIcone) R.string.plus_icone_definie else R.string.plus_image_ajoutee, chemin),
+                    Toast.LENGTH_LONG
+                ).show()
+                charger()
+            } catch (e: Exception) {
+                erreur(R.string.plus_echec_titre, e)
             }
         }
     }
@@ -499,15 +611,18 @@ class ProjetActivity : AppCompatActivity() {
                 is Ligne.FichierLigne -> {
                     // Pastille aux couleurs du langage + nom exact du fichier.
                     val langage = Langages.pour(ligne.fichier.nom)
-                    h.icone.text = langage.etiquette
-                    h.icone.textSize = if (langage.etiquette.length <= 3) 14f else 11f
+                    val image = ImagesProjet.estImage(ligne.fichier.chemin)
+                    h.icone.text = if (image) "IMG" else langage.etiquette
+                    h.icone.textSize = if (image || langage.etiquette.length <= 3) 14f else 11f
                     h.icone.setTypeface(null, Typeface.BOLD)
                     h.icone.setBackgroundResource(R.drawable.bg_badge)
-                    (h.icone.background.mutate() as? GradientDrawable)?.setColor(langage.couleur)
-                    h.icone.setTextColor(if (luminance(langage.couleur) > 150) Color.BLACK else Color.WHITE)
+                    val couleur = if (image) 0xFF7AA2F7.toInt() else langage.couleur
+                    (h.icone.background.mutate() as? GradientDrawable)?.setColor(couleur)
+                    h.icone.setTextColor(if (luminance(couleur) > 150) Color.BLACK else Color.WHITE)
                     h.nom.text = (if (ligne.favori) "⭐ " else "") + ligne.fichier.nom
-                    h.sous.text = langage.nom + " · " + Formatter.formatShortFileSize(ctx, ligne.fichier.taille)
-                    h.action.text = "✏️"
+                    h.sous.text = (if (image) ctx.getString(R.string.projet_image) else langage.nom) +
+                        " · " + Formatter.formatShortFileSize(ctx, ligne.fichier.taille)
+                    h.action.text = if (image) "🖼️" else "✏️"
                 }
                 is Ligne.Info -> Unit
             }

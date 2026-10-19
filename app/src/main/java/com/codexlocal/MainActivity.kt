@@ -34,6 +34,7 @@ import com.codexlocal.drawer.DrawerItem
 import com.codexlocal.editor.CodeEditorActivity
 import com.codexlocal.project.Dialogues
 import com.codexlocal.project.FichierProjet
+import com.codexlocal.project.ImagesProjet
 import com.codexlocal.project.Langages
 import com.codexlocal.project.Projet
 import com.codexlocal.studio.StudioActivity
@@ -84,6 +85,16 @@ class MainActivity : AppCompatActivity() {
     private val choisirDossier =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             uri?.let { ajouterProjet(it) }
+        }
+
+    private val choisirImage =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) ajouterImage(uri, commeIcone = false)
+        }
+
+    private val choisirIcone =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) ajouterImage(uri, commeIcone = true)
         }
 
     /** Le Bureau renvoie la tuile choisie ; on l'execute ici, comme un appui sur le menu. */
@@ -145,6 +156,7 @@ class MainActivity : AppCompatActivity() {
         binding.send.setOnClickListener {
             if (job?.isActive == true) stopGeneration() else send()
         }
+        binding.btnPlus.setOnClickListener { menuPlus() }
 
         // Premier lancement : on ouvre directement les reglages
         if (savedInstanceState == null) {
@@ -639,6 +651,53 @@ class MainActivity : AppCompatActivity() {
                 .putExtra(StudioActivity.EXTRA_MODE, mode)
         )
     }
+
+    /** Bouton ＋ : une image du telephone entre dans le projet ouvert (et dans son APK). */
+    private fun menuPlus() {
+        if (projetActif == null) {
+            Toast.makeText(this, R.string.plus_besoin_projet, Toast.LENGTH_LONG).show()
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setItems(arrayOf(getString(R.string.plus_image), getString(R.string.plus_icone))) { _, choix ->
+                if (choix == 0) choisirImage.launch("image/*") else choisirIcone.launch("image/*")
+            }
+            .show()
+    }
+
+    private fun ajouterImage(uri: android.net.Uri, commeIcone: Boolean) {
+        val projet = projetActif ?: return
+        lifecycleScope.launch {
+            try {
+                val chemin = withContext(Dispatchers.IO) {
+                    if (commeIcone) {
+                        ImagesProjet.definirIcone(this@MainActivity, projet, uri)
+                    } else {
+                        ImagesProjet.importer(this@MainActivity, projet, uri, nomAffiche(uri))
+                    }
+                }
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(if (commeIcone) R.string.plus_icone_definie else R.string.plus_image_ajoutee, chemin),
+                    Toast.LENGTH_LONG
+                ).show()
+                if (projetActif?.uri == projet.uri) ouvrirProjet(projet)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.plus_echec, e.message ?: e.toString()),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    /** Nom du fichier choisi, tel que le montre le telephone (pour garder un nom parlant). */
+    private fun nomAffiche(uri: android.net.Uri): String? =
+        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { if (it.moveToFirst()) it.getString(0) else null }
 
     private fun ouvrirBureau() {
         binding.drawerLayout.closeDrawer(binding.tiroir)

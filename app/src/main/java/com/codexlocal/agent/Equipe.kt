@@ -18,7 +18,14 @@ object AgentPrompts {
             "Regles : chemins relatifs sans '..' ni dossier cache ; toujours le fichier " +
             "COMPLET (jamais de morceaux ni de « ... ») ; pas de triple backquote autour " +
             "d'un fichier ; une ou deux phrases d'explication avant ou apres sont bienvenues. " +
-            "Pour une simple question ou explication, reponds normalement sans ces marqueurs."
+            "Pour une simple question ou explication, reponds normalement sans ces marqueurs.\n" +
+            "Si on te demande une application, un jeu, un outil ou une page web, fabrique une " +
+            "APPLICATION LOCALE pour telephone Android : un site en HTML, CSS et JavaScript qui " +
+            "marche sans internet. La page d'accueil est TOUJOURS index.html a la racine du projet. " +
+            "Utilise des chemins relatifs (css/style.css, js/app.js), aucune ressource en ligne " +
+            "(pas de CDN, de police web, d'API distante), une mise en page adaptee a un ecran de " +
+            "telephone (balise viewport, gros boutons). Les images deja ajoutees au projet sont " +
+            "listees avec leur nom exact entre crochets : utilise-les telles quelles."
 
     /** Sans projet ouvert, l'equipe donne le code dans la conversation. */
     const val SANS_PROJET =

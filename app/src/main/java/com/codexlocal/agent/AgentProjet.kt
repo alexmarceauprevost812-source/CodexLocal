@@ -3,6 +3,7 @@ package com.codexlocal.agent
 import android.content.Context
 import com.codexlocal.project.FichierProjet
 import com.codexlocal.project.Langages
+import com.codexlocal.project.ImagesProjet
 import com.codexlocal.project.ProjectStore
 import com.codexlocal.project.Projet
 
@@ -155,10 +156,15 @@ object AgentProjet {
     fun contexteProjet(context: Context, projet: Projet): String {
         val fichiers = runCatching { ProjectStore.listerFichiers(context, projet) }
             .getOrDefault(emptyList())
-        if (fichiers.isEmpty()) return "[Projet « ${projet.nom} » : encore vide]"
+        val images = runCatching {
+            ProjectStore.instantane(context, projet).keys.filter { ImagesProjet.estImage(it) }
+        }.getOrDefault(emptyList())
+        if (fichiers.isEmpty() && images.isEmpty()) return "[Projet « ${projet.nom} » : encore vide]"
         val liste = fichiers.take(MAX_FICHIERS_CONTEXTE).joinToString(", ") { it.chemin }
         val reste = fichiers.size - MAX_FICHIERS_CONTEXTE
-        return "[Projet « ${projet.nom} » — fichiers : $liste" +
-            (if (reste > 0) " (+$reste autres)" else "") + "]"
+        val texteImages = if (images.isEmpty()) "" else
+            " — images : " + images.take(MAX_FICHIERS_CONTEXTE).joinToString(", ") { it }
+        return "[Projet « ${projet.nom} » — fichiers : ${liste.ifEmpty { "aucun texte" }}" +
+            (if (reste > 0) " (+$reste autres)" else "") + texteImages + "]"
     }
 }

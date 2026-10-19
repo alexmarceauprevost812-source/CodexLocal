@@ -8,6 +8,18 @@ plugins {
 // jour suit la precedente sans modifier ce fichier. En local : version 1.5 / code 5.
 val ciRun: Int? = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
 
+// Modele d'application pour le Studio : la « coquille » (module :shell) est compilee puis copiee
+// dans les assets de CodexLocal sous le nom modele-shell.apk (voir ConstructeurApk).
+val dossierModeleApk = layout.buildDirectory.dir("generated/modeleApk/assets")
+val copierModeleApk by tasks.registering(Copy::class) {
+    dependsOn(":shell:assembleModele")
+    from(project(":shell").layout.buildDirectory.dir("outputs/apk/modele")) {
+        include("*.apk")
+        rename { "modele-shell.apk" }
+    }
+    into(dossierModeleApk)
+}
+
 android {
     namespace = "com.codexlocal"
     compileSdk = 36
@@ -72,6 +84,8 @@ android {
         viewBinding = true
     }
 
+    sourceSets.getByName("main").assets.srcDir(dossierModeleApk)
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
@@ -107,3 +121,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.16.1")
 }
+
+// Le modele doit exister avant que les assets ne soient rassembles (appli et tests).
+tasks.matching { it.name == "preBuild" || (it.name.startsWith("merge") && it.name.endsWith("Assets")) }
+    .configureEach { dependsOn(copierModeleApk) }

@@ -249,6 +249,22 @@
             android:orientation="horizontal"
             android:padding="8dp">
 
+            <!-- ＋ : ajouter une image au projet (elle part dans l'APK) ou choisir l'icone de l'appli -->
+            <TextView
+                android:id="@+id/btnPlus"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="2dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="@string/plus_description"
+                android:focusable="true"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="＋"
+                android:textColor="@color/orange"
+                android:textSize="28sp" />
+
             <EditText
                 android:id="@+id/input"
                 android:layout_width="0dp"

@@ -6,6 +6,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.codexlocal.R
 import com.codexlocal.bureau.Favoris
 import com.codexlocal.project.ProjectStore
+import com.codexlocal.studio.apk.PngTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -73,5 +74,16 @@ class ProjetActivityTest {
         val intent = Intent(ctx, ProjetActivity::class.java).putExtra(ProjetActivity.EXTRA_PROJET_URI, "/n/existe/pas")
         val activite = Robolectric.buildActivity(ProjetActivity::class.java, intent).setup().get()
         assertTrue(activite.isFinishing)
+    }
+
+    @Test fun imagesAreListedLikeFilesButDoNotCountAsCode() {
+        val p = creerProjet()
+        File(p.uri, "icone.png").writeBytes(PngTest.uni(8, 8, 0xFF00FF00.toInt()))
+        val activite = ouvrir(p.uri)
+        val liste = activite.findViewById<RecyclerView>(R.id.listeProjet)
+        // dossiers : src, vide ; fichiers : index.html, README.md, icone.png
+        assertEquals(5, liste.adapter!!.itemCount)
+        val legende = activite.findViewById<android.widget.TextView>(R.id.legendeLangages).text.toString()
+        assertTrue(legende, !legende.contains("PNG", ignoreCase = true) && !legende.contains("Image", ignoreCase = true))
     }
 }

@@ -71,12 +71,17 @@
         </LinearLayout>
     </HorizontalScrollView>
 
-    <com.google.android.material.button.MaterialButtonToggleGroup
-        android:id="@+id/modes"
+    <HorizontalScrollView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:layout_marginVertical="6dp"
+        android:scrollbars="none">
+
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/modes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         app:selectionRequired="true"
         app:singleSelection="true">
 
@@ -123,7 +128,18 @@
             android:text="@string/studio_mode_sign"
             android:textAllCaps="false"
             app:strokeColor="@color/orange" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/modeTest"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:paddingHorizontal="8dp"
+            android:textSize="13sp"
+            android:text="@string/studio_mode_test"
+            android:textAllCaps="false"
+            app:strokeColor="@color/orange" />
     </com.google.android.material.button.MaterialButtonToggleGroup>
+    </HorizontalScrollView>
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -329,5 +345,117 @@
                     android:textSize="12sp" />
             </LinearLayout>
         </ScrollView>
+
+        <!-- ================= Test : apercu en direct, APK, installation ================= -->
+        <LinearLayout
+            android:id="@+id/panneauTest"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingHorizontal="10dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/testInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/surface_raised"
+                android:padding="8dp"
+                android:textColor="@color/white"
+                android:textSize="12sp" />
+
+            <!-- Apercu en direct : se recharge tout seul quand un fichier change. -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_equipe_panneau"
+                android:padding="1dp">
+
+                <WebView
+                    android:id="@+id/apercuTest"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/testJournal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="@color/surface_raised"
+                android:fontFamily="monospace"
+                android:gravity="bottom"
+                android:lines="5"
+                android:padding="6dp"
+                android:textColor="@color/orange_bright"
+                android:textSize="11sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTestConstruire"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:text="@string/test_construire"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTestInstaller"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="@string/test_installer"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTestOuvrir"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:paddingHorizontal="4dp"
+                    android:text="@string/test_ouvrir"
+                    android:textSize="12sp"
+                    app:strokeColor="@color/orange" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTestEnregistrer"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:paddingHorizontal="4dp"
+                    android:text="@string/test_enregistrer"
+                    android:textSize="12sp"
+                    app:strokeColor="@color/orange" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTestDesinstaller"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:paddingHorizontal="4dp"
+                    android:text="@string/test_desinstaller"
+                    android:textSize="12sp"
+                    app:strokeColor="@color/orange" />
+            </LinearLayout>
+        </LinearLayout>
     </FrameLayout>
 </LinearLayout>

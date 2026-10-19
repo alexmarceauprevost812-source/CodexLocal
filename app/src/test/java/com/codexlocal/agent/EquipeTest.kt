@@ -65,4 +65,13 @@ class EquipeTest {
         assertEquals("", Equipe.derniereLigne("   \n  "))
         assertEquals(90, Equipe.derniereLigne("x".repeat(200)).length)
     }
+
+    @Test fun codersKnowHowToBuildLocalApps() {
+        val prompt = Role.CODEUR.systemPrompt(true)
+        // La page d'accueil des applis fabriquees, et l'usage hors-ligne.
+        assertTrue(prompt.contains("index.html"))
+        assertTrue(prompt.contains("sans internet"))
+        // Le chef et le planificateur n'ecrivent pas de fichiers : pas de regles de fichiers pour eux.
+        assertFalse(Role.CHEF.systemPrompt(true).contains("index.html"))
+    }
 }

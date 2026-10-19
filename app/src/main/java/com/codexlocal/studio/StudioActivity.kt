@@ -25,6 +25,7 @@ import com.codexlocal.project.Dialogues
 import com.codexlocal.project.FichierProjet
 import com.codexlocal.project.Projet
 import com.codexlocal.project.ProjectStore
+import com.codexlocal.studio.apk.PanneauTest
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +56,7 @@ class StudioActivity : AppCompatActivity() {
     private var svgCourant: String? = null
 
     private var apkSigne: File? = null
+    private lateinit var panneauTest: PanneauTest
 
     private val choisirApk =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -99,6 +101,12 @@ class StudioActivity : AppCompatActivity() {
             allowContentAccess = false
         }
 
+        panneauTest = PanneauTest(this, binding, { projet }) { fichier, nom ->
+            apkSigne = fichier
+            enregistrerApk.launch(nom)
+        }
+        panneauTest.configurer()
+
         binding.modes.addOnButtonCheckedListener { _, id, coche ->
             if (coche) afficherPanneau(id)
         }
@@ -124,11 +132,19 @@ class StudioActivity : AppCompatActivity() {
             ?: tous.firstOrNull { it.uri == memorise }
             ?: tous.firstOrNull()
         rafraichir()
+        panneauTest.projetChange()
+        if (intent.getStringExtra(EXTRA_MODE) == MODE_TEST) binding.modes.check(R.id.modeTest)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        panneauTest.auRetour()
     }
 
     override fun onDestroy() {
         jobCode?.cancel()
         jobCrea?.cancel()
+        panneauTest.fermer()
         super.onDestroy()
     }
 
@@ -137,6 +153,8 @@ class StudioActivity : AppCompatActivity() {
         binding.panneauCode.isVisible = id == R.id.modeCode
         binding.panneauCrea.isVisible = id == R.id.modeCrea
         binding.panneauSign.isVisible = id == R.id.modeSign
+        binding.panneauTest.isVisible = id == R.id.modeTest
+        panneauTest.afficher(id == R.id.modeTest)
     }
 
     // ------------------------------------------------------------------ projet
@@ -147,6 +165,7 @@ class StudioActivity : AppCompatActivity() {
         propositions = emptyList()
         binding.btnCreerFichiers.isEnabled = false
         rafraichir()
+        panneauTest.projetChange()
     }
 
     private fun rafraichir() {
