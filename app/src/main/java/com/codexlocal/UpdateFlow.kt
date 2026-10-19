@@ -79,6 +79,13 @@ object UpdateFlow {
                         }
                     } catch (e: CancellationException) {
                         throw e
+                    } catch (e: SignatureDifferenteException) {
+                        onStatus("Mise à jour impossible : autre clé de signature.")
+                        MaterialAlertDialogBuilder(activity)
+                            .setTitle(R.string.update_signature_title)
+                            .setMessage(e.message)
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show()
                     } catch (e: Exception) {
                         onStatus("Échec du téléchargement : ${e.message}")
                     }

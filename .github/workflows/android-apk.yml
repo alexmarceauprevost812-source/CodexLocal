@@ -71,8 +71,14 @@ jobs:
     name: Compiler APK Android de test
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    # Ecriture : la cle de signature est rangee (une seule fois) dans une release brouillon privee.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # le jeton ne reste pas dans le dossier lu par Gradle ; il n'est donne qu'a l'etape de la cle
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -96,16 +102,15 @@ jobs:
       - name: Recuperer llama.cpp v0.6.0 (code source natif)
         run: |
           git clone --depth 1 --branch v0.6.0 https://github.com/ggml-org/llama.cpp.git lib/src/main/cpp/llama.cpp
-      - name: Compiler APK arm64-v8a (debug)
+      - name: Cle de signature (la meme pour toutes les versions)
         env:
+          GH_TOKEN: ${{ github.token }}
           CODEXLOCAL_KEYSTORE_BASE64: ${{ secrets.CODEXLOCAL_KEYSTORE_BASE64 }}
+          # Sur main, un APK sans la bonne cle ne pourrait pas mettre a jour les telephones : on prefere echouer.
+          CLE_OBLIGATOIRE: ${{ github.ref == 'refs/heads/main' && '1' || '0' }}
+        run: bash scripts/cle_signature.sh
+      - name: Compiler APK arm64-v8a (debug)
         run: |
-          # The same key is needed on every build for Android to allow an update.
-          if [ -n "$CODEXLOCAL_KEYSTORE_BASE64" ]; then
-            printf '%s' "$CODEXLOCAL_KEYSTORE_BASE64" | base64 --decode > app/codexlocal.keystore
-          else
-            echo "::warning::CODEXLOCAL_KEYSTORE_BASE64 absent : APK de test, mise à jour d'une installation précédente non garantie."
-          fi
           # La propriété org.gradle.java.home du projet pointe vers le PC Windows.
           # Elle n'est valable que localement, pas sur le runner Linux.
           sed -i '/^[[:space:]]*org.gradle.java.home[[:space:]]*=/d' gradle.properties
@@ -118,6 +123,23 @@ jobs:
           ./gradlew :app:copierModeleApk --stacktrace --no-daemon 2>&1 | tee -a "$JOURNAL"
           python3 scripts/verifier_modele_apk.py app/build/generated/modeleApk/assets/modele-shell.apk 2>&1 | tee -a "$JOURNAL"
           ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee -a "$JOURNAL"
+      - name: Verifier la signature de l'APK
+        run: |
+          ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          APKSIGNER="$(find "$ANDROID_SDK/build-tools" -type f -name apksigner -print | sort | tail -n1)"
+          APK="$(ls app/build/outputs/apk/debug/*.apk | head -n1)"
+          VU="$("$APKSIGNER" verify --print-certs "$APK" | grep -i 'certificate SHA-256 digest' | head -n1 | sed 's/.*: *//' | tr -d ': ' | tr 'A-F' 'a-f')"
+          echo "Signature de l'APK : SHA-256 $VU"
+          if [ -f app/codexlocal.keystore ]; then
+            ATTENDU="$(keytool -list -keystore app/codexlocal.keystore -storepass codexlocal -alias codexlocal | grep -i 'SHA-\?256' | head -n1 | sed 's/^[^:]*: *//' | tr -d ': ' | tr 'A-F' 'a-f')"
+            if [ "$VU" != "$ATTENDU" ]; then
+              echo "::error title=Signature::l'APK n'est pas signe avec la cle fixe (APK $VU, cle $ATTENDU)"
+              exit 1
+            fi
+            echo "::notice title=Signature de l'APK (cle fixe)::SHA-256 $VU"
+          else
+            echo "::warning title=Signature de l'APK::cle de test, sans mise a jour possible : SHA-256 $VU"
+          fi
       - name: Resume des erreurs
         if: failure()
         run: |
