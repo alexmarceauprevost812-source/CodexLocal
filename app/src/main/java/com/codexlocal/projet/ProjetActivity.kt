@@ -16,6 +16,8 @@ import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -29,12 +31,15 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.codexlocal.Prefs
 import com.codexlocal.R
+import com.codexlocal.SettingsActivity
 import com.codexlocal.bureau.Favoris
 import com.codexlocal.databinding.ActivityProjetBinding
 import com.codexlocal.editor.CodeEditorActivity
 import com.codexlocal.project.Dialogues
 import com.codexlocal.project.FichierProjet
+import com.codexlocal.project.GithubPush
 import com.codexlocal.project.ImagesProjet
 import com.codexlocal.project.Langages
 import com.codexlocal.project.Projet
@@ -504,20 +509,94 @@ class ProjetActivity : AppCompatActivity() {
             .setItems(
                 arrayOf(
                     getString(R.string.projet_ouvrir_studio),
+                    getString(R.string.github_pousser_menu),
                     getString(if (p.interne) R.string.projet_supprimer else R.string.projet_retirer)
                 )
             ) { _, choix ->
-                if (choix == 0) {
-                    startActivity(
+                when (choix) {
+                    0 -> startActivity(
                         Intent(this, StudioActivity::class.java)
                             .putExtra(StudioActivity.EXTRA_PROJET_URI, p.uri)
                     )
-                } else {
+                    1 -> pousserVersGithub()
                     // projet interne : efface avec ses fichiers ; dossier du telephone : retire de la liste
-                    Dialogues.confirmerSuppressionProjet(this, p) { finish() }
+                    else -> Dialogues.confirmerSuppressionProjet(this, p) { finish() }
                 }
             }
             .show()
+    }
+
+    /** Demande le depot, puis envoie les fichiers du projet vers GitHub. */
+    private fun pousserVersGithub() {
+        val p = projet ?: return
+        val prefs = Prefs(this)
+        if (prefs.githubToken.isBlank()) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.github_titre)
+                .setMessage(R.string.github_sans_jeton)
+                .setPositiveButton(R.string.github_ouvrir_reglages) { _, _ ->
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                }
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show()
+            return
+        }
+        val saisie = EditText(this).apply {
+            setSingleLine()
+            hint = getString(R.string.github_depot_hint)
+            setText(prefs.githubDepot(p.nom).ifBlank { p.nom.replace(' ', '-') })
+        }
+        val marge = (20 * resources.displayMetrics.density).toInt()
+        val cadre = FrameLayout(this).apply {
+            setPadding(marge, marge / 2, marge, 0)
+            addView(saisie)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.github_titre)
+            .setMessage(R.string.github_depot_message)
+            .setView(cadre)
+            .setPositiveButton(R.string.github_pousser) { _, _ ->
+                lancerPush(p, saisie.text.toString())
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun lancerPush(p: Projet, saisie: String) {
+        val depot = GithubPush.analyserDepot(saisie)
+        if (depot == null) {
+            Toast.makeText(this, R.string.github_depot_invalide, Toast.LENGTH_LONG).show()
+            return
+        }
+        val prefs = Prefs(this)
+        prefs.setGithubDepot(p.nom, saisie.trim())
+        val attente = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.github_titre)
+            .setMessage(R.string.github_envoi)
+            .setCancelable(false)
+            .show()
+        lifecycleScope.launch {
+            try {
+                val resultat = withContext(Dispatchers.IO) {
+                    val fichiers = ProjectStore.lireTousLesFichiers(this@ProjetActivity, p)
+                    GithubPush.pousser(
+                        prefs.githubToken, depot, getString(R.string.github_message_commit), fichiers
+                    ) { etape -> runOnUiThread { attente.setMessage(etape) } }
+                }
+                attente.dismiss()
+                MaterialAlertDialogBuilder(this@ProjetActivity)
+                    .setTitle(R.string.github_reussi)
+                    .setMessage(getString(R.string.github_reussi_detail, resultat.fichiers, resultat.url))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                attente.dismiss()
+                throw e
+            } catch (e: Exception) {
+                attente.dismiss()
+                erreur(R.string.github_echec, e)
+            }
+        }
     }
 
     private fun erreur(titre: Int, e: Exception) {

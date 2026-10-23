@@ -141,6 +141,20 @@ class Prefs(context: Context) {
             sp.edit().putString(KEY_SESSION, v).apply()
         }
 
+    /** Jeton d'acces personnel GitHub, pour pousser les projets. */
+    var githubToken: String
+        get() = sp.getString(KEY_GITHUB_TOKEN, "") ?: ""
+        set(v) {
+            sp.edit().putString(KEY_GITHUB_TOKEN, v).apply()
+        }
+
+    /** Depot GitHub choisi la derniere fois pour un projet. */
+    fun githubDepot(projet: String): String = sp.getString("githubDepot_$projet", "") ?: ""
+
+    fun setGithubDepot(projet: String, v: String) {
+        sp.edit().putString("githubDepot_$projet", v).apply()
+    }
+
     fun apiKey(p: ProviderType): String = sp.getString("key_${p.name}", "") ?: ""
 
     fun setApiKey(p: ProviderType, v: String) {
@@ -186,5 +200,6 @@ class Prefs(context: Context) {
         const val KEY_AUTO_UPDATE = "autoUpdate"
         const val KEY_FOND_OPACITE = "fondOpacite"
         const val KEY_SESSION = "sessionActive"
+        const val KEY_GITHUB_TOKEN = "githubToken"
     }
 }

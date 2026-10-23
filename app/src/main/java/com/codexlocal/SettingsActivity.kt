@@ -91,6 +91,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.tvLocalDir.text = getString(R.string.local_dir_hint) +
             "\n" + ModelStore.modelsDir(this).absolutePath
 
+        binding.etGithubToken.setText(prefs.githubToken)
         setupCommon()
         setupFond()
         setupLocal()
@@ -434,6 +435,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun save() {
         saveRemoteFields(editingProvider)
         prefs.provider = editingProvider
+        prefs.githubToken = binding.etGithubToken.text.toString().trim()
         prefs.temperature = currentTemp()
         prefs.maxTokens = binding.etMaxTokens.text.toString().trim()
             .toIntOrNull()?.coerceIn(64, 8192) ?: 1024

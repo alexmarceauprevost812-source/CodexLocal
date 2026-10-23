@@ -296,6 +296,40 @@
             android:layout_marginVertical="14dp"
             android:background="@color/divider" />
 
+        <!-- ================= GITHUB ================= -->
+        <TextView
+            style="@style/TextAppearance.Material3.TitleMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/section_github"
+            android:textColor="@color/orange" />
+
+        <EditText
+            android:id="@+id/etGithubToken"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/orange"
+            android:hint="@string/hint_github_token"
+            android:importantForAutofill="no"
+            android:inputType="textPassword"
+            android:textColor="@color/white"
+            android:textColorHint="@color/grey_dark"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/github_token_note"
+            android:textColor="@color/grey"
+            android:textSize="11sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginVertical="14dp"
+            android:background="@color/divider" />
+
         <!-- ================= COMMUN ================= -->
         <TextView
             style="@style/TextAppearance.Material3.TitleMedium"

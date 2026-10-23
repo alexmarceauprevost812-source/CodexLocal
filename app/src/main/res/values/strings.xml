@@ -38,6 +38,23 @@
     <string name="hint_base_url">URL de base</string>
     <string name="hint_model">Nom du modèle</string>
 
+    <string name="github_titre">Pousser vers GitHub</string>
+    <string name="github_pousser_menu">⬆️ Pousser vers GitHub</string>
+    <string name="github_pousser">Pousser</string>
+    <string name="github_sans_jeton">Il faut d\'abord ajouter ton jeton GitHub dans les Réglages.</string>
+    <string name="github_ouvrir_reglages">Ouvrir les Réglages</string>
+    <string name="github_depot_hint">nom ou proprietaire/nom</string>
+    <string name="github_depot_message">Dépôt de destination. S\'il n\'existe pas sur ton compte, il sera créé en privé. Tous les fichiers du projet partent dans un seul commit sur la branche principale.</string>
+    <string name="github_depot_invalide">Nom de dépôt invalide (lettres, chiffres, - _ . seulement).</string>
+    <string name="github_envoi">Envoi en cours…</string>
+    <string name="github_message_commit">Mise à jour depuis CodexLocal</string>
+    <string name="github_reussi">Envoyé sur GitHub</string>
+    <string name="github_reussi_detail">%1$d fichiers envoyés.\n%2$s</string>
+    <string name="github_echec">Envoi impossible</string>
+    <string name="section_github">GitHub</string>
+    <string name="hint_github_token">Jeton GitHub (ghp_… ou github_pat_…)</string>
+    <string name="github_token_note">Sert à pousser tes projets vers GitHub. Crée-le sur github.com → Settings → Developer settings → Personal access tokens, avec le droit « Contents : lecture et écriture ». Il reste sur ce téléphone.</string>
+
     <string name="section_common">Paramètres de génération</string>
     <string name="label_temperature">Température</string>
     <string name="hint_max_tokens">Longueur max de la réponse (tokens)</string>
