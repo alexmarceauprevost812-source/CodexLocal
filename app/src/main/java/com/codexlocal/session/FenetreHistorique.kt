@@ -14,6 +14,10 @@ object FenetreHistorique {
     /** Environ 30 000 jetons : large pour de longues discussions, loin des limites des modeles. */
     const val MAX_CARACTERES = 120_000
 
+    /** Numero du premier message envoye : tout ce qui precede est oublie de l'IA en ligne. */
+    fun debut(messages: List<Message>, maxCaracteres: Int = MAX_CARACTERES): Int =
+        messages.size - fenetrer(messages, maxCaracteres).size
+
     fun fenetrer(messages: List<Message>, maxCaracteres: Int = MAX_CARACTERES): List<Message> {
         if (messages.size <= 1) return messages
         var total = 0

@@ -52,4 +52,16 @@ class FenetreHistoriqueTest {
         val messages = echange(100, 500) + Message.user("fin")   // ~100 000 caracteres
         assertEquals(messages.size, FenetreHistorique.fenetrer(messages).size)
     }
+
+    @Test fun startIndexTellsWhichMessagesTheAiNoLongerSees() {
+        val courte = echange(5, 100) + Message.user("encore")
+        assertEquals(0, FenetreHistorique.debut(courte))
+
+        val longue = echange(200, 1_000) + Message.user("la fin")
+        val fenetre = FenetreHistorique.fenetrer(longue, maxCaracteres = 10_000)
+        val debut = FenetreHistorique.debut(longue, maxCaracteres = 10_000)
+        assertEquals(longue.size - fenetre.size, debut)
+        assertEquals(longue[debut].content, fenetre.first().content)
+        assertTrue(debut > 0)
+    }
 }

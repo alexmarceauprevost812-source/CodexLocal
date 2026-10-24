@@ -74,4 +74,59 @@ class EquipeTest {
         // Le chef et le planificateur n'ecrivent pas de fichiers : pas de regles de fichiers pour eux.
         assertFalse(Role.CHEF.systemPrompt(true).contains("index.html"))
     }
+
+    @Test fun codexPromptProtectsExistingFilesAndEndsWithTheRule() {
+        val prompt = AgentPrompts.FICHIERS_CODEX
+        assertTrue(prompt.startsWith(AgentPrompts.FICHIERS))
+        assertTrue(prompt.endsWith("jamais les autres."))
+        assertTrue(prompt.contains("JAMAIS de memoire") && prompt.contains("=== LIRE:"))
+        assertTrue(prompt.contains("que tu viens d'ecrire toi-meme"))
+    }
+
+    @Test fun theTeamGetsItsOwnRuleBecauseItCannotReadFilesItself() {
+        val codeur = Role.CODEUR.systemPrompt(true)
+        assertTrue(codeur.endsWith(AgentPrompts.FICHIERS_EQUIPE))
+        assertTrue(AgentPrompts.FICHIERS_EQUIPE.startsWith(AgentPrompts.FICHIERS))
+        assertTrue(codeur.contains("EN ENTIER") && codeur.contains("n'ecris pas de ligne === LIRE ==="))
+        assertFalse(codeur.contains("Avant de le modifier, ecris seule sur une ligne"))
+        assertTrue(Role.REDACTEUR.systemPrompt(true).endsWith(AgentPrompts.FICHIERS_EQUIPE))
+        assertFalse(Role.CHEF.systemPrompt(true).contains("EN ENTIER"))
+    }
+
+    @Test fun previewIsAddedAfterTheProjectLine() {
+        val apercu = ApercuFichiers("Contenu actuel…\n--- Fichier a.txt ---\nx\n", mapOf("a.txt" to "h"))
+        assertEquals("[Projet]\n\n" + apercu.texte, Equipe.avecApercu("[Projet]", apercu))
+        assertEquals(apercu.texte, Equipe.avecApercu(null, apercu))
+        assertEquals("[Projet]", Equipe.avecApercu("[Projet]", ApercuFichiers.VIDE))
+        assertEquals(null, Equipe.avecApercu(null, ApercuFichiers.VIDE))
+        assertEquals(null, Equipe.avecApercu("  ", ApercuFichiers.VIDE))
+    }
+
+    @Test fun localPreviewIsSizedToTheMemoryTheModelReallyHas() {
+        // 8 192 jetons, consignes de 4 000 caracteres, demande de 3 000, reponse de 3 000 jetons
+        val serre = Equipe.budgetLocal(8_192, 4_000, 3_000, 3_000)
+        assertTrue("reste un peu de place : $serre", serre in 1..Equipe.BUDGET_APERCU_LOCAL)
+        // la place demandee + la reponse + la marge ne depassent jamais la memoire
+        val jetons = Math.ceil((4_000 + 3_000 + serre) / 2.5).toInt() + 3_000
+        assertTrue(jetons <= 8_192)
+        // grande memoire : on est plafonne par le budget maximal
+        assertEquals(Equipe.BUDGET_APERCU_LOCAL, Equipe.budgetLocal(16_384, 4_000, 3_000, 3_000))
+        // demande enorme : plus de place du tout
+        assertEquals(0, Equipe.budgetLocal(8_192, 4_000, 12_000, 3_000))
+        // capacite inconnue (aucun modele charge) : on ne montre rien
+        assertEquals(0, Equipe.budgetLocal(0, 4_000, 3_000, 3_000))
+        assertEquals(0, Equipe.budgetLocal(-1, 0, 0, 0))
+    }
+
+    @Test fun onlinePreviewIsBiggerThanTheLocalOne() {
+        assertTrue(Equipe.BUDGET_APERCU_DISTANT > Equipe.BUDGET_APERCU_LOCAL)
+    }
+
+    @Test fun reminderAndRetryDoNotPushToRewriteExistingFiles() {
+        assertTrue(AgentPrompts.RAPPEL_FICHIERS.contains("=== LIRE: nom.ext ==="))
+        assertTrue(AgentPrompts.RAPPEL_FICHIERS.contains("MODIFIER"))
+        assertTrue(AgentPrompts.RAPPEL_FICHIERS.contains("N'ecris que les fichiers qui changent"))
+        assertFalse(AgentPrompts.RELANCE_FICHIERS.contains("index.html"))
+        assertTrue(AgentPrompts.RELANCE_FICHIERS.contains("=== FICHIER: nom.ext ==="))
+    }
 }

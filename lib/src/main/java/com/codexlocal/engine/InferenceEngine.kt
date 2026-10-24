@@ -56,6 +56,19 @@ interface InferenceEngine {
     fun recoveryCount(): Int
 
     /**
+     * Nombre de fois ou de vieux messages ont ete retires de la memoire du modele parce que la
+     * conversation depassait sa taille. Quand ce nombre change, le modele a oublie le debut de la
+     * conversation (le prompt systeme, lui, est garde).
+     */
+    fun discardCount(): Int
+
+    /**
+     * Nombre de fois ou un message trop long pour la memoire du modele a ete coupe en son milieu
+     * avant d'etre lu. Quand ce nombre change, le modele n'a pas vu tout ce qu'on lui a envoye.
+     */
+    fun truncationCount(): Int
+
+    /**
      * Sends a user prompt to the loaded model and returns a Flow of generated tokens.
      *
      * @throws PromptRejectedException si le moteur n'a pas pu lire le message : le moteur reste

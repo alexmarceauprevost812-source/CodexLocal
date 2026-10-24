@@ -83,7 +83,8 @@ object DemandeCreation {
             SOUHAIT.containsMatchIn(phrase)
     }
 
-    private fun normaliser(s: String): String =
+    /** Minuscules, sans accents, apostrophes droites : pour comparer des textes ecrits a la main. */
+    internal fun normaliser(s: String): String =
         Normalizer.normalize(s.lowercase().replace('’', '\''), Normalizer.Form.NFD)
             .replace(Regex("\\p{M}+"), "")
             .trim()
