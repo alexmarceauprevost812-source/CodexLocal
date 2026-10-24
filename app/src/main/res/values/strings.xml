@@ -212,6 +212,12 @@
     <string name="sign_aucune_cle">Aucune clé. Appuie sur « Créer une clé ».</string>
     <string name="sign_cle_info">Clé : %1$s\nEmpreinte SHA-256 :\n%2$s\nValide jusqu\'au %3$s</string>
     <string name="sign_creer_cle">Créer une clé</string>
+    <string name="sign_importer_cle">Importer ma clé (.jks / .p12)</string>
+    <string name="sign_import_titre">Importer ta clé de signature</string>
+    <string name="sign_import_msg">Mot de passe de la clé (ex. celui de LEXOS_KEYSTORE_PASS.txt). Les APK signés ici pourront mettre à jour ceux compilés sur GitHub avec la même clé.</string>
+    <string name="sign_import_hint">Mot de passe</string>
+    <string name="sign_import_ok_btn">Importer</string>
+    <string name="sign_import_ok">Clé importée : %1$s</string>
     <string name="sign_exporter_cle">Sauvegarder la clé (.p12)</string>
     <string name="sign_signer_apk">Signer un APK</string>
     <string name="sign_creer_titre">Nouvelle clé de signature</string>

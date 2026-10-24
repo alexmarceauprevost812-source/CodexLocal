@@ -88,6 +88,44 @@ object CleStudio {
         return decrire(certificat)
     }
 
+    /**
+     * Importe une clé existante (.p12 / .jks au format PKCS12, ex. la clé LexOS d'Alex)
+     * pour que le Studio signe les APK avec ELLE : mêmes mises à jour qu'avec GitHub.
+     * La clé est recopiée dans l'espace privé avec un nouveau mot de passe aléatoire.
+     */
+    fun importer(context: Context, entree: java.io.InputStream, mdpFichier: String, mdpCle: String = mdpFichier): InfoCle {
+        val octets = entree.readBytes()
+        val source = KeyStore.getInstance("PKCS12")
+        try {
+            source.load(octets.inputStream(), mdpFichier.toCharArray())
+        } catch (e: Exception) {
+            error("Mot de passe refusé, ou fichier qui n'est pas une clé PKCS12 (.p12 / .jks récent).")
+        }
+        val alias = source.aliases().toList().firstOrNull { source.isKeyEntry(it) }
+            ?: error("Ce fichier ne contient aucune clé privée.")
+        val cle = (runCatching { source.getKey(alias, mdpCle.toCharArray()) }.getOrNull()
+            ?: runCatching { source.getKey(alias, mdpFichier.toCharArray()) }.getOrNull()) as? PrivateKey
+            ?: error("Clé illisible avec ce mot de passe.")
+        val chaine = source.getCertificateChain(alias) ?: error("Certificat absent.")
+        val certificat = chaine[0] as? X509Certificate ?: error("Certificat illisible.")
+
+        val mdp = motDePasseAleatoire()
+        val magasin = KeyStore.getInstance("PKCS12")
+        magasin.load(null, null)
+        magasin.setKeyEntry(ALIAS, cle, mdp.toCharArray(), chaine)
+        val temporaire = File(dossier(context), "studio.p12.tmp")
+        try {
+            temporaire.outputStream().use { magasin.store(it, mdp.toCharArray()) }
+            temporaire.copyTo(fichier(context), overwrite = true)
+        } finally {
+            temporaire.delete()
+        }
+        check(prefs(context).edit().putString(CLE_MDP, mdp).commit()) {
+            "Impossible d'enregistrer le mot de passe de la clé"
+        }
+        return decrire(certificat)
+    }
+
     fun charger(context: Context): Pair<PrivateKey, X509Certificate> {
         val mdp = motDePasse(context)?.toCharArray() ?: error("Aucune clé : crée-en une d'abord.")
         val magasin = KeyStore.getInstance("PKCS12")

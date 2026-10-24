@@ -65,6 +65,10 @@ class StudioActivity : AppCompatActivity() {
     private val enregistrerApk = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
     ) { uri -> if (uri != null) copierApkSigne(uri) }
+    private val importerCleFichier =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) demanderMotDePasseImport(uri)
+        }
     private val enregistrerCle = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/x-pkcs12")
     ) { uri -> if (uri != null) exporterCleVers(uri) }
@@ -121,6 +125,7 @@ class StudioActivity : AppCompatActivity() {
         binding.btnGenererCrea.setOnClickListener { lancerCrea() }
         binding.btnEnregistrerSvg.setOnClickListener { enregistrerSvg() }
         binding.btnCreerCle.setOnClickListener { creerCle() }
+        binding.btnImporterCle.setOnClickListener { importerCleFichier.launch(arrayOf("*/*")) }
         binding.btnExporterCle.setOnClickListener { enregistrerCle.launch("codexlocal-studio.p12") }
         binding.btnSignerApk.setOnClickListener { choisirApk.launch(arrayOf("*/*")) }
         rafraichirCle()
@@ -538,6 +543,49 @@ class StudioActivity : AppCompatActivity() {
         } else {
             demander()
         }
+    }
+
+    /** Importer sa propre clé (ex. LexOS-PRO-signature.jks) : demande le mot de passe, masqué. */
+    private fun demanderMotDePasseImport(uri: Uri) {
+        val marge = (16 * resources.displayMetrics.density).toInt()
+        val champ = android.widget.EditText(this).apply {
+            hint = getString(R.string.sign_import_hint)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine()
+        }
+        val cadre = android.widget.FrameLayout(this).apply { setPadding(marge, marge / 2, marge, 0); addView(champ) }
+        val importer = {
+            val mdp = champ.text.toString().trim()
+            lifecycleScope.launch {
+                try {
+                    val info = withContext(Dispatchers.IO) {
+                        contentResolver.openInputStream(uri)?.use { CleStudio.importer(this@StudioActivity, it, mdp) }
+                            ?: error("Lecture impossible")
+                    }
+                    rafraichirCle()
+                    Toast.makeText(this@StudioActivity, getString(R.string.sign_import_ok, info.nom), Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    erreur(R.string.sign_echec, e)
+                }
+            }
+        }
+        val dialogue = {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.sign_import_titre)
+                .setMessage(R.string.sign_import_msg)
+                .setView(cadre)
+                .setPositiveButton(R.string.sign_import_ok_btn) { _, _ -> importer() }
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show()
+        }
+        if (CleStudio.existe(this)) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.sign_remplacer_titre)
+                .setMessage(R.string.sign_remplacer_msg)
+                .setPositiveButton(R.string.sign_remplacer_ok) { _, _ -> dialogue() }
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show()
+        } else dialogue()
     }
 
     private fun exporterCleVers(uri: Uri) {

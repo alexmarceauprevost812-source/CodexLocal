@@ -320,6 +320,15 @@
                     android:text="@string/sign_creer_cle" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnImporterCle"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/sign_importer_cle"
+                    app:strokeColor="@color/orange" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnExporterCle"
                     style="?attr/materialButtonOutlinedStyle"
                     android:layout_width="match_parent"
