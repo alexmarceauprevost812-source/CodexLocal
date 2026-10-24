@@ -139,6 +139,7 @@ class StudioActivity : AppCompatActivity() {
         rafraichir()
         panneauTest.projetChange()
         if (intent.getStringExtra(EXTRA_MODE) == MODE_TEST) binding.modes.check(R.id.modeTest)
+        if (intent.action == ACTION_SIGNER) binding.modes.check(R.id.modeSign)
     }
 
     override fun onResume() {
@@ -668,6 +669,7 @@ class StudioActivity : AppCompatActivity() {
 
         /** Ouvre directement un onglet du Studio (voir MODE_TEST). */
         const val EXTRA_MODE = "studio_mode"
+        const val ACTION_SIGNER = "com.codexlocal.action.SIGNER"
         const val MODE_TEST = "test"
         private const val PREFS_STUDIO = "codexlocal_studio"
         private const val CLE_PROJET = "projet"

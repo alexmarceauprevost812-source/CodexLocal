@@ -72,9 +72,15 @@
         <activity
             android:name=".studio.StudioActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
-            android:exported="false"
+            android:exported="true"
             android:label="@string/studio_titre"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustResize">
+            <!-- Ouvert directement sur « Signature » depuis LexOS (bouton Signer un APK du Labo) -->
+            <intent-filter>
+                <action android:name="com.codexlocal.action.SIGNER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Bureau : toutes les entrees de menu en icones, comme l'ecran d'accueil d'un telephone -->
         <activity
