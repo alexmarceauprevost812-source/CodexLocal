@@ -32,6 +32,7 @@ import com.codexlocal.agent.AgentPrompts
 import com.codexlocal.agent.Equipe
 import com.codexlocal.agent.NommageIA
 import com.codexlocal.agent.PanneauEquipe
+import com.codexlocal.agent.Reflexion
 import com.codexlocal.agent.Role
 import com.codexlocal.databinding.ActivityMainBinding
 import com.codexlocal.drawer.DrawerAdapter
@@ -1287,7 +1288,11 @@ class MainActivity : AppCompatActivity() {
             !bouclee
         }.collect()
         if (bouclee) {
-            assistant.content = assistant.content.trimEnd() + "\n\n" + getString(R.string.msg_boucle_arretee)
+            var texte = assistant.content.trimEnd()
+            // Boucle pendant la reflexion (<think> sans </think>) : on ferme la reflexion,
+            // sinon l'avertissement resterait cache dans « 💭 Réflexion… ».
+            if (Reflexion.separer(texte).enCours) texte += "\n</think>"
+            assistant.content = texte + "\n\n" + getString(R.string.msg_boucle_arretee)
         }
         val i = messages.indexOfFirst { it === assistant }
         if (i >= 0) adapter.notifyItemChanged(i)

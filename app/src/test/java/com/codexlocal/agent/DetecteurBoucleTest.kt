@@ -33,6 +33,12 @@ class DetecteurBoucleTest {
     }
 
     @Test
+    fun `quinze balises fermantes imbriquees ne declenchent rien`() {
+        val texte = "<p>fin</p>\n" + (15 downTo 1).joinToString("") { " ".repeat(it * 2) + "</div>\n" }
+        assertNull(DetecteurBoucle.boucle(texte))
+    }
+
+    @Test
     fun `deux repetitions seulement ne suffisent pas`() {
         assertNull(DetecteurBoucle.boucle("$ligne\n$ligne\n"))
     }

@@ -11,7 +11,7 @@ package com.codexlocal.agent
  *   ...
  *
  * Le code normal repete aussi des lignes courtes (« } », « </div> ») : on ne compte donc que
- * les repetitions assez longues pour ne pas couper une vraie reponse.
+ * les repetitions qui contiennent au moins une vraie ligne longue.
  */
 object DetecteurBoucle {
 
@@ -23,6 +23,12 @@ object DetecteurBoucle {
 
     /** Un groupe trop court (en caracteres) n'est pas considere comme une boucle. */
     const val CARACTERES_MIN = 30
+
+    /**
+     * Le groupe doit contenir au moins une ligne de cette longueur : une pile de lignes courtes
+     * (« </div> » x 15 dans du HTML tres imbrique) est normale et ne doit jamais couper la reponse.
+     */
+    const val LIGNE_LONGUE_MIN = 20
 
     /**
      * Renvoie la longueur du texte a garder (tout ce qui precede les repetitions en trop),
@@ -45,6 +51,7 @@ object DetecteurBoucle {
             if (utiles.size < besoin) break
             val dernier = utiles.subList(utiles.size - taille, utiles.size).map { it.first }
             if (dernier.sumOf { it.length } < CARACTERES_MIN) continue
+            if (dernier.none { it.length >= LIGNE_LONGUE_MIN }) continue
             var identique = true
             for (r in 1 until REPETITIONS) {
                 val debut = utiles.size - taille * (r + 1)
