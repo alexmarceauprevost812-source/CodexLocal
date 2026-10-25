@@ -63,6 +63,7 @@
     <string name="btn_save">Enregistrer</string>
     <string name="btn_cancel">Annuler</string>
 
+    <string name="msg_boucle_arretee">⚠️ Le modèle répétait la même chose en boucle : réponse arrêtée. Essaie un modèle « Coder » (ex. Qwen2.5-Coder 1.5B) ou reformule ta demande.</string>
     <string name="msg_no_model_loaded">Aucun modèle local chargé. Réglages → Modèle local → Charger.</string>
     <string name="msg_loading_model">Chargement du modèle… (peut prendre 1 à 2 minutes)</string>
     <string name="msg_model_loaded">Modèle local chargé : %1$s</string>
