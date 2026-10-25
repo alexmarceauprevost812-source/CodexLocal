@@ -160,7 +160,7 @@ jobs:
           name: CodexLocal-Android-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
   # Publie l'APK dans une release GitHub : l'appli la detecte toute seule
   # (UpdateChecker -> releases/latest). La version suit automatiquement le
