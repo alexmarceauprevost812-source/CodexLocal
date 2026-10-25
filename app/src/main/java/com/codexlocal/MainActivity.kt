@@ -1091,7 +1091,7 @@ class MainActivity : AppCompatActivity() {
                 retirerMessage(assistant)
                 return
             }
-            diffuser(assistant, messages.subList(0, messages.size - 1).toList(), cfg)
+            val bouclee = diffuser(assistant, messages.subList(0, messages.size - 1).toList(), cfg)
             if (!codex) return
 
             var actions = ActionsFichiers.extraire(assistant.content)
@@ -1149,7 +1149,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            val bilan = appliquerActions(projet, assistant, cfg, actions)
+            val bilan = appliquerActions(projet, assistant, cfg, actions, coupee = bouclee)
             annulations += bilan.annulations
             tours++
             if (bilan.lectures.isEmpty() || tours >= MAX_TOURS_LECTURE) return
@@ -1252,13 +1252,16 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    /** Envoie `history` a l'IA et ecrit la reponse dans `assistant`, en direct. */
+    /**
+     * Envoie `history` a l'IA et ecrit la reponse dans `assistant`, en direct.
+     * Renvoie vrai si la reponse a ete coupee parce que le modele tournait en boucle.
+     */
     private suspend fun diffuser(
         assistant: Message,
         history: List<Message>,
         cfg: AppConfig,
         surProgres: ((String) -> Unit)? = null
-    ) {
+    ): Boolean {
         val local = cfg.provider == ProviderType.LOCAL
         var bouclee = false
         ChatRepository.stream(history, cfg, CompteurUsage(this)).takeWhile { chunk ->
@@ -1289,6 +1292,7 @@ class MainActivity : AppCompatActivity() {
         val i = messages.indexOfFirst { it === assistant }
         if (i >= 0) adapter.notifyItemChanged(i)
         scrollToEnd()
+        return bouclee
     }
 
     private fun retirerMessage(message: Message) {
@@ -1305,11 +1309,14 @@ class MainActivity : AppCompatActivity() {
         projet: Projet,
         assistant: Message,
         cfg: AppConfig,
-        actions: List<ActionFichier> = ActionsFichiers.extraire(assistant.content)
+        actions: List<ActionFichier> = ActionsFichiers.extraire(assistant.content),
+        coupee: Boolean = false
     ): Bilan {
         if (actions.isEmpty()) return Bilan()
         // Reponse proche de la limite de longueur : un fichier sans "=== FIN ===" est peut-etre coupe.
-        val peutEtreCoupee = assistant.content.length >= cfg.maxTokens * 2
+        // Reponse arretee pour cause de boucle : meme refus, sinon un fichier serait ecrase
+        // par du code incomplet (avec l'avertissement dedans).
+        val peutEtreCoupee = coupee || assistant.content.length >= cfg.maxTokens * 2
         val bilan = withContext(Dispatchers.IO) {
             AgentProjet.appliquer(this@MainActivity, projet, actions, ignorerIncomplets = peutEtreCoupee)
         }
@@ -1446,7 +1453,7 @@ class MainActivity : AppCompatActivity() {
         if (!preparerModele(cfg, repartirDeZero = true)) {
             error(getString(R.string.msg_no_model_loaded))
         }
-        diffuser(assistant, listOf(Message.user(requete)), cfg) { contenu ->
+        val bouclee = diffuser(assistant, listOf(Message.user(requete)), cfg) { contenu ->
             val ligne = Equipe.derniereLigne(contenu.removePrefix(role.entete))
             if (ligne.isNotEmpty()) panneauEquipe.activite("${role.emoji} $ligne")
         }
@@ -1454,7 +1461,7 @@ class MainActivity : AppCompatActivity() {
 
         var bilan = Bilan()
         if (role.ecrit) {
-            bilan = appliquerActions(projet, assistant, cfg)
+            bilan = appliquerActions(projet, assistant, cfg, coupee = bouclee)
             annulations += bilan.annulations
             val premiere = bilan.resume().lineSequence().firstOrNull().orEmpty()
             if (premiere.isNotEmpty()) panneauEquipe.activite("${role.emoji} $premiere")
