@@ -1,6 +1,7 @@
 #include <android/log.h>
 #include <jni.h>
 #include <algorithm>
+#include <atomic>
 #include <iomanip>
 #include <cmath>
 #include <string>
@@ -64,10 +65,28 @@ Java_com_codexlocal_engine_internal_InferenceEngineImpl_init(JNIEnv *env, jobjec
     LOGi("Backend initiated; Log handler set.");
 }
 
+// CodexLocal : avancement du chargement du modele (0..1), lu depuis Kotlin pour la barre de progression.
+static std::atomic<float> g_load_progress{0.0f};
+
+static bool on_load_progress(float progress, void * /*user_data*/) {
+    g_load_progress.store(progress);
+    return true; // continuer le chargement
+}
+
+extern "C"
+JNIEXPORT jfloat JNICALL
+Java_com_codexlocal_engine_internal_InferenceEngineImpl_nativeLoadProgress(
+        JNIEnv * /*unused*/, jobject /*unused*/) {
+    return (jfloat) g_load_progress.load();
+}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_codexlocal_engine_internal_InferenceEngineImpl_load(JNIEnv *env, jobject, jstring jmodel_path) {
     llama_model_params model_params = llama_model_default_params();
+    g_load_progress.store(0.0f);
+    model_params.progress_callback = on_load_progress;
+    model_params.progress_callback_user_data = nullptr;
 
     const auto *model_path = env->GetStringUTFChars(jmodel_path, 0);
     LOGd("%s: Loading model from: \n%s\n", __func__, model_path);

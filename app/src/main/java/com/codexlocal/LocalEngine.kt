@@ -7,6 +7,10 @@ import com.codexlocal.engine.InferenceEngine
 import com.codexlocal.session.ContexteLocal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onCompletion
@@ -79,6 +83,7 @@ object LocalEngine {
         modelPath: String,
         cfg: AppConfig,
         repartirDeZero: Boolean = false,
+        onProgres: (Int?) -> Unit = {},
         onStatus: (String) -> Unit
     ) {
         val e = engine(context)
@@ -94,15 +99,46 @@ object LocalEngine {
         // Changement de modele : on decharge l'ancien (sinon le moteur refuse d'en charger un autre).
         if (loadedPath != null) withContext(Dispatchers.Default) { unload() }
 
-        onStatus("Chargement du modele…")
+        onStatus("Chargement du modèle… 0 %")
+        onProgres(0)
         try {
             // Plus la memoire du modele est grande, plus la session peut durer sans rien oublier.
             e.setContextSize(
                 ContexteLocal.tailleSouhaitee(memoireDisponible(context), File(modelPath).length())
             )
-            e.loadModel(modelPath)
-            e.setSamplingParams(cfg.temperature, 0.95f, 40)
-            e.setSystemPrompt(cfg.systemPrompt)
+            coroutineScope {
+                // La lecture du fichier donne un pourcentage ; la preparation qui suit n'en donne pas.
+                val suivi = launch {
+                    var dernier = -1
+                    var preparation = false
+                    while (isActive) {
+                        when (e.state.value) {
+                            is InferenceEngine.State.LoadingModel -> {
+                                val pct = (e.loadProgress() * 100).toInt().coerceIn(0, 99)
+                                if (pct != dernier) {
+                                    dernier = pct
+                                    onProgres(pct)
+                                    onStatus("Chargement du modèle… $pct %")
+                                }
+                            }
+                            else -> if (dernier >= 0 && !preparation) {
+                                preparation = true
+                                onProgres(null)
+                                onStatus("Préparation du modèle…")
+                            }
+                        }
+                        delay(150)
+                    }
+                }
+                try {
+                    e.loadModel(modelPath)
+                    e.setSamplingParams(cfg.temperature, 0.95f, 40)
+                    e.setSystemPrompt(cfg.systemPrompt)
+                } finally {
+                    suivi.cancel()
+                }
+            }
+            onProgres(100)
         } catch (ex: CancellationException) {
             throw ex
         } catch (ex: Exception) {
