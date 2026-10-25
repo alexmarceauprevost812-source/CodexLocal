@@ -66,7 +66,7 @@ object ModelCatalog {
             "Qwen3-0.6B-Q8_0.gguf"
         ),
         CatalogModel(
-            "DeepSeek-R1 Distill 1.5B — raisonnement",
+            "DeepSeek-R1 Distill 1.5B — raisonnement (pas pour Codex)",
             "1,1 Go",
             "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
             "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf"

@@ -155,6 +155,16 @@ static common_sampler *new_sampler() {
     sparams.temp  = g_temp;
     sparams.top_p = g_top_p;
     sparams.top_k = g_top_k;
+    // Anti-boucle : les petits modeles (1.5B et moins) repetent souvent la meme ligne sans fin.
+    // - penalite de repetition legere (le code repete beaucoup de jetons, il ne faut pas l'empecher) ;
+    // - DRY : penalise surtout une SUITE de jetons deja vue qui se prolonge, ce qui casse les boucles
+    //   de lignes identiques sans gener les accolades ou balises de fermeture.
+    sparams.penalty_last_n     = 256;
+    sparams.penalty_repeat     = 1.08f;
+    sparams.dry_multiplier     = 0.8f;
+    sparams.dry_base           = 1.75f;
+    sparams.dry_allowed_length = 4;
+    sparams.dry_penalty_last_n = 1024;
     return common_sampler_init(g_model, sparams);
 }
 
