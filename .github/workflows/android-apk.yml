@@ -154,40 +154,35 @@ jobs:
           [ -s "$RUNNER_TEMP/resume.txt" ] || tail -40 "$JOURNAL" > "$RUNNER_TEMP/resume.txt"
           MSG=$(sed 's/%/%25/g' "$RUNNER_TEMP/resume.txt" | cut -c1-400 | awk '{printf "%s%%0A", $0}')
           echo "::error title=Erreurs de compilation ou de tests::${MSG:0:60000}"
-      - name: Publier APK telechargeable
-        uses: actions/upload-artifact@v4
-        with:
-          name: CodexLocal-Android-Debug-APK
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 14
-
-  # Publie l'APK dans une release GitHub : l'appli la detecte toute seule
-  # (UpdateChecker -> releases/latest). La version suit automatiquement le
-  # numero de compilation (1.5.<numero>), voir app/build.gradle.kts.
-  publier-release:
-    name: Publier la release (mise a jour automatique)
-    needs: apk-debug
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: CodexLocal-Android-Debug-APK
-          path: apk
-      - name: Creer la release de cette compilation
+      # Sur main, publier depuis le meme runner : aucun artefact intermediaire.
+      # Les artefacts Actions ont un quota distinct, qui peut etre sature.
+      - name: Publier la release (mise a jour automatique)
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="1.5.${GITHUB_RUN_NUMBER}"
           TAG="v$VERSION"
-          APK="$(ls apk/*.apk | head -n1)"
+          APK="$(ls app/build/outputs/apk/debug/*.apk | head -n1)"
           cp "$APK" "CodexLocal-$VERSION.apk"
-          gh release create "$TAG" "CodexLocal-$VERSION.apk" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --latest \
-            --title "CodexLocal $VERSION" \
-            --notes "Version $VERSION, compilee automatiquement. L'appli propose cette mise a jour au demarrage."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "CodexLocal-$VERSION.apk" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "CodexLocal-$VERSION.apk" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --latest \
+              --title "CodexLocal $VERSION" \
+              --notes "Version $VERSION, compilee et signee automatiquement. Installez-la par-dessus CodexLocal pour conserver vos modeles et reglages."
+          fi
+      # Sur une PR, le telechargement de test reste pratique mais facultatif :
+      # un quota d'artefacts plein ne doit pas masquer le resultat des tests.
+      - name: Publier APK de test (si le quota le permet)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: CodexLocal-Android-Debug-APK
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 3
