@@ -79,6 +79,11 @@ class Prefs(context: Context) {
     private val sp = context.applicationContext
         .getSharedPreferences("codexlocal", Context.MODE_PRIVATE)
 
+    /** Recherche documentaire automatique ; n'envoie que des termes techniques prédéfinis. */
+    var rechercheWebAuto: Boolean
+        get() = sp.getBoolean("rechercheWebAuto", true)
+        set(v) { sp.edit().putBoolean("rechercheWebAuto", v).apply() }
+
     /** Choix persistant entre assistant de code et discussion classique. */
     var assistantMode: AssistantMode
         get() = runCatching {

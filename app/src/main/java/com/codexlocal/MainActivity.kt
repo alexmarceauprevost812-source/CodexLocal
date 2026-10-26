@@ -45,6 +45,8 @@ import com.codexlocal.project.Langages
 import com.codexlocal.project.Projet
 import com.codexlocal.studio.StudioActivity
 import com.codexlocal.usage.CompteurUsage
+import com.codexlocal.web.RechercheWeb
+import com.codexlocal.web.ResultatWeb
 import com.codexlocal.project.ProjectStore
 import com.codexlocal.session.Session
 import com.codexlocal.session.SessionStore
@@ -1006,7 +1008,10 @@ class MainActivity : AppCompatActivity() {
         val text = binding.input.text.toString().trim()
         if (text.isEmpty()) return
         val mode = prefs.assistantMode
-        val cfg = prefs.config().forMode(mode)
+        val baseConfig = prefs.config().forMode(mode)
+        val cfg = if (prefs.rechercheWebAuto) baseConfig.copy(
+            systemPrompt = baseConfig.systemPrompt + "\n\n" + RechercheWeb.CONSIGNE
+        ) else baseConfig
 
         binding.input.setText("")
         val user = Message.user(text)
@@ -1019,6 +1024,21 @@ class MainActivity : AppCompatActivity() {
         job = lifecycleScope.launch {
             val annulations = mutableListOf<Annulation>()
             try {
+                val requeteWeb = if (prefs.rechercheWebAuto) RechercheWeb.requete(text) else null
+                if (requeteWeb != null) {
+                    binding.status.text = getString(R.string.web_recherche)
+                    val resultat = try {
+                        RechercheWeb.rechercher(requeteWeb)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        ResultatWeb(requeteWeb, emptyList(), indisponible = true)
+                    }
+                    user.envoi = user.content + "\n\n" + resultat.contexte()
+                    messages.add(Message.assistant(resultat.resume()))
+                    adapter.notifyItemInserted(messages.size - 1)
+                    scrollToEnd()
+                }
                 if (mode == AssistantMode.EQUIPE) {
                     jouerEquipe(user, cfg, annulations)
                 } else {
@@ -1076,7 +1096,7 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.IO) { AgentProjet.contexteProjet(this@MainActivity, p) }
             }
             // Le rappel de fin de message : les petits modeles suivent la derniere phrase, pas le debut.
-            user.envoi = (if (contexte != null) contexte + "\n\n" else "") + user.content +
+            user.envoi = (if (contexte != null) contexte + "\n\n" else "") + (user.envoi ?: user.content) +
                 "\n\n" + AgentPrompts.RAPPEL_FICHIERS
         }
 
@@ -1389,7 +1409,7 @@ class MainActivity : AppCompatActivity() {
         annulations: MutableList<Annulation>
     ) {
         val projet = projetPourEquipe()
-        val demande = user.content
+        val demande = user.envoi ?: user.content
         var contexte = withContext(Dispatchers.IO) {
             AgentProjet.contexteProjet(this@MainActivity, projet)
         }

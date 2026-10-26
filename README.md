@@ -6,6 +6,27 @@ Gemini, Groq, OpenRouter, DeepSeek, Ollama…** quand il y a du réseau.
 
 ## Ce que fait l'appli
 
+### Recherche Internet pour le code
+
+Le réglage **Recherche Internet automatique**, activé par défaut, consulte de la
+documentation lorsque la demande mentionne une technologie reconnue et une
+recherche, une version, une API, une erreur, une installation ou un usage avec
+une bibliothèque. Exemple : « Avec pathlib, lis un fichier UTF-8 ».
+
+- La détection est locale et repose sur des mots-clés : elle ne couvre pas toutes les demandes.
+- Seuls des noms de technologies et des termes prédéfinis quittent le téléphone ; le code,
+  les clés et la conversation ne sont pas envoyés au moteur de recherche.
+- Les documentations officielles sont consultées directement. Les demandes de versions
+  récentes passent par Bing ; seuls des résultats pertinents de domaines officiels sont retenus.
+- Les liens apparaissent dans la conversation et des extraits limités sont fournis au modèle,
+  y compris au modèle GGUF local. Les extraits ne constituent pas des instructions à exécuter.
+- En cas d’échec, le chat le signale et continue avec les connaissances du modèle.
+- Décoche le réglage pour ne faire aucune recherche, ou écris « sans internet » dans ta demande.
+
+Le mode local fonctionne toujours sans connexion lorsque la recherche n’est pas utilisée.
+Cette fonction nécessite l’APK construit depuis ces sources ; elle n’est pas fournie par
+la simple sélection d’un fournisseur d’IA distant.
+
 | Mode | Réseau requis | Clé API | Où tourne le modèle |
 |---|---|---|---|
 | **Local (GGUF)** | ❌ non | ❌ non | sur le téléphone (llama.cpp) |

@@ -116,6 +116,7 @@ class SettingsActivity : AppCompatActivity() {
     // ------------------------------------------------------------ commun
 
     private fun setupCommon() {
+        binding.switchRechercheWeb.isChecked = prefs.rechercheWebAuto
         binding.sbTemperature.progress = (prefs.temperature * 10).toInt().coerceIn(0, 20)
         updateTempLabel()
         binding.sbTemperature.setOnSeekBarChangeListener(
@@ -433,6 +434,7 @@ class SettingsActivity : AppCompatActivity() {
     // -------------------------------------------------------------- save
 
     private fun save() {
+        prefs.rechercheWebAuto = binding.switchRechercheWeb.isChecked
         saveRemoteFields(editingProvider)
         prefs.provider = editingProvider
         prefs.githubToken = binding.etGithubToken.text.toString().trim()
