@@ -124,7 +124,22 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
     ctx_params.n_ubatch = BATCH_SIZE;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
+    // Vitesse d'ecriture : sur telephone, chaque mot genere relit toute la memoire de conversation.
+    // - Flash Attention : calcul de l'attention plus rapide et plus econome ;
+    // - memoire (cache KV) en 8 bits au lieu de 16 : deux fois moins de donnees a relire a chaque
+    //   mot, quasi sans perte de qualite (et deux fois plus de place pour la conversation).
+    ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
+    ctx_params.type_k = GGML_TYPE_Q8_0;
+    ctx_params.type_v = GGML_TYPE_Q8_0;
     auto *context = llama_init_from_model(g_model, ctx_params);
+    if (context == nullptr) {
+        // Certains modeles refusent ce reglage : on reessaie avec la configuration d'origine.
+        LOGw("%s: fast settings refused, retrying with defaults", __func__);
+        ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
+        ctx_params.type_k = GGML_TYPE_F16;
+        ctx_params.type_v = GGML_TYPE_F16;
+        context = llama_init_from_model(g_model, ctx_params);
+    }
     if (context == nullptr) {
         LOGe("%s: llama_new_context_with_model() returned null)", __func__);
     }
