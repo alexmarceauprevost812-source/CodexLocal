@@ -113,20 +113,22 @@ object LocalEngine {
                     var dernier = -1
                     var preparation = false
                     while (isActive) {
-                        when (e.state.value) {
-                            is InferenceEngine.State.LoadingModel -> {
-                                val pct = (e.loadProgress() * 100).toInt().coerceIn(0, 99)
-                                if (pct != dernier) {
-                                    dernier = pct
-                                    onProgres(pct)
-                                    onStatus("Chargement du modèle… $pct %")
-                                }
+                        val etat = e.state.value
+                        val lu = e.loadProgress()
+                        // Le moteur reste « LoadingModel » pendant la preparation (memoire, consignes) :
+                        // c'est la lecture du fichier terminee (100 %) qui marque le passage a cette etape.
+                        val lecture = etat is InferenceEngine.State.LoadingModel && lu < 1f
+                        if (lecture) {
+                            val pct = (lu * 100).toInt().coerceIn(0, 99)
+                            if (pct != dernier) {
+                                dernier = pct
+                                onProgres(pct)
+                                onStatus("Chargement du modèle… $pct %")
                             }
-                            else -> if (dernier >= 0 && !preparation) {
-                                preparation = true
-                                onProgres(null)
-                                onStatus("Préparation du modèle…")
-                            }
+                        } else if (dernier >= 0 && !preparation) {
+                            preparation = true
+                            onProgres(null)
+                            onStatus("Préparation du modèle…")
                         }
                         delay(150)
                     }
