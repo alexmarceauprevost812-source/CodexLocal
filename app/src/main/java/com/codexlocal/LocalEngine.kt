@@ -88,9 +88,10 @@ object LocalEngine {
     ) {
         val e = engine(context)
         awaitReady(e)
+        val systeme = ProfilsModeles.consigne(modelPath, cfg.systemPrompt)
         if (isLoadedFor(modelPath)) {
             // Un changement de mode ou de role doit aussi modifier le prompt du moteur local.
-            if (repartirDeZero || activeSystemPrompt != cfg.systemPrompt) {
+            if (repartirDeZero || activeSystemPrompt != systeme) {
                 resetConversation(context, cfg)
             }
             return
@@ -133,7 +134,7 @@ object LocalEngine {
                 try {
                     e.loadModel(modelPath)
                     e.setSamplingParams(cfg.temperature, 0.95f, 40)
-                    e.setSystemPrompt(cfg.systemPrompt)
+                    e.setSystemPrompt(systeme)
                 } finally {
                     suivi.cancel()
                 }
@@ -149,18 +150,19 @@ object LocalEngine {
         appliedTemperature = cfg.temperature
         loadedPath = modelPath
         systemPromptSent = true
-        activeSystemPrompt = cfg.systemPrompt
+        activeSystemPrompt = systeme
         conversationVide = true
     }
 
     suspend fun resetConversation(context: Context, cfg: AppConfig) {
         val e = engine ?: return
+        val systeme = ProfilsModeles.consigne(loadedPath ?: cfg.localModelPath, cfg.systemPrompt)
         e.resetConversation()
         e.setSamplingParams(cfg.temperature, 0.95f, 40)
-        e.setSystemPrompt(cfg.systemPrompt)
+        e.setSystemPrompt(systeme)
         appliedTemperature = cfg.temperature
         systemPromptSent = true
-        activeSystemPrompt = cfg.systemPrompt
+        activeSystemPrompt = systeme
         conversationVide = true
     }
 
