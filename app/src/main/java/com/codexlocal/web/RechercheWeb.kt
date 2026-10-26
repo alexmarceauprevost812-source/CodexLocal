@@ -158,7 +158,7 @@ object RechercheWeb {
                         while (true) {
                             val n = input.read(tampon)
                             if (n < 0) break
-                            require(sortie.size() + n <= 300_000) { "Documentation trop volumineuse" }
+                            require(sortie.size() + n <= 1_000_000) { "Documentation trop volumineuse" }
                             sortie.write(tampon, 0, n)
                         }
                         sortie.toString("UTF-8")
