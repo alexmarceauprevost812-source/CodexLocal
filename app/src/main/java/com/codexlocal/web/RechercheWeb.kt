@@ -2,6 +2,7 @@ package com.codexlocal.web
 
 import android.text.Html
 import android.util.Xml
+import com.codexlocal.Message
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -19,6 +20,13 @@ import java.util.Locale
 data class SourceWeb(val url: String, val extrait: String)
 
 data class ResultatWeb(val requete: String, val sources: List<SourceWeb>, val indisponible: Boolean = false) {
+    /** Display sources after generation without adding an assistant prefill to the API request. */
+    fun annoterReponse(message: Message) {
+        require(!message.isUser)
+        if (message.envoi == null) message.envoi = message.content
+        message.content += "\n\n" + resume()
+    }
+
     fun contexte(): String = if (indisponible) {
         "La recherche Internet a échoué. Réponds avec tes connaissances locales et ne prétends pas avoir vérifié des informations récentes."
     } else {

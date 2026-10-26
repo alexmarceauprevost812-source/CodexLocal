@@ -1,6 +1,7 @@
 package com.codexlocal.web
 
 import com.codexlocal.Prefs
+import com.codexlocal.Message
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -72,6 +73,15 @@ class RechercheWebTest {
         val echec = ResultatWeb("react", emptyList(), indisponible = true)
         assertTrue(echec.contexte().contains("ne prétends pas"))
         assertTrue(echec.resume().contains("indisponible"))
+    }
+
+    @Test fun afficheLesSourcesSansAjouterDePrefillNiPolluerLaReponseTransmise() {
+        val resultat = ResultatWeb("python", listOf(SourceWeb("https://docs.python.org/3/", "Documentation")))
+        val message = Message.assistant("def addition(a, b): return a + b")
+        resultat.annoterReponse(message)
+        assertTrue(message.content.contains("Sources Internet consultées"))
+        assertEquals("def addition(a, b): return a + b", message.envoi)
+        assertThrows(IllegalArgumentException::class.java) { resultat.annoterReponse(Message.user("Question")) }
     }
 
     @Test fun preferencePersistantePeutDesactiverLeReseau() {

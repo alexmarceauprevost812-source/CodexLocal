@@ -1023,6 +1023,7 @@ class MainActivity : AppCompatActivity() {
 
         job = lifecycleScope.launch {
             val annulations = mutableListOf<Annulation>()
+            var resultatWeb: ResultatWeb? = null
             try {
                 val requeteWeb = if (prefs.rechercheWebAuto) RechercheWeb.requete(text) else null
                 if (requeteWeb != null) {
@@ -1035,9 +1036,7 @@ class MainActivity : AppCompatActivity() {
                         ResultatWeb(requeteWeb, emptyList(), indisponible = true)
                     }
                     user.envoi = user.content + "\n\n" + resultat.contexte()
-                    messages.add(Message.assistant(resultat.resume()))
-                    adapter.notifyItemInserted(messages.size - 1)
-                    scrollToEnd()
+                    resultatWeb = resultat
                 }
                 if (mode == AssistantMode.EQUIPE) {
                     jouerEquipe(user, cfg, annulations)
@@ -1049,6 +1048,11 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 afficherErreur(e.message ?: e.toString())
             } finally {
+                val reponse = messages.lastOrNull()
+                if (reponse != null && !reponse.isUser) {
+                    resultatWeb?.annoterReponse(reponse)
+                    adapter.notifyItemChanged(messages.size - 1)
+                }
                 setGenerating(false)
                 refreshStatus()
                 sauverSession()
