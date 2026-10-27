@@ -29,7 +29,7 @@ try {
 } catch { }
 
 # --- 1. Python portable (version embarquee officielle)
-Titre "1/3 Python portable"
+Titre "1/4 Python portable"
 $py = Join-Path $Outils "python\python.exe"
 if (Test-Path $py) { Ok "deja present" } else {
     $v = "3.12.10"
@@ -42,7 +42,7 @@ if (Test-Path $py) { Ok "deja present" } else {
 }
 
 # --- 2. Ollama portable (moteur d'IA locale)
-Titre "2/3 Ollama (moteur d'IA locale)"
+Titre "2/4 Ollama (moteur d'IA locale)"
 $ol = Join-Path $Outils "ollama\ollama.exe"
 if (Test-Path $ol) { Ok "deja present" } else {
     $zip = Join-Path $Tmp "ollama.zip"
@@ -55,7 +55,7 @@ if (Test-Path $ol) { Ok "deja present" } else {
 }
 
 # --- 3. Git portable (MinGit officiel de Git for Windows)
-Titre "3/3 Git portable"
+Titre "3/4 Git portable"
 $git = Join-Path $Outils "git\cmd\git.exe"
 if (Test-Path $git) { Ok "deja present" } else {
     $rel = Invoke-RestMethod "https://api.github.com/repos/git-for-windows/git/releases/latest" -Headers @{ "User-Agent" = "Ti-Labo" }
@@ -68,6 +68,29 @@ if (Test-Path $git) { Ok "deja present" } else {
     Remove-Item $zip
     Ok "Git"
 }
+
+# --- 4. Moteur d'images (stable-diffusion.cpp, version Vulkan : NVIDIA, AMD et Intel)
+Titre "4/4 Moteur d'images (stable-diffusion.cpp)"
+$sdDir = Join-Path $Outils "sd"
+$sdExe = Get-ChildItem -Path $sdDir -Recurse -Include "sd-cli.exe","sd.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($sdExe) { Ok "deja present" } else {
+    try {
+        $rel = Invoke-RestMethod "https://api.github.com/repos/leejet/stable-diffusion.cpp/releases/latest" -Headers @{ "User-Agent" = "Ti-Labo" }
+        $asset = $rel.assets | Where-Object { $_.name -match 'win' -and $_.name -match 'vulkan' -and $_.name -match 'x64' -and $_.name -like '*.zip' } | Select-Object -First 1
+        if (-not $asset) { $asset = $rel.assets | Where-Object { $_.name -match 'win' -and $_.name -match 'avx2' -and $_.name -like '*.zip' } | Select-Object -First 1 }
+        if (-not $asset) { throw "aucune version Windows trouvee" }
+        $zip = Join-Path $Tmp "sd.zip"
+        Write-Host "   Telechargement de $($asset.name) ..."
+        Invoke-WebRequest $asset.browser_download_url -OutFile $zip
+        Expand-Archive $zip -DestinationPath $sdDir -Force
+        Remove-Item $zip
+        Ok "Moteur d'images"
+    } catch {
+        Write-Host "   Moteur d'images non installe : $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "   Le reste du Ti-Labo fonctionne. Relance l'installation plus tard."
+    }
+}
+New-Item -ItemType Directory -Force -Path (Join-Path $Racine "ia\images") | Out-Null
 
 Write-Host ""
 Write-Host "  Tout est sur la cle ! Lance maintenant Demarrer-Ti-Labo.bat" -ForegroundColor Green

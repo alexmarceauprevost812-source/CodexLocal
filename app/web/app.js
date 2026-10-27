@@ -9,12 +9,17 @@ const ic = (id) => `<svg class="ic"><use href="#i-${id}"/></svg>`;
 const etat = { params: {}, modeles: [], projets: [], projet: null, fichier: null, modifie: false };
 
 const CATALOGUE = [
-  { nom: "qwen2.5-coder:7b", taille: 4.7, tags: ["code", "internet"], desc: "Le meilleur Codex pour un PC ordinaire." },
+  // --- Top 5 pour coder (du plus fort au plus léger)
+  { nom: "qwen3-coder:30b", taille: 19, tags: ["code", "internet", "top"], groupe: "code", desc: "N° 1 du code en local. Demande un gros PC (24 Go de mémoire vidéo ou 32 Go de RAM)." },
+  { nom: "devstral:24b", taille: 14, tags: ["code", "internet", "top"], groupe: "code", desc: "N° 2 — très bon pour travailler dans un projet entier (agent de code)." },
+  { nom: "deepseek-coder-v2:16b", taille: 8.9, tags: ["code", "top"], groupe: "code", desc: "N° 3 — rapide malgré sa taille, très bon en code." },
+  { nom: "qwen2.5-coder:14b", taille: 9.0, tags: ["code", "internet", "top"], groupe: "code", desc: "N° 4 — l'équilibre parfait pour une carte de 16 Go." },
+  { nom: "qwen2.5-coder:7b", taille: 4.7, tags: ["code", "internet", "top"], groupe: "code", desc: "N° 5 — le meilleur Codex pour un PC ordinaire." },
+  // --- Généralistes, vision et mémoire
   { nom: "qwen3:8b", taille: 5.2, tags: ["internet"], desc: "Très bon en jasette et pour faire des plans." },
   { nom: "qwen3-vl:8b", taille: 6.1, tags: ["vision", "internet"], desc: "Voit les images ET peut chercher sur Internet." },
   { nom: "gemma3:4b", taille: 3.3, tags: ["vision"], desc: "Léger, voit les images (captures d'écran, photos)." },
   { nom: "qwen2.5vl:7b", taille: 6.0, tags: ["vision"], desc: "Lit très bien le texte dans les images." },
-  { nom: "llama3.1:8b", taille: 4.9, tags: ["internet"], desc: "Classique solide, utilise bien les outils." },
   { nom: "llama3.2:3b", taille: 2.0, tags: ["internet"], desc: "Petit et rapide pour les vieux PC." },
   { nom: "nomic-embed-text", taille: 0.3, tags: ["mémoire"], desc: "Requis pour la Mémoire de la clé." },
 ];
@@ -23,7 +28,7 @@ const CATALOGUE = [
 async function api(route, donnees, options = {}) {
   const r = await fetch("/api/" + route, {
     method: donnees === undefined ? "GET" : "POST",
-    headers: { "Content-Type": "application/json", "X-TiLabo": window.TILABO_JETON },
+    headers: { "Content-Type": "application/json", "X-TiLabo": window.TILABO_JETON || "" },
     body: donnees === undefined ? undefined : JSON.stringify(donnees),
     signal: options.signal,
   });
@@ -129,6 +134,43 @@ function reduireImage(fichier, max = 1280) {
   });
 }
 
+/* ------------------------------------------------------------ écriture fluide (machine à écrire) */
+function machineAEcrire(el, apres) {
+  let cible = "", montre = 0, boucle = null, erreurs = "", fin = null, dernierRendu = 0;
+  const vitesse = () => {
+    const reste = cible.length - montre;
+    // rattrape vite quand l'IA écrit plus vite que l'affichage, doux sinon
+    return Math.max(1, Math.ceil(reste / 10));
+  };
+  function rendre(force) {
+    const t = performance.now();
+    if (!force && t - dernierRendu < 16) return;
+    dernierRendu = t;
+    el.innerHTML = rendreMarkdown(cible.slice(0, montre)) + erreurs;
+    apres();
+  }
+  function pas() {
+    if (montre < cible.length) {
+      montre = Math.min(cible.length, montre + vitesse());
+      rendre();
+      boucle = requestAnimationFrame(pas);
+    } else {
+      boucle = null;
+      rendre(true);
+      if (fin) { fin(); fin = null; }
+    }
+  }
+  return {
+    ajouter(t) { cible += t; if (!boucle) boucle = requestAnimationFrame(pas); },
+    erreur(m) { erreurs += `<p style="color:var(--red)">${esc(m)}</p>`; rendre(true); },
+    terminer() {
+      if (document.hidden) { montre = cible.length; rendre(true); return Promise.resolve(); }
+      if (!boucle && montre >= cible.length) { rendre(true); return Promise.resolve(); }
+      return new Promise((ok) => { fin = ok; if (!boucle) boucle = requestAnimationFrame(pas); });
+    },
+  };
+}
+
 /* ------------------------------------------------------------ composant de chat */
 function creerChat(conteneur, mode) {
   const id = "c" + mode;
@@ -172,7 +214,13 @@ function creerChat(conteneur, mode) {
     const cle = mode === "codex" ? "modele_codex" : "modele_jasette";
     const choisi = etat.params[cle];
     sel.innerHTML = etat.modeles.length
-      ? etat.modeles.filter((m) => !/embed/.test(m.nom)).map((m) => `<option ${m.nom === choisi ? "selected" : ""}>${esc(m.nom)}</option>`).join("")
+      ? (() => {
+          const opt = (m) => `<option value="${esc(m.nom)}" ${m.nom === choisi ? "selected" : ""}>${esc(m.nom)}</option>`;
+          const locales = etat.modeles.filter((m) => !m.nuage && !/embed/.test(m.nom));
+          const nuage = etat.modeles.filter((m) => m.nuage);
+          return (locales.length ? `<optgroup label="IA locales (hors-ligne)">${locales.map(opt).join("")}</optgroup>` : "") +
+            (nuage.length ? `<optgroup label="Claude (Internet, clé API)">${nuage.map(opt).join("")}</optgroup>` : "");
+        })()
       : `<option value="">Aucune IA — va dans IA locales</option>`;
     if (!choisi && sel.value) api("parametres", { [cle]: sel.value }).then((p) => Object.assign(etat.params, p)).catch(() => {});
   }
@@ -241,6 +289,10 @@ function creerChat(conteneur, mode) {
     fil.appendChild(d);
     const contenu = $(".contenu", d), etapes = $(".etapes", d);
     let reponse = "";
+    const ecrivain = machineAEcrire(contenu, () => { if (pres) fil.scrollTop = fil.scrollHeight; });
+    let pres = true;
+    const surDefilement = () => { pres = fil.scrollHeight - fil.scrollTop - fil.clientHeight < 80; };
+    fil.addEventListener("scroll", surDefilement);
     controleur = new AbortController();
     btEnvoyer.innerHTML = ic("stop");
     btEnvoyer.setAttribute("aria-label", "Arrêter");
@@ -252,17 +304,19 @@ function creerChat(conteneur, mode) {
         fichier: mode === "codex" ? etat.fichier : null, projet: etat.projet,
       }, { flux: true, signal: controleur.signal });
       await lireFlux(r, (o) => {
-        if (o.texte) { reponse += o.texte; contenu.innerHTML = rendreMarkdown(reponse); }
+        if (o.texte) { reponse += o.texte; ecrivain.ajouter(o.texte); }
         if (o.outil) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic("globe")}${esc(o.outil)}</div>`);
         if (o.liens) etapes.insertAdjacentHTML("beforeend", o.liens.slice(0, 3).map((u) => `<div class="etape" style="padding-left:24px"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></div>`).join(""));
         if (o.sources) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic("memoire")}Mémoire : ${esc(o.sources.join(", "))}</div>`);
-        if (o.erreur) contenu.insertAdjacentHTML("beforeend", `<p style="color:var(--red)">${esc(o.erreur)}</p>`);
+        if (o.erreur) ecrivain.erreur(o.erreur);
         if (o.jetons_s) $(".qui", d).insertAdjacentHTML("beforeend", `<span>· ${o.jetons_s} jetons/s</span>`);
         coller();
       });
     } catch (e) {
-      if (e.name !== "AbortError") contenu.insertAdjacentHTML("beforeend", `<p style="color:var(--red)">${esc(e.message)}</p>`);
+      if (e.name !== "AbortError") { await ecrivain.terminer(); contenu.insertAdjacentHTML("beforeend", `<p style="color:var(--red)">${esc(e.message)}</p>`); }
     } finally {
+      await ecrivain.terminer();
+      fil.removeEventListener("scroll", surDefilement);
       contenu.classList.remove("curseur");
       controleur = null;
       btEnvoyer.innerHTML = ic("envoyer");
@@ -309,6 +363,7 @@ function allerA(vue) {
   if (vue === "memoire") rendreMemoire();
   if (vue === "studio") rendreStudio();
   if (vue === "parametres") rendreParametres();
+  if (vue === "images") rendreImages();
   if (vue === "bureau") rendreBureau();
 }
 $$(".nav").forEach((n) => (n.onclick = () => allerA(n.dataset.vue)));
@@ -590,7 +645,7 @@ function rendreIA() {
   rendreTransfert();
   const installes = new Set(etat.modeles.map((m) => m.nom));
   const pris = (nom) => installes.has(nom) || installes.has(nom + ":latest");
-  $("#ia-installees").innerHTML = etat.modeles.map((m) => {
+  $("#ia-installees").innerHTML = etat.modeles.filter((m) => !m.nuage).map((m) => {
     const cat = CATALOGUE.find((c) => c.nom === m.nom || c.nom + ":latest" === m.nom);
     return `<div class="modele"><div class="info"><b>${esc(m.nom)}</b>${(cat?.tags || []).map((t) => ` <span class="tag ${t === "vision" ? "bleu" : t === "internet" ? "vert" : "or"}">${t}</span>`).join("")}
       <small>${m.taille_go ? m.taille_go + " Go" : ""} ${esc(m.params || "")} ${esc(m.famille || "")}</small></div>
@@ -598,10 +653,13 @@ function rendreIA() {
       <button class="btn petit" data-util="${esc(m.nom)}">Utiliser</button>
       <button class="btn petit danger" data-ret="${esc(m.nom)}">Retirer</button></div>`;
   }).join("") || `<p class="vide">${etat.ollama ? "Aucune IA sur la clé pour l'instant." : "Le moteur est arrêté. Clique « Démarrer le moteur »."}</p>`;
-  $("#ia-catalogue").innerHTML = CATALOGUE.map((c) => `
-    <div class="modele"><div class="info"><b>${c.nom}</b>${c.tags.map((t) => ` <span class="tag ${t === "vision" ? "bleu" : t === "internet" ? "vert" : "or"}">${t}</span>`).join("")}
+  const ligneCat = (c) => `
+    <div class="modele"><div class="info"><b>${c.nom}</b>${c.tags.map((t) => ` <span class="tag ${t === "vision" ? "bleu" : t === "internet" ? "vert" : "or"}">${t === "top" ? "top 5" : t}</span>`).join("")}
       <small>${c.desc} · ${c.taille} Go</small><div class="progression" id="pr-${c.nom.replace(/[^\w]/g, "_")}"><i></i></div></div>
-      <button class="btn petit ${pris(c.nom) ? "" : "prim"}" data-tel="${c.nom}" ${pris(c.nom) ? "disabled" : ""}>${pris(c.nom) ? "Sur la clé" : "Télécharger"}</button></div>`).join("");
+      <button class="btn petit ${pris(c.nom) ? "" : "prim"}" data-tel="${c.nom}" ${pris(c.nom) ? "disabled" : ""}>${pris(c.nom) ? "Installée" : "Télécharger"}</button></div>`;
+  $("#ia-catalogue").innerHTML =
+    `<div class="sous-titre">Top 5 pour coder</div>` + CATALOGUE.filter((c) => c.groupe === "code").map(ligneCat).join("") +
+    `<div class="sous-titre">Jasette, vision et mémoire</div>` + CATALOGUE.filter((c) => c.groupe !== "code").map(ligneCat).join("");
   $$("[data-util]").forEach((b) => (b.onclick = async () => {
     await api("parametres", { modele_jasette: b.dataset.util, modele_codex: b.dataset.util }).then((p) => Object.assign(etat.params, p));
     jasette.majModeles(); codex.majModeles(); toast(b.dataset.util + " est maintenant utilisée par la Jasette et le Codex");
@@ -740,8 +798,116 @@ $("#bt-studio-codex").onclick = () => {
   codex.envoyer(`Explique-moi la structure du projet « ${nom} » : utilise l'outil chercher_mes_projets si tu peux, et décris le rôle de chaque partie.`);
 };
 
+/* ------------------------------------------------------------ images */
+let infoImages = null;
+const urlImage = (u) => u + (u.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(window.TILABO_JETON);
+async function rendreImages() {
+  try { infoImages = await api("images"); } catch (e) { toast(e.message); return; }
+  const { moteur, modeles, catalogue, galerie } = infoImages;
+  const avis = $("#img-avis");
+  const msgs = [];
+  if (!moteur) msgs.push(etat.plateforme === "android"
+    ? "La création d'images marche sur le PC (Ti-Labo de la clé). Sur le téléphone, c'est trop lourd pour l'instant."
+    : "Le moteur d'images n'est pas encore sur la clé : relance <b>Installer-Ti-Labo.bat</b> (étape 4/4).");
+  if (!modeles.length) msgs.push("Télécharge un modèle d'images plus bas (SD-Turbo est le plus rapide).");
+  avis.hidden = !msgs.length;
+  avis.innerHTML = msgs.map((m) => `<p class="sous" style="margin:4px 0">${m}</p>`).join("");
+  const sel = $("#img-modele"), garde = sel.value;
+  sel.innerHTML = modeles.map((m) => `<option value="${esc(m.nom)}" ${m.nom === garde ? "selected" : ""}>${esc(m.titre)}</option>`).join("") || `<option value="">Aucun modèle</option>`;
+  const choisi = () => modeles.find((m) => m.nom === sel.value);
+  sel.onchange = () => { const m = choisi(); if (m) $("#img-pas").value = m.pas; };
+  if (!$("#img-pas").value && choisi()) $("#img-pas").value = choisi().pas;
+  $("#bt-img").disabled = !moteur || !modeles.length;
+  $("#galerie").innerHTML = galerie.map((g) => `<a href="${esc(urlImage(g.url))}" target="_blank" rel="noopener"><img src="${esc(urlImage(g.url))}" alt="${esc(g.nom)}" loading="lazy"></a>`).join("") || `<p class="vide">Tes images apparaîtront ici.</p>`;
+  const installes = new Set(modeles.map((m) => m.nom));
+  $("#img-catalogue").innerHTML = Object.entries(catalogue).map(([nom, c]) => `
+    <div class="modele"><div class="info"><b>${esc(c.titre)}</b> <span class="tag or">images</span><small>${esc(c.desc)} · ${c.taille_go} Go</small>
+      <div class="progression" id="ipr-${nom.replace(/[^\w]/g, "_")}"><i></i></div></div>
+      <button class="btn petit ${installes.has(nom) ? "" : "prim"}" data-itel="${esc(nom)}" ${installes.has(nom) ? "disabled" : ""}>${installes.has(nom) ? "Sur la clé" : "Télécharger"}</button></div>`).join("");
+  $$("[data-itel]").forEach((b) => (b.onclick = () => telechargerImage(b.dataset.itel, b)));
+}
+async function telechargerImage(nom, b) {
+  const pr = $("#ipr-" + nom.replace(/[^\w]/g, "_"));
+  b.disabled = true; pr.style.display = "block";
+  try {
+    const r = await api("images/telecharger", { nom }, { flux: true });
+    await lireFlux(r, (o) => {
+      if (o.erreur) throw new Error(o.erreur);
+      if (o.total) { const pc = Math.round((o.fait / o.total) * 100); $("i", pr).style.width = pc + "%"; b.textContent = pc + " %"; }
+      if (o.message) toast(o.message);
+    });
+  } catch (e) { toast("Échec : " + e.message + " (relance : le téléchargement reprend où il était rendu)"); }
+  rendreImages();
+}
+$("#bt-img").onclick = async () => {
+  const b = $("#bt-img"), pr = $("#img-pr"), etatTxt = $("#img-etat");
+  const [l, h] = $("#img-format").value.split("x").map(Number);
+  const m = infoImages?.modeles.find((x) => x.nom === $("#img-modele").value);
+  b.disabled = true; pr.style.display = "block"; $("i", pr).style.width = "0";
+  etatTxt.textContent = "Préparation…";
+  const depart = Date.now();
+  try {
+    const r = await api("images/creer", {
+      modele: $("#img-modele").value, prompt: $("#img-prompt").value, negatif: $("#img-negatif").value,
+      largeur: l, hauteur: h, pas: +$("#img-pas").value || m?.pas, cfg: m?.cfg,
+    }, { flux: true });
+    await lireFlux(r, (o) => {
+      if (o.erreur) throw new Error(o.erreur);
+      if (o.etape) etatTxt.textContent = o.etape;
+      if (o.total) { $("i", pr).style.width = Math.round((o.fait / o.total) * 100) + "%"; etatTxt.textContent = `Étape ${o.fait}/${o.total}`; }
+      if (o.image) {
+        etatTxt.textContent = `Fini en ${Math.round((Date.now() - depart) / 1000)} s`;
+        const a = document.createElement("a");
+        a.href = urlImage(o.image.url); a.target = "_blank"; a.rel = "noopener"; a.className = "nouvelle";
+        a.innerHTML = `<img src="${esc(urlImage(o.image.url))}" alt="Nouvelle image">`;
+        $(".vide", $("#galerie"))?.remove();
+        $("#galerie").prepend(a);
+      }
+    });
+  } catch (e) { etatTxt.textContent = ""; toast(e.message); }
+  b.disabled = false; pr.style.display = "none";
+};
+
 /* ------------------------------------------------------------ paramètres */
+function rendreClaude() {
+  const z = $("#claude-zone"), active = !!etat.params.anthropic_key;
+  z.innerHTML = active
+    ? `<div class="ligne"><span class="tag vert">clé enregistrée</span><span class="sous" style="margin:0">Choisis « claude-… » dans la liste des modèles de la Jasette ou du Codex.</span><span style="flex:1"></span><button class="btn petit danger" id="bt-claude-off">Retirer la clé</button></div>`
+    : `<label class="lib" for="claude-cle">Clé API Anthropic</label><div class="ligne"><input class="champ" type="password" id="claude-cle" placeholder="sk-ant-…" autocomplete="off" style="flex:1"><button class="btn prim" id="bt-claude-on">Ajouter Claude</button></div>
+       <p class="sous" style="font-size:12px">La clé reste sur la clé USB (donnees\\parametres.json). Si tu perds la clé USB, révoque-la sur console.anthropic.com.</p>`;
+  const envoyer = async (cle) => {
+    try { await api("claude/cle", { cle }); toast(cle ? "Claude est ajouté !" : "Clé retirée"); await rafraichirEtat(); rendreClaude(); }
+    catch (e) { toast(e.message); }
+  };
+  if (active) $("#bt-claude-off").onclick = () => confirm("Retirer la clé API Claude ?") && envoyer("");
+  else $("#bt-claude-on").onclick = () => envoyer($("#claude-cle").value.trim());
+}
+function rendreMdp() {
+  const z = $("#mdp-zone"), actif = !!etat.params.mot_de_passe;
+  z.innerHTML = `${actif ? `<div><label class="lib" for="mdp-actuel">Mot de passe actuel</label><input class="champ" type="password" id="mdp-actuel" autocomplete="current-password"></div>` : ""}
+    <div class="grille" style="margin-top:8px">
+      <div><label class="lib" for="mdp-nouveau">${actif ? "Nouveau mot de passe" : "Mot de passe"}</label><input class="champ" type="password" id="mdp-nouveau" autocomplete="new-password"></div>
+      <div><label class="lib" for="mdp-confirme">Confirme-le</label><input class="champ" type="password" id="mdp-confirme" autocomplete="new-password"></div>
+    </div>
+    <div class="ligne" style="margin-top:10px"><button class="btn prim" id="bt-mdp">${actif ? "Changer le mot de passe" : "Activer le mot de passe"}</button>
+    ${actif ? `<button class="btn danger" id="bt-mdp-off">Enlever le mot de passe</button>` : ""}</div>
+    <p class="sous" style="font-size:12px">Note-le quelque part : sans lui, il faut effacer « mot_de_passe » dans donnees\\parametres.json pour rentrer.</p>`;
+  $("#bt-mdp").onclick = async () => {
+    const n = $("#mdp-nouveau").value;
+    if (n !== $("#mdp-confirme").value) return toast("Les deux mots de passe ne sont pas pareils");
+    if (n.length < 4) return toast("Au moins 4 caractères");
+    try { await api("verrou/changer", { actuel: $("#mdp-actuel")?.value, nouveau: n }); toast("Mot de passe activé"); await rafraichirEtat(); rendreMdp(); }
+    catch (e) { toast(e.message); }
+  };
+  if (actif) $("#bt-mdp-off").onclick = async () => {
+    try { await api("verrou/changer", { actuel: $("#mdp-actuel").value, nouveau: "" }); toast("Mot de passe enlevé"); await rafraichirEtat(); rendreMdp(); }
+    catch (e) { toast(e.message); }
+  };
+}
+
 async function rendreParametres() {
+  rendreClaude();
+  rendreMdp();
   const p = etat.params;
   $("#pa-moteur").value = p.moteur;
   $("#pa-url").value = p.url_openai;
@@ -795,7 +961,30 @@ if (mobile()) {
 const jasette = creerChat($("#chat-jasette"), "jasette");
 const codex = creerChat($("#chat-codex"), "codex");
 window.addEventListener("beforeunload", (e) => { if (etat.modifie) { e.preventDefault(); e.returnValue = ""; } });
+function deverrouiller() {
+  if (window.TILABO_JETON) return Promise.resolve();
+  const v = $("#verrou"), f = $("#form-verrou"), champ = $("#verrou-mdp"), msg = $("#verrou-msg");
+  v.hidden = false;
+  setTimeout(() => champ.focus(), 50);
+  return new Promise((ok) => {
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      msg.textContent = "Vérification…";
+      try {
+        const r = await fetch("/api/verrou/entrer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mot_de_passe: champ.value }) });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.erreur || "Erreur");
+        window.TILABO_JETON = j.jeton;
+        champ.value = "";
+        v.hidden = true;
+        ok();
+      } catch (err) { msg.textContent = err.message; champ.select(); }
+    };
+  });
+}
+
 (async () => {
+  await deverrouiller();
   await rafraichirEtat();
   rendreBureau();
   // Le moteur peut prendre quelques secondes à démarrer : on revérifie.

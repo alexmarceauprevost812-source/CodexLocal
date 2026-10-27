@@ -27,6 +27,8 @@
   <symbol id="i-plan" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-cle" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="9" rx="1"/><rect x="5" y="11" width="14" height="11" rx="2"/></symbol>
+  <symbol id="i-pinceau" viewBox="0 0 24 24"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L11 15.8 8.2 13z"/><path d="M8.2 13c-2 0-3.7 1.6-3.7 3.6 0 1.6-1.3 2.9-2.5 3.4 1 .7 2.6 1 4 1 3 0 5-2.2 5-5.2z"/></symbol>
+  <symbol id="i-cadenas" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
 </svg>
 
@@ -52,6 +54,7 @@
       <button class="nav" data-vue="projets"><svg class="ic"><use href="#i-dossier"/></svg>Mes projets<span class="compte" id="nb-projets"></span></button>
       <button class="nav" data-vue="jasette"><svg class="ic"><use href="#i-bulle"/></svg>Jasette</button>
       <button class="nav" data-vue="studio"><svg class="ic"><use href="#i-studio"/></svg>Studio</button>
+      <button class="nav" data-vue="images"><svg class="ic"><use href="#i-pinceau"/></svg>Images</button>
       <div class="section-nav">La clé</div>
       <button class="nav" data-vue="ia"><svg class="ic"><use href="#i-puce"/></svg>IA locales<span class="compte" id="nb-ia"></span></button>
       <button class="nav" data-vue="github"><svg class="ic"><use href="#i-git"/></svg>GitHub</button>
@@ -74,6 +77,7 @@
           <button class="icone" data-aller="jasette"><span class="boite"><svg class="ic"><use href="#i-bulle"/></svg></span>Jasette</button>
           <button class="icone" data-aller="codex"><span class="boite"><svg class="ic"><use href="#i-terminal"/></svg></span>Codex</button>
           <button class="icone" data-aller="studio"><span class="boite"><svg class="ic"><use href="#i-studio"/></svg></span>Studio</button>
+          <button class="icone" data-aller="images"><span class="boite"><svg class="ic"><use href="#i-pinceau"/></svg></span>Images</button>
           <button class="icone" data-aller="ia"><span class="boite"><svg class="ic"><use href="#i-puce"/></svg></span>IA locales</button>
           <button class="icone" data-aller="github"><span class="boite"><svg class="ic"><use href="#i-git"/></svg></span>GitHub</button>
           <button class="icone" data-aller="memoire"><span class="boite"><svg class="ic"><use href="#i-memoire"/></svg></span>Mémoire</button>
@@ -128,6 +132,30 @@
           <button class="btn" id="bt-studio-codex">Demander au Codex de l'expliquer</button>
         </div>
         <svg id="schema" role="img" aria-label="Schéma du projet"></svg>
+      </section>
+
+      <!-- Images -->
+      <section class="vue" id="v-images" aria-label="Images">
+        <div class="entete"><div><h1>Créer des images</h1><p class="sous">100 % local : l'image est créée sur ce PC, avec un modèle rangé sur la clé.</p></div></div>
+        <div class="carte" id="img-avis" hidden></div>
+        <div class="carte">
+          <label class="lib" for="img-prompt">Décris l'image (l'anglais donne de meilleurs résultats)</label>
+          <textarea class="champ" id="img-prompt" rows="3" placeholder="ex. a cozy cabin by a lake in Quebec, autumn, sunset, detailed"></textarea>
+          <div class="grille" style="margin-top:12px">
+            <div><label class="lib" for="img-modele">Modèle</label><select class="champ" id="img-modele"></select></div>
+            <div><label class="lib" for="img-format">Format</label><select class="champ" id="img-format">
+              <option value="512x512">Carré 512</option><option value="768x512">Paysage 768×512</option><option value="512x768">Portrait 512×768</option><option value="768x768">Grand carré 768</option></select></div>
+            <div><label class="lib" for="img-pas">Étapes (qualité)</label><input class="champ" id="img-pas" type="number" min="1" max="60"></div>
+            <div><label class="lib" for="img-negatif">À éviter (optionnel)</label><input class="champ" id="img-negatif" placeholder="blurry, text, watermark"></div>
+          </div>
+          <div class="ligne" style="margin-top:12px">
+            <button class="btn prim" id="bt-img">Créer l'image</button>
+            <div class="progression" id="img-pr" style="flex:1;margin:0"><i></i></div>
+            <span class="sous" id="img-etat" style="margin:0"></span>
+          </div>
+        </div>
+        <div><h2 style="margin-bottom:10px">Mes images</h2><div class="galerie" id="galerie"></div></div>
+        <div class="carte" style="padding:0"><div style="padding:14px 14px 0"><h2>Modèles d'images</h2><p class="sous">Téléchargés directement sur la clé (dossier ia\images).</p></div><div id="img-catalogue"></div></div>
       </section>
 
       <!-- IA locales -->
@@ -193,6 +221,16 @@
           <p class="sous" style="font-size:12px">L'IA ne peut jamais lire ton PC ni ton réseau maison par ces outils : seules les adresses publiques sont permises. Coupé = 100 % hors-ligne.</p>
         </div>
         <div class="carte">
+          <h2 style="margin-bottom:6px">Claude (avec ta clé API)</h2>
+          <p class="sous" style="font-size:12px;margin-bottom:12px">Ajoute Claude dans la Jasette et le Codex, à côté de tes IA locales. Il voit le fichier ouvert, les images et peut chercher sur Internet. Demande Internet ; chaque message est facturé sur ton compte Anthropic (console.anthropic.com).</p>
+          <div id="claude-zone"></div>
+        </div>
+        <div class="carte">
+          <h2 style="margin-bottom:6px">Mot de passe à l'entrée</h2>
+          <p class="sous" style="font-size:12px;margin-bottom:12px">Demandé à chaque ouverture du Ti-Labo. Il protège l'accès au logiciel ; pour chiffrer les fichiers de la clé, active aussi BitLocker To Go dans Windows.</p>
+          <div id="mdp-zone"></div>
+        </div>
+        <div class="carte">
           <h2 style="margin-bottom:12px">Police d'écriture</h2>
           <div class="grille">
             <div><label class="lib" for="pa-police">Interface</label><select class="champ" id="pa-police"></select></div>
@@ -216,6 +254,16 @@
       <div class="chat" id="chat-codex"></div>
     </aside>
   </div>
+</div>
+<div id="verrou" hidden>
+  <form class="verrou-boite" id="form-verrou">
+    <svg class="ic" style="width:40px;height:40px;color:var(--accent)"><use href="#i-cadenas"/></svg>
+    <b class="verrou-logo">Ti-Labo</b>
+    <label class="lib" for="verrou-mdp" style="text-align:center">Mot de passe</label>
+    <input class="champ" type="password" id="verrou-mdp" autocomplete="current-password" autofocus>
+    <button class="btn prim" type="submit">Entrer</button>
+    <p class="sous" id="verrou-msg" role="alert" style="min-height:1.4em;text-align:center"></p>
+  </form>
 </div>
 <div id="toast" role="status"></div>
 <script src="/web/app.js"></script>

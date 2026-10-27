@@ -4,6 +4,7 @@ Ti-Labo — bureau du laboratoire
 Serveur local qui roule entierement depuis la cle USB-C.
 Python standard seulement (aucun pip requis).
 """
+import hashlib
 import json
 import math
 import os
@@ -68,6 +69,8 @@ PARAMS_DEFAUT = {
     "github_token": "",
     "github_utilisateur": "",
     "internet": True,                         # l'IA locale peut aller chercher sur Internet
+    "anthropic_key": "",                      # cle API Claude (optionnelle)
+    "mot_de_passe": "",                       # empreinte PBKDF2 du mot de passe d'entree
 }
 
 
@@ -99,6 +102,8 @@ def ecrire_params(maj):
 def params_publics():
     p = lire_params()
     p["github_token"] = "********" if p.get("github_token") else ""
+    p["anthropic_key"] = "********" if p.get("anthropic_key") else ""
+    p["mot_de_passe"] = bool(p.get("mot_de_passe"))
     return p
 
 
@@ -701,10 +706,19 @@ class Gestion(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
         if u.path in ("/", "/index.html"):
             with open(os.path.join(WEB, "index.html"), "r", encoding="utf-8") as f:
-                page = f.read().replace("__JETON__", JETON)
+                page = f.read().replace("__JETON__", "" if mdp_actif() else JETON)
             return self.envoyer(200, page, "text/html; charset=utf-8")
         if u.path.startswith("/web/"):
             return self.statique(u.path[5:])
+        if u.path.startswith("/images/"):
+            if not secrets.compare_digest(q.get("t", ""), JETON):
+                return self.erreur("Acces refuse", 403)
+            nom = os.path.basename(urllib.parse.unquote(u.path[8:]))
+            p = os.path.join(IMAGES_SORTIE, nom)
+            if not nom.endswith(".png") or not os.path.isfile(p):
+                return self.erreur("Introuvable", 404)
+            with open(p, "rb") as f:
+                return self.envoyer(200, f.read(), "image/png")
         if not u.path.startswith("/api/"):
             return self.erreur("Introuvable", 404)
         if not self.autorise():
@@ -734,6 +748,9 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, etat_stockage())
             if route == "polices":
                 return self.envoyer(200, polices_windows())
+            if route == "images":
+                return self.envoyer(200, {"moteur": bool(exe_sd()), "modeles": modeles_images(),
+                                          "catalogue": CATALOGUE_IMAGES, "galerie": galerie()})
             return self.erreur("Route inconnue", 404)
         except Exception as e:
             return self.erreur(e)
@@ -749,24 +766,52 @@ class Gestion(BaseHTTPRequestHandler):
 
     def modeles(self):
         p = lire_params()
-        if p["moteur"] == "openai":
-            r = http_json(p["url_openai"].rstrip("/") + "/models", delai=5)
-            return [{"nom": m["id"], "taille_go": None} for m in r.get("data", [])]
-        r = http_json(ollama_url("/api/tags"), delai=5)
-        return [{"nom": m["name"], "taille_go": round(m.get("size", 0) / 1e9, 1),
-                 "famille": m.get("details", {}).get("family", ""),
-                 "params": m.get("details", {}).get("parameter_size", "")} for m in r.get("models", [])]
+        res = []
+        try:
+            if p["moteur"] == "openai":
+                r = http_json(p["url_openai"].rstrip("/") + "/models", delai=5)
+                res = [{"nom": m["id"], "taille_go": None} for m in r.get("data", [])]
+            else:
+                r = http_json(ollama_url("/api/tags"), delai=5)
+                res = [{"nom": m["name"], "taille_go": round(m.get("size", 0) / 1e9, 1),
+                        "famille": m.get("details", {}).get("family", ""),
+                        "params": m.get("details", {}).get("parameter_size", "")} for m in r.get("models", [])]
+        except Exception:
+            if not cle_claude():
+                raise
+        if cle_claude():
+            res += [{"nom": c["nom"], "taille_go": None, "famille": "claude", "params": c["desc"], "nuage": True}
+                    for c in MODELES_CLAUDE]
+        return res
 
     # -- POST
     def do_POST(self):
+        route = urllib.parse.urlparse(self.path).path[5:]
+        if route == "verrou/entrer" and self.hote_ok():
+            try:
+                return self.envoyer(200, {"jeton": entrer(self.corps_json().get("mot_de_passe"))})
+            except Exception as e:
+                return self.erreur(e, 401)
         if not self.autorise():
             return self.erreur("Acces refuse", 403)
-        route = urllib.parse.urlparse(self.path).path[5:]
         try:
             d = self.corps_json()
             if route == "parametres":
-                return self.envoyer(200, {k: v for k, v in ecrire_params(
-                    {k: v for k, v in d.items() if k != "github_token"}).items() if k != "github_token"})
+                secrets_ = ("github_token", "anthropic_key", "mot_de_passe")
+                ecrire_params({k: v for k, v in d.items() if k not in secrets_})
+                return self.envoyer(200, params_publics())
+            if route == "verrou/changer":
+                return self.envoyer(200, {"actif": changer_mdp(d)})
+            if route == "claude/cle":
+                cle = (d.get("cle") or "").strip()
+                if cle and not cle.startswith("sk-ant-"):
+                    raise ValueError("Une cle Claude commence par sk-ant-")
+                ecrire_params({"anthropic_key": cle})
+                return self.envoyer(200, {"ok": True})
+            if route == "images/telecharger":
+                return self.operation_flux(telecharger_modele_image, d)
+            if route == "images/creer":
+                return self.operation_flux(creer_image, d)
             if route == "fichier":
                 p = chemin_sur(d["chemin"])
                 os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -904,6 +949,8 @@ class Gestion(BaseHTTPRequestHandler):
                 msg["images"] = imgs
             messages.append(msg)
 
+        if modele.startswith("claude-"):
+            return self.jasette_claude(modele, messages, sources, internet)
         if p["moteur"] == "openai":
             return self.jasette_openai(p, modele, messages, sources, internet)
         return self.jasette_ollama(modele, messages, sources, internet)
@@ -973,6 +1020,77 @@ class Gestion(BaseHTTPRequestHandler):
                     self.ligne({"texte": t})
                 if o.get("done"):
                     self.ligne({"fini": True, "jetons_s": round(o.get("eval_count", 0) / max(o.get("eval_duration", 1) / 1e9, 0.001), 1)})
+
+    # -- Claude (API Anthropic) : outils au besoin, puis reponse en flux
+    def jasette_claude(self, modele, messages, sources, internet):
+        if not cle_claude():
+            raise ValueError("Ajoute ta cle API Claude dans Parametres")
+        systeme, conv = messages_claude(messages)
+        self.debut_flux()
+        if sources:
+            self.ligne({"sources": sources})
+        try:
+            for _ in range(8):
+                corps = {"model": modele, "max_tokens": 16000, "system": systeme, "messages": conv, "stream": True}
+                if internet:
+                    corps["tools"] = outils_claude()
+                blocs, en_cours, arret = [], None, None
+                with requete_claude(corps) as r:
+                    for l in r:
+                        l = l.decode("utf-8", "ignore").strip()
+                        if not l.startswith("data:"):
+                            continue
+                        try:
+                            e = json.loads(l[5:])
+                        except ValueError:
+                            continue
+                        t = e.get("type")
+                        if t == "content_block_start":
+                            en_cours = dict(e["content_block"])
+                            if en_cours.get("type") == "tool_use":
+                                en_cours["_json"] = ""
+                            elif en_cours.get("type") == "text":
+                                en_cours["text"] = ""
+                        elif t == "content_block_delta" and en_cours is not None:
+                            dl = e["delta"]
+                            if dl.get("type") == "text_delta":
+                                en_cours["text"] += dl["text"]
+                                self.ligne({"texte": dl["text"]})
+                            elif dl.get("type") == "input_json_delta":
+                                en_cours["_json"] += dl.get("partial_json", "")
+                        elif t == "content_block_stop" and en_cours is not None:
+                            if en_cours.get("type") == "tool_use":
+                                try:
+                                    en_cours["input"] = json.loads(en_cours.pop("_json") or "{}")
+                                except ValueError:
+                                    en_cours["input"] = {}
+                            if en_cours.get("type") in ("text", "tool_use"):
+                                blocs.append(en_cours)
+                            en_cours = None
+                        elif t == "message_delta":
+                            arret = e.get("delta", {}).get("stop_reason")
+                        elif t == "error":
+                            self.ligne({"erreur": e.get("error", {}).get("message", "erreur Claude")})
+                            return
+                if arret != "tool_use":
+                    break
+                conv.append({"role": "assistant", "content": blocs})
+                resultats = []
+                for b in blocs:
+                    if b.get("type") != "tool_use":
+                        continue
+                    self.ligne({"outil": etiquette_outil(b["name"], b["input"])})
+                    res = appeler_outil(b["name"], b["input"])
+                    if b["name"] in ("recherche_web", "chercher_code_github") and isinstance(res, list):
+                        self.ligne({"liens": [x.get("url") for x in res[:5] if x.get("url")]})
+                    resultats.append({"type": "tool_result", "tool_use_id": b["id"],
+                                      "content": json.dumps(res, ensure_ascii=False)[:14000]})
+                conv.append({"role": "user", "content": resultats})
+                self.ligne({"texte": "\n\n"})
+        except ValueError as e:
+            self.ligne({"erreur": str(e)})
+            return
+        self.ligne({"fini": True})
 
     # -- Moteur compatible OpenAI (LM Studio, llama.cpp server, Jan…)
     def jasette_openai(self, p, modele, messages, sources, internet):
@@ -1409,6 +1527,217 @@ def demarrer_gguf(chemin):
     ecrire_params({"moteur": "openai", "url_openai": "http://127.0.0.1:%d/v1" % PORT_GGUF,
                    "modele_jasette": os.path.basename(chemin), "modele_codex": os.path.basename(chemin)})
     return os.path.basename(chemin)
+
+
+# ---------------------------------------------------------------- Claude (cle API Anthropic)
+MODELES_CLAUDE = [
+    {"nom": "claude-opus-5-5", "desc": "Le plus fort (code complexe, plans)"},
+    {"nom": "claude-sonnet-5-5", "desc": "Rapide et tres bon en code"},
+    {"nom": "claude-haiku-5-5", "desc": "Le plus rapide et le moins cher"},
+]
+
+
+def cle_claude():
+    return (lire_params().get("anthropic_key") or "").strip()
+
+
+def outils_claude():
+    return [{"name": o["function"]["name"], "description": o["function"]["description"],
+             "input_schema": o["function"]["parameters"]} for o in OUTILS_IA]
+
+
+def messages_claude(messages):
+    systeme, conv = "", []
+    for m in messages:
+        if m["role"] == "system":
+            systeme += m["content"]
+            continue
+        if m.get("images"):
+            contenu = [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b}}
+                       for b in m["images"]] + [{"type": "text", "text": m["content"] or "Regarde cette image."}]
+        else:
+            contenu = m["content"] or "…"
+        conv.append({"role": m["role"], "content": contenu})
+    return systeme, conv
+
+
+def requete_claude(corps, flux=False):
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(corps).encode(),
+                                 headers={"Content-Type": "application/json", "x-api-key": cle_claude(),
+                                          "anthropic-version": "2023-06-01"})
+    try:
+        return urllib.request.urlopen(req, timeout=600)
+    except urllib.error.HTTPError as e:
+        corps_err = e.read().decode("utf-8", "ignore")
+        try:
+            msg = json.loads(corps_err)["error"]["message"]
+        except (ValueError, KeyError, TypeError):
+            msg = corps_err[:300]
+        if e.code == 401:
+            msg = "Cle API Claude refusee — verifie-la dans Parametres"
+        raise ValueError("Claude : " + msg)
+
+
+# ---------------------------------------------------------------- images locales (stable-diffusion.cpp)
+IMAGES_MODELES = os.path.join(RACINE, "ia", "images")
+IMAGES_SORTIE = os.path.join(DONNEES, "images")
+SD_DIR = os.path.join(OUTILS, "sd")
+CATALOGUE_IMAGES = {
+    "sd_turbo.safetensors": {
+        "titre": "SD-Turbo", "taille_go": 5.2, "pas": 2, "cfg": 1.0, "dim": 512,
+        "desc": "Tres rapide (1 a 4 etapes). Ideal pour un PC ordinaire.",
+        "url": "https://huggingface.co/stabilityai/sd-turbo/resolve/main/sd_turbo.safetensors"},
+    "v1-5-pruned-emaonly.safetensors": {
+        "titre": "Stable Diffusion 1.5", "taille_go": 4.3, "pas": 20, "cfg": 7.0, "dim": 512,
+        "desc": "Le classique : plus lent, plus de details.",
+        "url": "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"},
+}
+for _d in (IMAGES_MODELES, IMAGES_SORTIE):
+    os.makedirs(_d, exist_ok=True)
+
+
+def exe_sd():
+    for nom in ("sd-cli" + EXE, "sd" + EXE):
+        for base, _, fichiers in os.walk(SD_DIR) if os.path.isdir(SD_DIR) else []:
+            if nom in fichiers:
+                return os.path.join(base, nom)
+    return shutil.which("sd-cli") or shutil.which("sd")
+
+
+def modeles_images():
+    res = []
+    for f in sorted(os.listdir(IMAGES_MODELES)):
+        if f.lower().endswith((".safetensors", ".ckpt", ".gguf")):
+            info = CATALOGUE_IMAGES.get(f, {})
+            res.append({"nom": f, "titre": info.get("titre", f), "taille_go": round(os.path.getsize(os.path.join(IMAGES_MODELES, f)) / 1e9, 1),
+                        "pas": info.get("pas", 20), "cfg": info.get("cfg", 7.0), "dim": info.get("dim", 512)})
+    return res
+
+
+def galerie():
+    fichiers = sorted((f for f in os.listdir(IMAGES_SORTIE) if f.endswith(".png")), reverse=True)
+    return [{"nom": f, "url": "/images/" + urllib.parse.quote(f)} for f in fichiers[:60]]
+
+
+def telecharger_modele_image(d, envoyer):
+    nom = d.get("nom")
+    if nom not in CATALOGUE_IMAGES:
+        raise ValueError("Modele d'image inconnu")
+    dst = os.path.join(IMAGES_MODELES, nom)
+    if os.path.isfile(dst):
+        envoyer({"fini": True, "message": "Deja sur la cle"})
+        return
+    tmp = dst + ".part"
+    deja = os.path.getsize(tmp) if os.path.isfile(tmp) else 0
+    req = urllib.request.Request(CATALOGUE_IMAGES[nom]["url"], headers={"User-Agent": NAVIGATEUR})
+    if deja:
+        req.add_header("Range", "bytes=%d-" % deja)
+    with urllib.request.urlopen(req, timeout=60) as r:
+        if deja and r.status != 206:
+            deja = 0
+        total = deja + int(r.headers.get("Content-Length") or 0)
+        with open(tmp, "ab" if deja else "wb") as f:
+            fait = deja
+            for b in iter(lambda: r.read(4 * 1024 * 1024), b""):
+                f.write(b)
+                fait += len(b)
+                envoyer({"fait": fait, "total": total})
+    os.replace(tmp, dst)
+    envoyer({"fini": True, "message": CATALOGUE_IMAGES[nom]["titre"] + " est sur la cle"})
+
+
+def creer_image(d, envoyer):
+    exe = exe_sd()
+    if not exe:
+        raise ValueError("Le moteur d'images est absent. Relance Installer-Ti-Labo.bat (il ajoute stable-diffusion.cpp).")
+    nom = os.path.basename(d.get("modele") or "")
+    modele = os.path.join(IMAGES_MODELES, nom)
+    if not os.path.isfile(modele):
+        raise ValueError("Telecharge d'abord un modele d'image")
+    prompt = (d.get("prompt") or "").strip()
+    if not prompt:
+        raise ValueError("Decris l'image a creer")
+    largeur = max(256, min(1024, int(d.get("largeur") or 512)) // 64 * 64)
+    hauteur = max(256, min(1024, int(d.get("hauteur") or 512)) // 64 * 64)
+    pas = max(1, min(60, int(d.get("pas") or 20)))
+    cfg = max(0.0, min(20.0, float(d.get("cfg") or 7.0)))
+    graine = int(d.get("graine") if d.get("graine") not in (None, "") else -1)
+    sortie = os.path.join(IMAGES_SORTIE, time.strftime("image-%Y%m%d-%H%M%S.png"))
+    cmd = [exe, "-m", modele, "-p", prompt, "-o", sortie, "--steps", str(pas), "--cfg-scale", str(cfg),
+           "-W", str(largeur), "-H", str(hauteur), "-s", str(graine)]
+    if d.get("negatif"):
+        cmd += ["-n", d["negatif"]]
+    drapeaux = 0x08000000 if WINDOWS else 0
+    envoyer({"etape": "Le moteur d'images charge le modele…"})
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, creationflags=drapeaux)
+    tampon, dernier = b"", ""
+    while True:
+        c = proc.stdout.read(1)
+        if not c:
+            break
+        if c in (b"\r", b"\n"):
+            l = tampon.decode("utf-8", "ignore").strip()
+            tampon = b""
+            m = re.search(r"(\d+)/(\d+)", l)
+            if m and ("it/s" in l or "s/it" in l or "|" in l):
+                envoyer({"fait": int(m.group(1)), "total": int(m.group(2))})
+            elif l:
+                dernier = l
+        else:
+            tampon += c
+    proc.wait()
+    if proc.returncode != 0 or not os.path.isfile(sortie):
+        raise ValueError("Echec de la creation : " + dernier[-300:])
+    envoyer({"fini": True, "image": {"nom": os.path.basename(sortie), "url": "/images/" + urllib.parse.quote(os.path.basename(sortie))}})
+
+
+# ---------------------------------------------------------------- mot de passe a l'entree
+_essais = {"rates": 0, "bloque_jusqua": 0.0}
+
+
+def hacher(mdp, sel=None):
+    sel = sel or secrets.token_hex(16)
+    h = hashlib.pbkdf2_hmac("sha256", mdp.encode("utf-8"), bytes.fromhex(sel), 300_000).hex()
+    return sel + "$" + h
+
+
+def mdp_actif():
+    return bool(lire_params().get("mot_de_passe"))
+
+
+def verifier_mdp(mdp):
+    stocke = lire_params().get("mot_de_passe") or ""
+    if "$" not in stocke:
+        return False
+    sel = stocke.split("$", 1)[0]
+    return secrets.compare_digest(hacher(mdp, sel), stocke)
+
+
+def entrer(mdp):
+    maintenant = time.time()
+    if maintenant < _essais["bloque_jusqua"]:
+        raise ValueError("Trop d'essais. Reessaie dans %d secondes." % int(_essais["bloque_jusqua"] - maintenant))
+    time.sleep(0.6)
+    if verifier_mdp(mdp or ""):
+        _essais["rates"] = 0
+        return JETON
+    _essais["rates"] += 1
+    if _essais["rates"] >= 5:
+        _essais["bloque_jusqua"] = maintenant + 60 * (_essais["rates"] - 4)
+    raise ValueError("Mot de passe incorrect")
+
+
+def changer_mdp(d):
+    if mdp_actif() and not verifier_mdp(d.get("actuel") or ""):
+        raise ValueError("Mot de passe actuel incorrect")
+    nouveau = d.get("nouveau") or ""
+    if not nouveau:
+        ecrire_params({"mot_de_passe": ""})
+        return False
+    if len(nouveau) < 4:
+        raise ValueError("Au moins 4 caracteres")
+    ecrire_params({"mot_de_passe": hacher(nouveau)})
+    return True
 
 
 def polices_windows():
