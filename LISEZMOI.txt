@@ -1,0 +1,65 @@
+﻿TI-LABO — mon ti-univers · laboratoire de dev local
+====================================================
+
+Tout vit sur la clé USB-C : Python, le moteur d'IA (Ollama), Git, tes IA,
+tes projets et ta mémoire. Rien ne s'installe sur le PC Windows.
+
+DÉMARRAGE (la première fois)
+----------------------------
+0. Idéalement, formate la clé en exFAT (FAT32 refuse les fichiers de plus de 4 Go,
+   donc les grosses IA). Garde au moins 20 Go libres.
+1. Copie tout le dossier TiLabo à la racine de la clé.
+2. Double-clique « Installer-Ti-Labo.bat » (besoin d'Internet, une seule fois).
+   → télécharge Python, Ollama et Git DANS la clé.
+3. Double-clique « Demarrer-Ti-Labo.bat ». Le bureau s'ouvre dans ton navigateur.
+4. Va dans « IA locales » et télécharge :
+     - qwen2.5-coder:7b   → le Codex (code + Internet)
+     - gemma3:4b ou qwen3-vl:8b → la vision (voir les images)
+     - nomic-embed-text   → la Mémoire de la clé
+
+ENSUITE : juste « Demarrer-Ti-Labo.bat ». Ferme la fenêtre noire pour tout arrêter.
+
+CE QUE ÇA FAIT
+--------------
+- Bureau        : l'état de la clé, de l'IA et tes projets récents.
+- Mes projets   : tes projets (dossier « projets »), éditeur, terminal
+                  (Python et Git de la clé déjà dans le PATH).
+- Jasette       : discuter avec ton IA locale. Joins / colle / glisse une image
+                  pour qu'elle la voie (modèle « vision »).
+- Codex (droite): assistant de code qui voit le fichier ouvert.
+                  « Trouve mes projets » fouille toute la clé.
+- Plan d'abord  : l'IA propose un plan, tu l'approuves ou le corriges, puis elle code.
+- Internet      : l'IA décide elle-même si elle doit chercher sur le web, lire une
+                  page ou trouver du code sur GitHub. Elle montre chaque recherche.
+                  Interrupteur dans chaque chat + coupure générale dans Paramètres.
+                  Les outils refusent les adresses privées : l'IA ne peut pas
+                  fouiller ton PC ni ton réseau maison.
+- Studio        : schéma animé de la structure d'un projet.
+- IA locales    : télécharger / retirer des IA en un clic, directement sur la clé.
+- GitHub        : connecter ton jeton, voir tes dépôts, cloner sur la clé.
+- Mémoire       : index vectoriel local (style Chroma) — l'IA retrouve des bouts
+                  de tes projets par le sens.
+- Paramètres    : moteur (Ollama de la clé, ou LM Studio / llama.cpp compatible
+                  OpenAI), polices, accès Internet.
+
+BON À SAVOIR
+------------
+- Internet + outils : marche avec les modèles marqués « internet »
+  (qwen2.5-coder, qwen3, qwen3-vl, llama3.1, llama3.2).
+- Vision : modèles marqués « vision » (gemma3, qwen2.5vl, qwen3-vl).
+- Le jeton GitHub est gardé dans donnees\parametres.json sur la clé.
+  Utilise un jeton « fine-grained » en lecture seule ; si tu perds la clé, révoque-le.
+- Le Ti-Labo n'écoute que sur 127.0.0.1 (ton PC seulement) avec un code secret
+  qui change à chaque démarrage.
+- Les fichiers « supprimés » vont dans donnees\corbeille.
+- Une clé USB est plus lente qu'un SSD : la première réponse d'une IA peut
+  prendre 10 à 60 secondes, le temps de charger le modèle en mémoire.
+- Pas encore dans cette version : création de vidéos MP4 (prévu pour la suite).
+
+DOSSIERS
+--------
+  app\          le logiciel (server.py + web\)
+  outils\       python, ollama, git (portables)
+  ia\modeles\   tes IA
+  projets\      tes projets
+  donnees\      paramètres, mémoire, corbeille

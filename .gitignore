@@ -1,0 +1,15 @@
+# Donnees personnelles et gros fichiers : jamais sur GitHub
+donnees/
+donnees-ollama.log
+projets/*
+!projets/.garder
+ia/modeles/*
+!ia/modeles/.garder
+ia/gguf/
+outils/python/
+outils/ollama/
+outils/git/
+__pycache__/
+*.keystore
+*.jks
+*.part

@@ -1,0 +1,79 @@
+TI-LABO SUR LE TÉLÉPHONE (Android + Termux)
+===========================================
+
+Le même Ti-Labo que sur la clé. Il utilise les IA déjà sur ton téléphone :
+- les fichiers .gguf de CodexLocal (directement, sans les copier)
+- et ton Ollama de Termux s'il y en a un.
+Et il peut déplacer tes IA sur la clé USB-C pour libérer de la place.
+
+INSTALLATION PAR GITHUB (une seule fois)
+----------------------------------------
+Dans Termux :
+
+  pkg install -y git python
+  termux-setup-storage
+  git clone -b ti-labo --single-branch https://github.com/alexmarceauprevost812-source/CodexLocal ~/TiLabo
+
+Le dépôt est privé : Git demande un nom d'utilisateur et un mot de passe.
+  Nom d'utilisateur : alexmarceauprevost812-source
+  Mot de passe      : ton jeton GitHub (github_pat_…), PAS ton vrai mot de passe
+
+Pour ne pas le retaper à chaque mise à jour :
+  git config --global credential.helper store
+
+LANCER
+------
+  bash ~/TiLabo/demarrer-telephone.sh
+Puis Chrome sur  http://127.0.0.1:8765   (ou l'appli Ti-Labo.apk, plus bas)
+
+Raccourci :  echo "alias tilabo='bash ~/TiLabo/demarrer-telephone.sh'" >> ~/.bashrc
+Ensuite tape juste :  tilabo
+
+METTRE À JOUR
+-------------
+  cd ~/TiLabo && git pull
+
+TES IA DE CODEXLOCAL
+--------------------
+1. Dans CodexLocal, active le partage des modèles (dossier CodexLocal/models).
+2. Dans le Ti-Labo : IA locales > section « Téléphone ↔ clé USB-C ».
+   Bouton « Utiliser » : le .gguf roule avec llama-server, sans copie,
+   et il devient l'IA de la Jasette et du Codex.
+
+DÉPLACER TES IA SUR LA CLÉ USB-C (libérer de la place)
+------------------------------------------------------
+1. Branche la clé sur le téléphone (USB-C).
+2. IA locales > « Téléphone ↔ clé USB-C » :
+   - « Déplacer sur la clé »   : copie, vérifie la copie, PUIS efface du téléphone.
+   - « Ramener sur le tél »    : l'inverse (retourne dans CodexLocal/models).
+   - « Copier sur le tél »     : garde aussi l'exemplaire de la clé.
+3. Sur la clé, les IA vont dans  TiLabo/ia/gguf  (fichiers .gguf)
+   et  TiLabo/ia/modeles  (modèles Ollama — le même dossier que le Ti-Labo
+   Windows : un modèle Ollama déplacé du téléphone marche aussi sur le PC).
+
+Si Android refuse d'écrire à la racine de la clé, le Ti-Labo utilise
+Android/data/com.termux/files/TiLabo/ia sur la clé et te le dit.
+Attention : dans ce cas, désinstaller Termux efface ce dossier de la clé.
+
+Formate la clé en exFAT : FAT32 refuse les fichiers de plus de 4 Go.
+
+L'APPLI TI-LABO (apk/Ti-Labo.apk)
+---------------------------------
+Une icône sur ton téléphone : elle démarre le Ti-Labo dans Termux et
+l'affiche en plein écran.
+1. Une seule fois, dans Termux :
+     mkdir -p ~/.termux
+     echo "allow-external-apps=true" >> ~/.termux/termux.properties
+     termux-reload-settings
+2. Installe apk/Ti-Labo.apk, accepte la permission « Exécuter des commandes dans Termux ».
+
+Termux doit venir de F-Droid ou de GitHub (celui du Play Store est trop vieux).
+
+BON À SAVOIR
+------------
+- Tes projets du téléphone sont dans ~/TiLabo/projets.
+- Ollama sur un autre port :  TILABO_OLLAMA_PORT=11435 bash ~/TiLabo/demarrer-telephone.sh
+- Le terminal du Ti-Labo sert aux commandes courtes (python main.py, git status…).
+- Si Android coupe Termux : Paramètres > Applications > Termux > Batterie > Non restreinte.
+- Une IA qui roule depuis la clé (« Utiliser (lent) ») marche, mais charge
+  beaucoup plus lentement : ramène-la sur le téléphone pour l'utiliser souvent.

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ti-Labo</title>
+<link rel="stylesheet" href="/web/style.css">
+<script>window.TILABO_JETON = "__JETON__";</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-bureau" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-dossier" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-bulle" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></symbol>
+  <symbol id="i-studio" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8M8.5 6h7"/></symbol>
+  <symbol id="i-puce" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 4-6 3-10.5 5"/></symbol>
+  <symbol id="i-memoire" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+  <symbol id="i-reglages" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 9l3 3-3 3M12 15h5"/></symbol>
+  <symbol id="i-gauche" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+  <symbol id="i-droite" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  <symbol id="i-envoyer" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-loupe" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+  <symbol id="i-plan" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-cle" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="9" rx="1"/><rect x="5" y="11" width="14" height="11" rx="2"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+</svg>
+
+<div id="app">
+  <header class="barre">
+    <div class="points" aria-hidden="true"><span style="background:#FF5F3A"></span><span style="background:#FFB020"></span><span style="background:var(--green)"></span></div>
+    <div class="logo">
+      <svg class="ic" style="width:26px;height:26px;color:var(--accent)"><use href="#i-terminal"/></svg>
+      <b>Ti-Labo</b><small>mon ti-univers · laboratoire de dev local</small>
+    </div>
+    <div class="espace"></div>
+    <span class="pastille" id="p-ia"><i class="pt"></i>IA : …</span>
+    <span class="pastille" id="p-net"><i class="pt"></i>Internet</span>
+    <span class="pastille ok"><svg class="ic" style="width:14px;height:14px;color:var(--green)"><use href="#i-cle"/></svg><span id="p-cle">Clé USB-C</span></span>
+    <button class="btn-ic actif" id="bt-gauche" aria-label="Ouvrir ou fermer le panneau de gauche" aria-pressed="true"><svg class="ic"><use href="#i-gauche"/></svg></button>
+    <button class="btn-ic actif" id="bt-droite" aria-label="Ouvrir ou fermer le Codex à droite" aria-pressed="true"><svg class="ic"><use href="#i-droite"/></svg></button>
+  </header>
+
+  <div class="corps">
+    <!-- ================= panneau gauche -->
+    <nav class="gauche" id="gauche" aria-label="Navigation">
+      <button class="nav actif" data-vue="bureau"><svg class="ic"><use href="#i-bureau"/></svg>Bureau</button>
+      <button class="nav" data-vue="projets"><svg class="ic"><use href="#i-dossier"/></svg>Mes projets<span class="compte" id="nb-projets"></span></button>
+      <button class="nav" data-vue="jasette"><svg class="ic"><use href="#i-bulle"/></svg>Jasette</button>
+      <button class="nav" data-vue="studio"><svg class="ic"><use href="#i-studio"/></svg>Studio</button>
+      <div class="section-nav">La clé</div>
+      <button class="nav" data-vue="ia"><svg class="ic"><use href="#i-puce"/></svg>IA locales<span class="compte" id="nb-ia"></span></button>
+      <button class="nav" data-vue="github"><svg class="ic"><use href="#i-git"/></svg>GitHub</button>
+      <button class="nav" data-vue="memoire"><svg class="ic"><use href="#i-memoire"/></svg>Mémoire</button>
+      <button class="nav" data-vue="parametres"><svg class="ic"><use href="#i-reglages"/></svg>Paramètres</button>
+      <div class="cle">
+        <div class="ligne" style="justify-content:space-between"><span>Espace libre</span><b id="libre" style="color:var(--text)">…</b></div>
+        <div class="jauge"><i id="jauge" style="width:0"></i></div>
+        <div style="margin-top:8px;font:11px var(--mono);word-break:break-all" id="racine"></div>
+      </div>
+    </nav>
+
+    <!-- ================= centre -->
+    <main class="centre">
+      <!-- Bureau -->
+      <section class="vue actif" id="v-bureau" aria-label="Bureau">
+        <div class="entete"><div><h1>Ti-Labo — bureau du laboratoire</h1><p class="sous">Tout roule sur ta clé : tes projets, tes IA, ton Codex.</p></div></div>
+        <div class="icones">
+          <button class="icone" data-aller="projets"><span class="boite"><svg class="ic"><use href="#i-dossier"/></svg></span>Mes projets</button>
+          <button class="icone" data-aller="jasette"><span class="boite"><svg class="ic"><use href="#i-bulle"/></svg></span>Jasette</button>
+          <button class="icone" data-aller="codex"><span class="boite"><svg class="ic"><use href="#i-terminal"/></svg></span>Codex</button>
+          <button class="icone" data-aller="studio"><span class="boite"><svg class="ic"><use href="#i-studio"/></svg></span>Studio</button>
+          <button class="icone" data-aller="ia"><span class="boite"><svg class="ic"><use href="#i-puce"/></svg></span>IA locales</button>
+          <button class="icone" data-aller="github"><span class="boite"><svg class="ic"><use href="#i-git"/></svg></span>GitHub</button>
+          <button class="icone" data-aller="memoire"><span class="boite"><svg class="ic"><use href="#i-memoire"/></svg></span>Mémoire</button>
+          <button class="icone" data-aller="parametres"><span class="boite"><svg class="ic"><use href="#i-reglages"/></svg></span>Paramètres</button>
+        </div>
+        <div class="grille" id="bureau-etat"></div>
+        <div><h2 style="margin-bottom:10px">Projets récents</h2><div class="grille" id="bureau-recents"></div></div>
+      </section>
+
+      <!-- Projets -->
+      <section class="vue plein" id="v-projets" aria-label="Mes projets">
+        <div class="atelier">
+          <div class="liste-proj">
+            <div class="tete">
+              <input class="champ" id="nouveau-nom" placeholder="Nouveau projet" aria-label="Nom du nouveau projet">
+              <button class="btn petit" id="bt-nouveau" aria-label="Créer le projet"><svg class="ic"><use href="#i-plus"/></svg></button>
+            </div>
+            <div id="liste-projets"></div>
+            <div class="arbre" id="arbre"></div>
+          </div>
+          <div class="zone-edit">
+            <div class="onglet">
+              <span class="nom" id="nom-fichier">Aucun fichier ouvert</span>
+              <span class="tag" id="etat-fichier" hidden>modifié</span>
+              <div class="espace"></div>
+              <button class="btn petit" id="bt-expliquer" disabled>Demander au Codex de l'expliquer</button>
+              <button class="btn petit" id="bt-dossier" disabled>Ouvrir le dossier</button>
+              <button class="btn petit prim" id="bt-sauver" disabled>Enregistrer (Ctrl+S)</button>
+            </div>
+            <div class="editeur">
+              <div class="numeros" id="numeros">1</div>
+              <textarea id="editeur" spellcheck="false" aria-label="Éditeur de code" placeholder="Choisis un projet, puis un fichier."></textarea>
+            </div>
+            <div class="terminal">
+              <pre id="sortie-terminal" aria-live="polite">Terminal du Ti-Labo — Python et Git de la clé sont déjà dans le PATH.
+</pre>
+              <form id="form-terminal"><span id="invite-terminal">projets&gt;</span><input id="commande" autocomplete="off" aria-label="Commande du terminal" placeholder="ex. python main.py"></form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Jasette -->
+      <section class="vue plein" id="v-jasette" aria-label="Jasette"><div class="chat" id="chat-jasette"></div></section>
+
+      <!-- Studio -->
+      <section class="vue" id="v-studio" aria-label="Studio">
+        <div class="entete">
+          <div><h1>Studio</h1><p class="sous">Le schéma animé de tes projets.</p></div>
+          <div class="espace"></div>
+          <select class="champ" id="studio-projet" style="width:auto" aria-label="Projet à afficher"></select>
+          <button class="btn" id="bt-studio-codex">Demander au Codex de l'expliquer</button>
+        </div>
+        <svg id="schema" role="img" aria-label="Schéma du projet"></svg>
+      </section>
+
+      <!-- IA locales -->
+      <section class="vue" id="v-ia" aria-label="IA locales">
+        <div class="entete"><div><h1>IA locales sur la clé</h1><p class="sous">Les modèles sont rangés dans <code id="dossier-modeles">ia\modeles</code> — rien n'est installé sur le PC.</p></div>
+          <div class="espace"></div><button class="btn" id="bt-demarrer-ia">Démarrer le moteur</button></div>
+        <div class="carte" style="padding:0" id="transfert" hidden>
+          <div style="padding:14px 14px 0"><h2>Téléphone ↔ clé USB-C</h2>
+            <p class="sous">Déplace tes IA sur la clé pour libérer de la place, et ramène-les quand tu en as besoin. Chaque copie est vérifiée avant d'effacer quoi que ce soit.</p>
+            <p class="sous" id="tr-espace"></p></div>
+          <div id="tr-avis"></div>
+          <div style="padding:10px 14px 0"><h2 style="font-size:14px">Sur le téléphone</h2></div><div id="tr-tel"></div>
+          <div id="tr-cles"></div>
+        </div>
+        <div class="carte" style="padding:0"><div style="padding:14px 14px 0"><h2>Installées</h2></div><div id="ia-installees"></div></div>
+        <div class="carte" style="padding:0">
+          <div style="padding:14px 14px 0"><h2>Télécharger des IA</h2><p class="sous">En un clic, directement sur la clé. <span class="tag bleu">vision</span> voit les images · <span class="tag vert">internet</span> sait utiliser les outils · <span class="tag or">code</span> spécialisé en programmation</p></div>
+          <div id="ia-catalogue"></div>
+          <div class="ligne" style="padding:14px;border-top:1px solid var(--border)">
+            <input class="champ" id="ia-autre" placeholder="Autre modèle Ollama (ex. deepseek-r1:8b)" style="flex:1" aria-label="Nom d'un autre modèle">
+            <button class="btn prim" id="bt-ia-autre">Ajouter l'IA</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- GitHub -->
+      <section class="vue" id="v-github" aria-label="GitHub">
+        <div class="entete"><div><h1>GitHub · cloner des projets</h1><p class="sous">Clone tes dépôts directement dans le dossier projets de la clé.</p></div></div>
+        <div class="carte" id="gh-connexion"></div>
+        <div class="carte">
+          <label class="lib" for="gh-url">Cloner par adresse</label>
+          <div class="ligne"><input class="champ" id="gh-url" placeholder="https://github.com/moi/mon-projet" style="flex:1"><button class="btn prim" id="bt-cloner">Cloner sur la clé</button></div>
+        </div>
+        <div class="carte" style="padding:0"><div style="padding:14px 14px 0"><h2>Mes dépôts</h2></div><div id="gh-depots"><p class="vide">Connecte-toi pour voir tes dépôts.</p></div></div>
+      </section>
+
+      <!-- Mémoire -->
+      <section class="vue" id="v-memoire" aria-label="Mémoire">
+        <div class="entete"><div><h1>Mémoire de la clé</h1><p class="sous">Un index vectoriel local (comme Chroma) : l'IA retrouve des bouts de tes projets par le sens, pas juste par mot-clé. Modèle d'index : <code id="modele-memoire"></code></p></div></div>
+        <div class="carte" style="padding:0"><div id="mem-projets"></div></div>
+        <div class="carte">
+          <label class="lib" for="mem-q">Tester une recherche</label>
+          <div class="ligne"><input class="champ" id="mem-q" placeholder="ex. où je gère la connexion à la base de données ?" style="flex:1"><button class="btn prim" id="bt-mem-q">Chercher</button></div>
+          <div id="mem-res" style="margin-top:12px;display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+      </section>
+
+      <!-- Paramètres -->
+      <section class="vue" id="v-parametres" aria-label="Paramètres">
+        <div class="entete"><div><h1>Paramètres</h1></div></div>
+        <div class="carte">
+          <h2 style="margin-bottom:12px">Moteur de chat</h2>
+          <div class="grille">
+            <div><label class="lib" for="pa-moteur">Moteur</label>
+              <select class="champ" id="pa-moteur"><option value="ollama">Ollama de la clé (recommandé)</option><option value="openai">Compatible OpenAI (LM Studio, llama.cpp…)</option></select></div>
+            <div><label class="lib" for="pa-url">Adresse du moteur OpenAI</label><input class="champ" id="pa-url"></div>
+            <div><label class="lib" for="pa-memoire">Modèle de mémoire</label><input class="champ" id="pa-memoire"></div>
+          </div>
+        </div>
+        <div class="carte">
+          <h2 style="margin-bottom:12px">Accès de l'IA</h2>
+          <label class="interrupteur"><input type="checkbox" id="pa-internet"><span class="rail"></span>Autoriser l'IA locale à aller sur Internet (recherche web, lire des pages, code GitHub)</label>
+          <p class="sous" style="font-size:12px">L'IA ne peut jamais lire ton PC ni ton réseau maison par ces outils : seules les adresses publiques sont permises. Coupé = 100 % hors-ligne.</p>
+        </div>
+        <div class="carte">
+          <h2 style="margin-bottom:12px">Police d'écriture</h2>
+          <div class="grille">
+            <div><label class="lib" for="pa-police">Interface</label><select class="champ" id="pa-police"></select></div>
+            <div><label class="lib" for="pa-police-code">Code</label><select class="champ" id="pa-police-code"></select></div>
+          </div>
+          <p class="sous" id="apercu-police" style="margin-top:12px;font-size:18px">Allo du Ti-Labo — 0123 {code} =&gt; ()</p>
+        </div>
+        <div><button class="btn prim" id="bt-sauver-params">Enregistrer les paramètres</button></div>
+      </section>
+    </main>
+
+    <!-- ================= panneau droit : Codex -->
+    <aside class="droite" id="droite" aria-label="Codex">
+      <div class="titre-codex"><svg class="ic" style="color:var(--accent)"><use href="#i-terminal"/></svg><b>Codex</b><span class="sous" style="margin:0;font-size:12px">assistant de code local</span></div>
+      <div class="trouve">
+        <input class="champ" id="trouve-q" placeholder="Trouve mes projets… (ex. scanner wifi)" aria-label="Retrouver un projet">
+        <button class="btn petit" id="bt-trouve" aria-label="Chercher dans mes projets"><svg class="ic"><use href="#i-loupe"/></svg></button>
+      </div>
+      <div class="resultats-trouve" id="trouve-res"></div>
+      <div class="contexte" id="codex-contexte">Contexte : aucun fichier</div>
+      <div class="chat" id="chat-codex"></div>
+    </aside>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+<script src="/web/app.js"></script>
+</body>
+</html>
