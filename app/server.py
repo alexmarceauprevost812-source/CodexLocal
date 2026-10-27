@@ -816,6 +816,8 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, chercher_memoire(d["question"], d.get("projet")))
             if route == "ia/deplacer":
                 return self.operation_flux(deplacer_gguf if d.get("type") == "gguf" else deplacer_ollama, d)
+            if route == "ia/renommer":
+                return self.envoyer(200, {"nom": renommer_ia(d)})
             if route == "gguf/demarrer":
                 return self.envoyer(200, {"modele": demarrer_gguf(d["chemin"])})
             if route == "gguf/arreter":
@@ -1346,6 +1348,38 @@ def importer_gguf(chemin):
         raise ValueError("Import refuse : " + (r.stderr or r.stdout).decode("utf-8", "replace")[-600:])
     ecrire_params({"moteur": "ollama", "modele_jasette": nom, "modele_codex": nom})
     return nom
+
+
+def renommer_ia(d):
+    """Renomme un fichier .gguf, ou un modele Ollama (copie sous le nouveau nom, puis retire l'ancien)."""
+    nouveau = (d.get("nouveau") or "").strip()
+    if d.get("type") == "gguf":
+        src = chemin_gguf_autorise(d["chemin"])
+        base = re.sub(r"\.gguf$", "", nouveau, flags=re.I).strip()
+        if not re.fullmatch(r"[A-Za-z0-9 _.\-]{1,80}", base) or base.strip(".") == "":
+            raise ValueError("Nom invalide (lettres, chiffres, espaces, _ - . seulement)")
+        dst = os.path.join(os.path.dirname(src), base + ".gguf")
+        if os.path.exists(dst):
+            raise ValueError("Un fichier porte deja ce nom")
+        if _gguf_actif["chemin"] == src:
+            arreter_gguf()
+        os.rename(src, dst)
+        return os.path.basename(dst)
+    ancien = d["nom"]
+    if not re.fullmatch(r"[a-z0-9][a-z0-9._\-/]{0,80}(:[A-Za-z0-9._\-]{1,40})?", nouveau):
+        raise ValueError("Nom invalide (minuscules, chiffres, _ - . et un « : » pour la version, ex. mon-codex:latest)")
+    if ":" not in nouveau:
+        nouveau += ":latest"
+    existants = {m["name"] for m in (http_json(ollama_url("/api/tags"), delai=5).get("models") or [])}
+    if nouveau in existants:
+        raise ValueError("Une IA porte deja ce nom")
+    http_json(ollama_url("/api/copy"), {"source": ancien, "destination": nouveau})
+    http_json(ollama_url("/api/delete"), {"model": ancien}, methode="DELETE")
+    p = lire_params()
+    maj = {k: nouveau for k in ("modele_jasette", "modele_codex") if p.get(k) == ancien}
+    if maj:
+        ecrire_params(maj)
+    return nouveau
 
 
 def demarrer_gguf(chemin):

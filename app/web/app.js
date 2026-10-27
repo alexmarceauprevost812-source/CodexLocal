@@ -520,6 +520,7 @@ async function rendreTransfert() {
       : `<button class="btn petit" data-gg-util="${esc(g.chemin)}">${actif ? "Arrêter" : "Utiliser"}</button>`;
     return `<div class="modele"><div class="info"><b>${esc(g.nom)}</b> <span class="tag">gguf</span>${actif ? ' <span class="tag vert">en marche</span>' : ""}
       <small>${g.taille_go} Go · ${esc(g.dossier.includes("CodexLocal") ? "CodexLocal" : pc ? "sur la clé (ia\\gguf)" : g.dossier)}</small>${barre(id)}</div>
+      <button class="btn petit" data-ren='${esc(JSON.stringify({ type: "gguf", chemin: g.chemin, actuel: g.nom.replace(/\.gguf$/i, "") }))}'>Renommer</button>
       ${bouton}
       ${cle ? `<button class="btn petit prim" data-tr='${esc(JSON.stringify({ type: "gguf", chemin: g.chemin, sens: "vers_cle", cle: cle.chemin, p: id }))}'>Déplacer sur la clé</button>` : ""}</div>`;
   }).join("") + etat.modeles.filter(() => cle && st.plateforme === "android").map((m) => {
@@ -533,12 +534,13 @@ async function rendreTransfert() {
       const id = "tc" + k++;
       const op = x.type === "gguf" ? { type: "gguf", chemin: x.chemin, sens: "vers_tel", cle: c.chemin, p: id } : { type: "ollama", nom: x.nom, sens: "vers_tel", cle: c.chemin, p: id };
       return `<div class="modele"><div class="info"><b>${esc(x.nom)}</b> <span class="tag">${x.type}</span><small>${x.taille_go} Go</small>${barre(id)}</div>
-        ${x.type === "gguf" ? `<button class="btn petit" data-gg-util="${esc(x.chemin)}">Utiliser (lent)</button>` : ""}
+        ${x.type === "gguf" ? `<button class="btn petit" data-ren='${esc(JSON.stringify({ type: "gguf", chemin: x.chemin, actuel: x.nom.replace(/\.gguf$/i, "") }))}'>Renommer</button><button class="btn petit" data-gg-util="${esc(x.chemin)}">Utiliser (lent)</button>` : ""}
         <button class="btn petit" data-tr='${esc(JSON.stringify({ ...op, garder: true }))}'>Copier sur le tél</button>
         <button class="btn petit prim" data-tr='${esc(JSON.stringify(op))}'>Ramener sur le tél</button></div>`;
     }).join("") || `<p class="vide">Aucune IA sur la clé.</p>`}`).join("");
 
   $$("[data-tr]", box).forEach((b) => (b.onclick = () => transferer(JSON.parse(b.dataset.tr), b)));
+  brancherRenommer(box);
   $$("[data-gg-util]", box).forEach((b) => (b.onclick = async () => {
     const actif = b.textContent === "Arrêter";
     b.disabled = true; b.textContent = actif ? "Arrêt…" : etat.plateforme === "android" ? "Démarrage…" : "Import… (quelques minutes)";
@@ -546,6 +548,19 @@ async function rendreTransfert() {
       if (actif) { await api("gguf/arreter", {}); toast("Retour au moteur Ollama"); }
       else { const r = await api("gguf/demarrer", { chemin: b.dataset.ggUtil }); toast(r.modele + " est prêt dans la Jasette et le Codex"); }
     } catch (e) { toast(e.message); }
+    await rafraichirEtat(); rendreIA();
+  }));
+}
+
+function brancherRenommer(zone) {
+  $$("[data-ren]", zone).forEach((b) => (b.onclick = async () => {
+    const op = JSON.parse(b.dataset.ren);
+    const aide = op.type === "gguf" ? "Nouveau nom du fichier (sans .gguf) :" : "Nouveau nom de l'IA (minuscules, ex. mon-codex ou mon-codex:v2) :";
+    const nouveau = prompt(aide, op.actuel);
+    if (!nouveau || nouveau.trim() === op.actuel) return;
+    b.disabled = true; b.textContent = "…";
+    try { const r = await api("ia/renommer", { ...op, nouveau: nouveau.trim() }); toast("Renommé : " + r.nom); }
+    catch (e) { toast(e.message); }
     await rafraichirEtat(); rendreIA();
   }));
 }
@@ -579,6 +594,7 @@ function rendreIA() {
     const cat = CATALOGUE.find((c) => c.nom === m.nom || c.nom + ":latest" === m.nom);
     return `<div class="modele"><div class="info"><b>${esc(m.nom)}</b>${(cat?.tags || []).map((t) => ` <span class="tag ${t === "vision" ? "bleu" : t === "internet" ? "vert" : "or"}">${t}</span>`).join("")}
       <small>${m.taille_go ? m.taille_go + " Go" : ""} ${esc(m.params || "")} ${esc(m.famille || "")}</small></div>
+      <button class="btn petit" data-ren='${esc(JSON.stringify({ type: "ollama", nom: m.nom, actuel: m.nom }))}'>Renommer</button>
       <button class="btn petit" data-util="${esc(m.nom)}">Utiliser</button>
       <button class="btn petit danger" data-ret="${esc(m.nom)}">Retirer</button></div>`;
   }).join("") || `<p class="vide">${etat.ollama ? "Aucune IA sur la clé pour l'instant." : "Le moteur est arrêté. Clique « Démarrer le moteur »."}</p>`;
@@ -595,6 +611,7 @@ function rendreIA() {
     try { await api("ia/supprimer", { nom: b.dataset.ret }); await rafraichirEtat(); rendreIA(); } catch (e) { toast(e.message); }
   }));
   $$("[data-tel]").forEach((b) => (b.onclick = () => telecharger(b.dataset.tel, b)));
+  brancherRenommer($("#ia-installees"));
 }
 
 async function telecharger(nom, bouton) {
