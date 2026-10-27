@@ -1,6 +1,5 @@
 package com.codexlocal.rea
 
-import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -8,7 +7,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import java.net.InetSocketAddress
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.util.Collections
 
 @RunWith(RobolectricTestRunner::class)
@@ -17,32 +17,54 @@ class ReaClientTest {
     @Test fun initializesDiscoversCallsAndClosesTheSameSession() = runBlocking {
         val seen = Collections.synchronizedList(mutableListOf<String>())
         val failures = Collections.synchronizedList(mutableListOf<String>())
-        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/mcp") { exchange ->
+        // Android's compilation classpath omits the JDK-only jdk.httpserver module.
+        val server = ServerSocket(0, 5, InetAddress.getByName("127.0.0.1"))
+        val worker = Thread {
             try {
-                val body = exchange.requestBody.bufferedReader().use { it.readText() }
+              repeat(5) {
+               server.accept().use { socket ->
+                socket.soTimeout = 5000
+                val input = socket.getInputStream().bufferedReader(Charsets.UTF_8)
+                val request = input.readLine()
+                val headers = mutableMapOf<String, String>()
+                while (true) {
+                    val line = input.readLine() ?: error("En-tête incomplet")
+                    if (line.isEmpty()) break
+                    headers[line.substringBefore(':').lowercase()] = line.substringAfter(':').trim()
+                }
+                val chars = CharArray(headers["content-length"]?.toInt() ?: 0)
+                var n = 0
+                while (n < chars.size) {
+                    val read = input.read(chars, n, chars.size - n)
+                    check(read > 0) { "Corps HTTP incomplet" }
+                    n += read
+                }
+                val body = String(chars)
                 val obj = if (body.isBlank()) null else JSONObject(body)
-                val method = obj?.optString("method") ?: exchange.requestMethod
+                val method = obj?.optString("method") ?: request.substringBefore(' ')
                 seen.add(method)
-                if (method != "initialize" && exchange.requestHeaders.getFirst("Mcp-Session-Id") != "test-session") failures.add("Session manquante")
-                if (exchange.requestHeaders.getFirst("Authorization") != "Bearer test-token") failures.add("Jeton manquant")
-                exchange.responseHeaders.add("Content-Type", "application/json")
-                if (method == "notifications/initialized") exchange.sendResponseHeaders(202, -1)
-                else if (method == "DELETE") exchange.sendResponseHeaders(200, -1)
-                else {
+                if (method != "initialize" && headers["mcp-session-id"] != "test-session") failures.add("Session manquante")
+                if (headers["authorization"] != "Bearer test-token") failures.add("Jeton manquant")
+                val status = if (method == "notifications/initialized") 202 else 200
+                val reply = if (method == "notifications/initialized" || method == "DELETE") ByteArray(0) else {
                     val result = when (method) {
-                        "initialize" -> { exchange.responseHeaders.add("Mcp-Session-Id", "test-session"); JSONObject().put("protocolVersion", "2025-03-26") }
+                        "initialize" -> JSONObject().put("protocolVersion", "2025-03-26")
                         "tools/list" -> JSONObject("""{"tools":[{"name":"inspect_artifact","inputSchema":{"type":"object"}},{"name":"execute_command","inputSchema":{"type":"object"}}]}""")
                         else -> JSONObject("""{"isError":false,"content":[{"type":"text","text":"preuve"}]}""")
                     }
-                    val reply = JSONObject().put("jsonrpc", "2.0").put("id", obj!!.getInt("id")).put("result", result).toString().toByteArray()
-                    exchange.sendResponseHeaders(200, reply.size.toLong()); exchange.responseBody.write(reply)
+                    JSONObject().put("jsonrpc", "2.0").put("id", obj!!.getInt("id")).put("result", result).toString().toByteArray(Charsets.UTF_8)
                 }
-            } finally { exchange.close() }
-        }
-        server.start()
+                val session = if (method == "initialize") "Mcp-Session-Id: test-session\r\n" else ""
+                val output = socket.getOutputStream()
+                output.write(("HTTP/1.1 $status OK\r\nContent-Type: application/json\r\n" +
+                    "Content-Length: ${reply.size}\r\nConnection: close\r\n${session}\r\n").toByteArray(Charsets.US_ASCII))
+                output.write(reply); output.flush()
+               }
+              }
+            } catch (e: Exception) { if (!server.isClosed) failures.add(e.toString()) }
+        }.apply { isDaemon = true; start() }
         try {
-            val client = ReaClient("http://127.0.0.1:${server.address.port}/mcp", "test-token")
+            val client = ReaClient("http://127.0.0.1:${server.localPort}/mcp", "test-token")
             try {
                 val prompt = client.connect()
                 assertTrue(prompt.contains("inspect_artifact"))
@@ -52,6 +74,6 @@ class ReaClientTest {
             } finally { client.close() }
             assertEquals(listOf("initialize", "notifications/initialized", "tools/list", "tools/call", "DELETE"), seen)
             assertEquals(emptyList<String>(), failures)
-        } finally { server.stop(0) }
+        } finally { server.close(); worker.join(3000) }
     }
 }
