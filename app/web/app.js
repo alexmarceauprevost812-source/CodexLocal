@@ -501,18 +501,26 @@ async function rendreTransfert() {
   let avis = "";
   if (st.plateforme === "android" && !st.dossier_codexlocal_ok)
     avis += `<p class="vide" style="text-align:left;padding:10px 14px">Pour voir les IA de CodexLocal : dans CodexLocal, active le <b>partage des modèles</b> (dossier CodexLocal/models), puis dans Termux lance <code>termux-setup-storage</code>.</p>`;
-  if (!st.cles.length) avis += `<p class="vide" style="text-align:left;padding:10px 14px">Branche ta clé USB-C pour déplacer des IA dessus.</p>`;
+  if (!st.cles.length && st.plateforme === "android") avis += `<p class="vide" style="text-align:left;padding:10px 14px">Branche ta clé USB-C pour déplacer des IA dessus.</p>`;
   st.cles.filter((c) => c.erreur).forEach((c) => (avis += `<p class="vide" style="text-align:left;padding:10px 14px;color:var(--red)">${esc(c.erreur)}</p>`));
   if (cle?.limite) avis += `<p class="vide" style="text-align:left;padding:10px 14px">Android ne permet pas d'écrire à la racine de la clé : les IA vont dans <code>${esc(cle.ia)}</code>. Si tu désinstalles Termux, Android efface ce dossier.</p>`;
   $("#tr-avis").innerHTML = avis;
+  const titreTel = $("#tr-titre-tel");
+  if (titreTel) titreTel.textContent = st.plateforme === "android" ? "Sur le téléphone" : "Fichiers .gguf (CodexLocal) sur la clé";
   const barre = (id) => `<div class="progression" id="${id}"><i></i></div>`;
   let k = 0;
   $("#tr-tel").innerHTML = st.tel_gguf.map((g) => {
     const id = "tg" + k++;
     const actif = st.gguf_actif === g.chemin;
+    const pc = st.plateforme !== "android";
+    const nomImporte = g.nom.replace(/\.gguf$/i, "").toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^[-._]+|[-._]+$/g, "").slice(0, 60) + ":gguf";
+    const importe = pc && (st.importes || []).includes(nomImporte);
+    const bouton = pc
+      ? (importe ? `<span class="tag vert">prêt : ${esc(nomImporte)}</span>` : `<button class="btn petit prim" data-gg-util="${esc(g.chemin)}">Activer dans le Ti-Labo</button>`)
+      : `<button class="btn petit" data-gg-util="${esc(g.chemin)}">${actif ? "Arrêter" : "Utiliser"}</button>`;
     return `<div class="modele"><div class="info"><b>${esc(g.nom)}</b> <span class="tag">gguf</span>${actif ? ' <span class="tag vert">en marche</span>' : ""}
-      <small>${g.taille_go} Go · ${esc(g.dossier.includes("CodexLocal") ? "CodexLocal" : g.dossier)}</small>${barre(id)}</div>
-      <button class="btn petit" data-gg-util="${esc(g.chemin)}">${actif ? "Arrêter" : "Utiliser"}</button>
+      <small>${g.taille_go} Go · ${esc(g.dossier.includes("CodexLocal") ? "CodexLocal" : pc ? "sur la clé (ia\\gguf)" : g.dossier)}</small>${barre(id)}</div>
+      ${bouton}
       ${cle ? `<button class="btn petit prim" data-tr='${esc(JSON.stringify({ type: "gguf", chemin: g.chemin, sens: "vers_cle", cle: cle.chemin, p: id }))}'>Déplacer sur la clé</button>` : ""}</div>`;
   }).join("") + etat.modeles.filter(() => cle && st.plateforme === "android").map((m) => {
     const id = "to" + k++;
@@ -533,7 +541,7 @@ async function rendreTransfert() {
   $$("[data-tr]", box).forEach((b) => (b.onclick = () => transferer(JSON.parse(b.dataset.tr), b)));
   $$("[data-gg-util]", box).forEach((b) => (b.onclick = async () => {
     const actif = b.textContent === "Arrêter";
-    b.disabled = true; b.textContent = actif ? "Arrêt…" : "Démarrage…";
+    b.disabled = true; b.textContent = actif ? "Arrêt…" : etat.plateforme === "android" ? "Démarrage…" : "Import… (quelques minutes)";
     try {
       if (actif) { await api("gguf/arreter", {}); toast("Retour au moteur Ollama"); }
       else { const r = await api("gguf/demarrer", { chemin: b.dataset.ggUtil }); toast(r.modele + " est prêt dans la Jasette et le Codex"); }

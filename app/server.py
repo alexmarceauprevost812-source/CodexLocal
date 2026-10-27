@@ -1187,7 +1187,8 @@ def etat_stockage():
             "tel_libre_go": libre_go(os.path.expanduser("~")),
             "dossiers_gguf": dossiers_gguf_telephone(),
             "dossier_codexlocal_ok": any("CodexLocal" in d for d in dossiers_gguf_telephone()),
-            "tel_gguf": tel_gguf, "cles": cles, "gguf_actif": _gguf_actif["chemin"]}
+            "tel_gguf": tel_gguf, "cles": cles, "gguf_actif": _gguf_actif["chemin"],
+            "importes": [m["nom"] for m in (lister_ollama_dossier(MODELES) if not ANDROID else [])]}
 
 
 def copier_verifie(src, dst, progres, attendu_sha=None):
@@ -1322,12 +1323,39 @@ def arreter_gguf():
     _gguf_actif["chemin"] = None
 
 
+def nom_ollama_depuis_gguf(chemin):
+    base = os.path.splitext(os.path.basename(chemin))[0].lower()
+    base = re.sub(r"[^a-z0-9._-]+", "-", base).strip("-._") or "modele"
+    return base[:60] + ":gguf"
+
+
+def importer_gguf(chemin):
+    """Windows/PC : on importe le .gguf dans l'Ollama de la cle (aucun autre outil requis)."""
+    chemin = chemin_gguf_autorise(chemin)
+    if not demarrer_ollama():
+        raise ValueError("Le moteur Ollama de la cle ne demarre pas")
+    exe = OLLAMA_EXE if os.path.isfile(OLLAMA_EXE) else shutil.which("ollama")
+    nom = nom_ollama_depuis_gguf(chemin)
+    modelfile = os.path.join(DONNEES, "Modelfile-import")
+    with open(modelfile, "w", encoding="utf-8") as f:
+        f.write('FROM "%s"\n' % chemin.replace("\\", "/"))
+    drapeaux = 0x08000000 if WINDOWS else 0
+    r = subprocess.run([exe, "create", nom, "-f", modelfile], env=env_outils(), capture_output=True,
+                       timeout=3600, creationflags=drapeaux)
+    if r.returncode != 0:
+        raise ValueError("Import refuse : " + (r.stderr or r.stdout).decode("utf-8", "replace")[-600:])
+    ecrire_params({"moteur": "ollama", "modele_jasette": nom, "modele_codex": nom})
+    return nom
+
+
 def demarrer_gguf(chemin):
     """Fait rouler un .gguf (ex. ceux de CodexLocal) avec llama-server, sans le copier."""
     global _proc_gguf
     chemin = chemin_gguf_autorise(chemin)
     exe = shutil.which("llama-server")
     if not exe:
+        if not ANDROID:
+            return importer_gguf(chemin)
         raise ValueError("llama-server est absent. Dans Termux : pkg install llama-cpp")
     arreter_gguf()
     _proc_gguf = subprocess.Popen([exe, "-m", chemin, "--host", "127.0.0.1", "--port", str(PORT_GGUF),
