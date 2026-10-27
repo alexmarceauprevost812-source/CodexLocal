@@ -1169,8 +1169,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun afficherErreur(message: String) {
         binding.status.text = getString(R.string.msg_error, message)
-        val dernier = messages.lastOrNull() ?: return
-        if (dernier.isUser) return
+        var dernier = messages.lastOrNull() ?: return
+        if (dernier.isUser) {
+            dernier = Message.assistant()
+            messages.add(dernier)
+            adapter.notifyItemInserted(messages.size - 1)
+            updateEmptyState()
+        }
         dernier.content = if (dernier.content.isBlank()) {
             "[erreur] $message"
         } else {
