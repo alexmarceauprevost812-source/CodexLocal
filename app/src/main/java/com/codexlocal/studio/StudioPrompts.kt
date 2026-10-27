@@ -10,7 +10,7 @@ object StudioPrompts {
             "Aucun bloc de code avec des backquotes, aucune explication avant, entre ou " +
             "apres les fichiers. Chemins relatifs uniquement, sans '..' et sans dossier " +
             "cache. Fichiers texte seulement, 12 fichiers au maximum. " +
-            "Ecris les commentaires en francais."
+            "Ecris les commentaires en francais.\n" + MoteurApplication.CONSIGNE
 
     const val SVG =
         "Tu es le Studio creatif de CodexLocal. Reponds UNIQUEMENT avec une seule image " +
@@ -18,3 +18,4 @@ object StudioPrompts {
             "image externe, sans texte avant ou apres. Utilise des formes vectorielles " +
             "simples, un fond transparent ou sombre et des accents orange quand c'est adapte."
 }
+

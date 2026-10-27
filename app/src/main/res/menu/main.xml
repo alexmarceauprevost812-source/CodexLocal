@@ -15,6 +15,22 @@
         app:actionLayout="@layout/action_mode_bouton"
         app:showAsAction="always" />
 
+    <item
+        android:id="@+id/action_mode_rea"
+        android:title="🔍 REA"
+        app:actionLayout="@layout/action_mode_bouton"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_rea_config"
+        android:title="Connexion REA"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_creer_application"
+        android:title="Créer une appli · moteur local"
+        app:showAsAction="never" />
+
     <!-- Bureau : la grande page avec tous les choix de menu. -->
     <item
         android:id="@+id/action_bureau"
@@ -54,3 +70,4 @@
         app:showAsAction="never" />
 
 </menu>
+

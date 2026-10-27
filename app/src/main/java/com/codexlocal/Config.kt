@@ -16,7 +16,9 @@ enum class AssistantMode {
     CODEX,
     CHAT,
     /** Equipe de roles : chef (casque blanc), planificateur, redacteur, codeur. */
-    EQUIPE
+    EQUIPE,
+    /** Codex avec outils d'analyse REA sur le PC connecte. */
+    REA
 }
 
 const val CHAT_SYSTEM_PROMPT =
@@ -33,7 +35,7 @@ const val DEFAULT_SYSTEM_PROMPT =
 
 /** Instructions adaptees sans changer les parametres API ni le modele choisi. */
 fun AppConfig.forMode(mode: AssistantMode): AppConfig = when (mode) {
-    AssistantMode.CODEX -> copy(
+    AssistantMode.CODEX, AssistantMode.REA -> copy(
         systemPrompt = systemPrompt +
             "\n\nMode Codex : privilegie les solutions de programmation completes, " +
             "les corrections expliquees et les blocs de code utilisables."
@@ -78,6 +80,14 @@ class Prefs(context: Context) {
 
     private val sp = context.applicationContext
         .getSharedPreferences("codexlocal", Context.MODE_PRIVATE)
+
+    var reaUrl: String
+        get() = sp.getString("reaUrl", "") ?: ""
+        set(v) { sp.edit().putString("reaUrl", v).apply() }
+
+    var reaToken: String
+        get() = sp.getString("reaToken", "") ?: ""
+        set(v) { sp.edit().putString("reaToken", v).apply() }
 
     /** Recherche documentaire automatique ; n'envoie que des termes techniques prédéfinis. */
     var rechercheWebAuto: Boolean
@@ -208,3 +218,4 @@ class Prefs(context: Context) {
         const val KEY_GITHUB_TOKEN = "githubToken"
     }
 }
+

@@ -20,6 +20,24 @@ permissions:
   contents: read
 
 jobs:
+  moteur-local:
+    name: Tester le moteur local dans Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Installer le navigateur de test
+        run: |
+          npm install --prefix "$RUNNER_TEMP/lexapp-tests" playwright@1.56.1
+          node "$RUNNER_TEMP/lexapp-tests/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Verifier le moteur et le parcours utilisateur hors ligne
+        run: |
+          node --check app/src/main/assets/moteurs/lexapp-v1.js
+          NODE_PATH="$RUNNER_TEMP/lexapp-tests/node_modules" node scripts/test_moteur_local.cjs
+
   terminal-python:
     name: Verifier le terminal Python
     runs-on: ubuntu-latest
@@ -186,3 +204,4 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 3
+

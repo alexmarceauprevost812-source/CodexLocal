@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mon application locale</title></head>
+<body style="margin:0;background:#080808"><div id="app"></div><script src="moteurs/lexapp-v1.js"></script><script>
+'use strict';
+const E = LexApp.el;
+LexApp.mount(document.getElementById('app'), {title:'Mon application locale', pages:[
+ {id:'notes',title:'Mes notes',render(root){
+   root.append(E('h2','Une vraie appli, hors ligne'));
+   root.append(E('p','Modifie ce projet avec ton IA locale, puis utilise « Construire APK » dans le Studio.'));
+   const label=E('label','Ma note',{for:'note'}), input=E('textarea',null,{id:'note',rows:5});
+   input.value=LexApp.load('note','');
+   const status=E('p','',{role:'status'}), button=E('button','Enregistrer',{type:'button'});
+   button.onclick=()=>{status.textContent=LexApp.save('note',input.value)?'Note enregistrée sur cet appareil.':'Sauvegarde indisponible sur cet appareil.';};
+   root.append(label,input,button,status);
+ }},
+ {id:'effets',title:'Animations 2D',render(root){
+   const card=E('section','Effet orange néon'), pulse=E('button','Animer',{type:'button'});
+   let animation=null;
+   pulse.onclick=()=>{if(animation)animation.cancel();animation=LexApp.animate(card,'pulse');};
+   const canvas=E('canvas',null,{'aria-label':'Particules décoratives orange',role:'img'});
+   root.append(card,pulse,canvas,E('p','Les animations respectent le réglage « Réduire les animations ».',{class:'lex-notice'}));
+   const stop=LexApp.particles(canvas);
+   return ()=>{stop();if(animation)animation.cancel();};
+ }},
+ {id:'schema',title:'Schéma',render(root){
+   root.append(E('h2','Du projet à ton application'));
+   const zone=E('div');root.append(zone);
+   LexApp.diagram(zone,{title:'Création d’une application locale',nodes:[
+     {id:'ia',label:'IA locale'},{id:'projet',label:'Fichiers du projet'},
+     {id:'apercu',label:'Aperçu interactif'},{id:'apk',label:'APK installé'}
+   ],edges:[{from:'ia',to:'projet'},{from:'projet',to:'apercu'},{from:'apercu',to:'apk'}]});
+ }}
+]});
+</script></body></html>
