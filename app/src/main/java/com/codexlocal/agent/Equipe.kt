@@ -2,6 +2,7 @@ package com.codexlocal.agent
 
 import com.codexlocal.AppConfig
 import com.codexlocal.ProviderType
+import com.codexlocal.studio.MoteurApplication
 
 /** Consignes donnees a l'IA pour travailler directement dans le projet. */
 object AgentPrompts {
@@ -36,7 +37,8 @@ object AgentPrompts {
             "Utilise des chemins relatifs (css/style.css, js/app.js), aucune ressource en ligne " +
             "(pas de CDN, de police web, d'API distante), une mise en page adaptee a un ecran de " +
             "telephone (balise viewport, gros boutons). Les images deja ajoutees au projet sont " +
-            "listees avec leur nom exact entre crochets : utilise-les telles quelles."
+            "listees avec leur nom exact entre crochets : utilise-les telles quelles.\n" +
+            MoteurApplication.CONSIGNE
 
     /**
      * Rappel colle a la fin de CHAQUE message de l'utilisateur en mode Codex : les petits modeles
@@ -182,3 +184,4 @@ object Equipe {
         return if (ligne.length <= max) ligne else ligne.takeLast(max)
     }
 }
+

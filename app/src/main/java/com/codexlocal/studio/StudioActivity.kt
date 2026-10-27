@@ -390,7 +390,7 @@ class StudioActivity : AppCompatActivity() {
             val (crees, refus) = withContext(Dispatchers.IO) {
                 var ok = 0
                 val refuses = ArrayList<String>()
-                for (f in liste) {
+                for (f in MoteurApplication.completerPropositions(this@StudioActivity, p, liste)) {
                     try {
                         ProjectStore.creerFichier(this@StudioActivity, p, f.chemin, f.contenu)
                         ok++
@@ -675,3 +675,4 @@ class StudioActivity : AppCompatActivity() {
         private const val CLE_PROJET = "projet"
     }
 }
+
