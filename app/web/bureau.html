@@ -48,7 +48,7 @@ button{font:inherit;color:inherit}
 .vide{color:var(--doux);font-size:13px}
 @media (max-width:900px){#gadgets{display:none}#bureau{right:0}}
 /* barre des taches (centree comme Windows 11) */
-#barre{position:fixed;left:0;right:0;bottom:0;height:var(--barre);z-index:50;display:flex;align-items:center;padding:0 10px;
+#barre{position:fixed;left:0;right:0;bottom:0;height:var(--barre);z-index:100050;display:flex;align-items:center;padding:0 10px;
   background:rgba(16,16,18,.86);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid var(--ligne)}
 #centre{flex:1;display:flex;justify-content:center;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
 .tache{position:relative;width:44px;height:40px;border:0;border-radius:7px;background:transparent;display:grid;place-items:center;font-size:21px;cursor:default;flex:none}
@@ -59,8 +59,8 @@ button{font:inherit;color:inherit}
 .sep{width:1px;height:24px;background:var(--ligne);margin:0 4px;flex:none}
 #zone{display:flex;align-items:center;gap:10px;font-size:12px;color:#e5e5e5;white-space:nowrap}
 #zone .h{text-align:right;line-height:1.25}
-/* menu demarrer */
-#menu{position:fixed;left:50%;bottom:calc(var(--barre) + 10px);transform:translateX(-50%);z-index:60;width:min(620px,calc(100vw - 20px));max-height:min(660px,calc(100vh - var(--barre) - 24px));
+/* menu demarrer (z-index > 100000 : toujours au-dessus des fenetres, qui montent a chaque clic) */
+#menu{position:fixed;left:50%;bottom:calc(var(--barre) + 10px);transform:translateX(-50%);z-index:100060;width:min(620px,calc(100vw - 20px));max-height:min(660px,calc(100vh - var(--barre) - 24px));
   display:none;flex-direction:column;background:rgba(24,24,27,.95);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);border:1px solid var(--ligne);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.6);animation:monte .16s ease-out}
 #menu.ouvert{display:flex}
 @keyframes monte{from{transform:translate(-50%,16px);opacity:0}}
@@ -90,10 +90,10 @@ body.glisse .fen .cache-iframe{display:block}
 .fen .poignee{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;touch-action:none}
 .notes{flex:1;width:100%;resize:none;border:0;outline:none;background:#0f0f11;color:#e5e5e5;padding:14px 16px;font:14px/1.6 "Cascadia Code",Consolas,monospace;user-select:text}
 /* menu contextuel */
-#ctx{position:fixed;z-index:70;display:none;background:rgba(28,28,31,.97);border:1px solid var(--ligne);border-radius:9px;padding:5px;min-width:220px;box-shadow:0 14px 34px rgba(0,0,0,.6)}
+#ctx{position:fixed;z-index:100070;display:none;background:rgba(28,28,31,.97);border:1px solid var(--ligne);border-radius:9px;padding:5px;min-width:220px;box-shadow:0 14px 34px rgba(0,0,0,.6)}
 #ctx div{padding:8px 12px;border-radius:6px;font-size:13px;cursor:default}#ctx div:hover{background:rgba(255,255,255,.08)}
 /* choix du bureau (premier demarrage) */
-#choix{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(5,5,5,.86);backdrop-filter:blur(10px)}
+#choix{position:fixed;inset:0;z-index:100090;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(5,5,5,.86);backdrop-filter:blur(10px)}
 #choix[hidden]{display:none}
 #choix .boite{max-width:900px;width:100%;text-align:center}
 #choix h1{font-size:clamp(24px,3.4vw,34px);margin:0 0 6px}#choix .sous{color:var(--doux);margin:0 0 26px}
@@ -113,7 +113,7 @@ body.glisse .fen .cache-iframe{display:block}
 .mini.cl .hd{position:absolute;left:0;right:0;top:0;height:16px;background:#141416;border-bottom:1px solid #262626}
 .mini.cl .ct{position:absolute;left:31%;right:6%;top:26px;bottom:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mini.cl .ct i{border-radius:5px;background:#1b1b1e}
 /* verrouillage */
-#verrou{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(900px 600px at 50% 30%,#3a1606,#050505 75%)}
+#verrou{position:fixed;inset:0;z-index:100100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(900px 600px at 50% 30%,#3a1606,#050505 75%)}
 #verrou[hidden]{display:none}
 #verrou img{width:110px;height:110px;object-fit:contain}
 #verrou .h{font-size:64px;font-weight:600;letter-spacing:-2px}

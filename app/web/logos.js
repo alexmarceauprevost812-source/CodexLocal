@@ -1,7 +1,7 @@
 // Ti-Labo — petits logos dans les reponses de la Jasette, comme des emojis.
 // 1) Les noms connus (cryptomonnaies, langages, marques) recoivent leur logo juste avant le mot.
 // 2) Sinon, si Internet est permis : une petite image du sujet de la question (Wikipedia).
-// Sans Internet, les images ne chargent pas et disparaissent toutes seules : la reponse reste intacte.
+// Internet refuse (menu ou bouton 🌐) : aucun logo, aucune requete. Hors-ligne : les images ratees disparaissent.
 (function () {
   "use strict";
   const css = `.ti-logo{height:1.15em;width:auto;max-width:2.2em;vertical-align:-.22em;margin:0 .22em 0 .05em;border-radius:3px;display:inline-block}
@@ -103,10 +103,11 @@
   window.TiLogos = {
     /** el : la reponse affichee ; question : ce que la personne a demande ; internet : vrai si permis. */
     async activer(el, question, internet) {
-      if (!el) return;
+      // Les logos et les images viennent d'Internet : rien du tout quand Internet est refuse
+      if (!el || !internet) return;
       let n = 0;
       try { n = logosConnus(el); } catch (_) {}
-      if (n || !internet || !question || question.length > 140 || HORS_SUJET.test(question)) return;
+      if (n || !question || question.length > 140 || HORS_SUJET.test(question)) return;
       const img = await imageSujet(question);
       if (!img || !el.isConnected) return;
       const debut = el.querySelector("h1,h2,h3,h4,p,li") || el;
