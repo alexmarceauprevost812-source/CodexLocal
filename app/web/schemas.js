@@ -217,6 +217,47 @@
     canvas.toBlob((b) => telecharger(b, "schema-ti-labo-" + Date.now() + ".png"), "image/png");
   }
 
+  // Repare les erreurs frequentes des petites IA : textes de boites sans guillemets
+  // qui contiennent ( ) [ ] { } : , etc. -> A[Texte (ex: 1, 2)] devient A["Texte (ex: 1, 2)"]
+  const OUVRANTS = [["[[", "]]"], ["[(", ")]"], ["([", "])"], ["((", "))"], ["{{", "}}"], ["[/", "/]"], ["[\\", "\\]"], ["[", "]"], ["(", ")"], ["{", "}"], [">", "]"]];
+  const APRES = /^\s*($|-->|---|-\.|==>|=+|-+>|<-|&|;|:::|o--|x--|--|~~~|\|)/;
+  function reparerLigne(l) {
+    let out = "", i = 0;
+    while (i < l.length) {
+      const m = /^([A-Za-z0-9_\u00C0-\u017F-]+)/.exec(l.slice(i));
+      if (m && (i === 0 || /[\s&;>|-]/.test(l[i - 1]))) {
+        const id = m[1], j = i + id.length;
+        const o = OUVRANTS.find(([a]) => l.startsWith(a, j));
+        if (o && !(o[0] === ">" && l[j - 1] === "-")) {
+          const [a, b] = o, debut = j + a.length;
+          let k = l.indexOf(b, debut), fin = -1;
+          while (k >= 0) {
+            if (APRES.test(l.slice(k + b.length))) { fin = k; break; }
+            k = l.indexOf(b, k + 1);
+          }
+          if (fin >= 0) {
+            let texte = l.slice(debut, fin).trim();
+            if (!/^".*"$/.test(texte) && /[()\[\]{}:;,<>#&]/.test(texte)) texte = '"' + texte.replace(/"/g, "#quot;") + '"';
+            out += id + a + texte + b;
+            i = fin + b.length;
+            continue;
+          }
+        }
+        out += id;
+        i = j;
+        continue;
+      }
+      out += l[i++];
+    }
+    return out;
+  }
+  function reparer(code) {
+    const lignes = code.replace(/\r/g, "").split("\n");
+    const type = (lignes.find((x) => x.trim()) || "").trim();
+    if (!/^(flowchart|graph)\b/i.test(type)) return code;
+    return lignes.map((l, n) => (n === 0 || /^\s*(%%|classDef|class |style |linkStyle|subgraph|end\b|direction)/.test(l) ? l : reparerLigne(l))).join("\n");
+  }
+
   // Remplace chaque bloc ```mermaid termine par un schema anime
   async function activer(zone) {
     if (!zone) return;
@@ -235,8 +276,15 @@
         <button class="btn petit" data-sc="code">Code</button></div>
         <div class="schema-dessin" role="img" aria-label="Schéma animé"></div>`;
       try {
-        const { svg } = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, code);
-        carte.querySelector(".schema-dessin").innerHTML = svg;
+        let rendu;
+        try {
+          rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, code);
+        } catch (e1) {
+          // deuxieme essai apres reparation automatique
+          document.querySelectorAll('[id^="dschema-"]').forEach((x) => x.remove());
+          rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, reparer(code));
+        }
+        carte.querySelector(".schema-dessin").innerHTML = rendu.svg;
       } catch (e) {
         bloc.insertAdjacentHTML("afterend", `<p class="sous" style="color:var(--red)">Schéma invalide : ${String(e.message || e).replace(/</g, "&lt;").slice(0, 200)}</p>`);
         continue;
@@ -251,5 +299,5 @@
     }
   }
 
-  window.TiSchemas = { activer };
+  window.TiSchemas = { activer, reparer };
 })();
