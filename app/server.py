@@ -707,7 +707,9 @@ INVITE_FICHIERS = ("\n\nTu travailles dans le projet « %s ». Ecris DIRECTEMENT
                    "imports et les autres fichiers touches par ton changement.\n"
                    "5. Lis le champ 'verification' apres chaque ecriture : s'il y a une erreur, corrige-la tout de suite.\n"
                    "6. Code complet et fonctionnel : pas de « ... », pas de TODO, pas de code invente qui n'existe pas.\n"
-                   "7. Termine par UNE ligne qui nomme les fichiers changes. NE recopie PAS le code dans ta reponse.")
+                   "7. Avant d'ecrire, demande-toi : est-ce le BON fichier ? Celui qui contient deja ce code, ou celui "
+                   "qui est ouvert. Un nouveau fichier seulement si aucun ne convient.\n"
+                   "8. Termine par UNE ligne qui nomme les fichiers changes. NE recopie PAS le code dans ta reponse.")
 OUTILS_COMMANDE = [
     {"type": "function", "function": {
         "name": "executer_commande",
@@ -953,6 +955,58 @@ def ressemble_appel(texte):
     return False
 
 
+def _fin_objet(texte, i):
+    # Fin d'un objet {...} qui commence a i, en tenant compte des chaines simples, doubles et triples
+    pile, j, n = 0, i, len(texte)
+    while j < n:
+        c = texte[j]
+        if texte.startswith('"""', j) or texte.startswith("'''", j):
+            q = texte[j:j + 3]
+            k = texte.find(q, j + 3)
+            if k < 0:
+                return -1
+            j = k + 3
+            continue
+        if c in "\"'":
+            k = j + 1
+            while k < n and texte[k] != c:
+                k += 2 if texte[k] == "\\" else 1
+            j = k + 1
+            continue
+        if c in "{[":
+            pile += 1
+        elif c in "}]":
+            pile -= 1
+            if pile == 0:
+                return j + 1
+        j += 1
+    return -1
+
+
+def _lire_objet_souple(bout):
+    # JSON strict, sinon JSON avec chaines a triples guillemets, sinon dictionnaire Python
+    try:
+        return json.loads(bout)
+    except ValueError:
+        pass
+    def triple(m):
+        contenu = m.group(2)
+        if contenu.startswith("\n"):
+            contenu = contenu[1:]
+        return json.dumps(contenu)
+    converti = re.sub(r'(\"\"\"|\'\'\')(.*?)\1', triple, bout, flags=re.S)
+    try:
+        return json.loads(converti)
+    except ValueError:
+        pass
+    import ast
+    try:
+        py = re.sub(r"\btrue\b", "True", re.sub(r"\bfalse\b", "False", re.sub(r"\bnull\b", "None", bout)))
+        return ast.literal_eval(py)
+    except (ValueError, SyntaxError):
+        return None
+
+
 def appels_dans_texte(texte, noms):
     """Retourne (appels, reste_du_texte) au format Ollama."""
     appels, morceaux_gardes = [], []
@@ -963,8 +1017,11 @@ def appels_dans_texte(texte, noms):
             try:
                 obj, fin = dec.raw_decode(texte, i)
             except ValueError:
-                i += 1
-                continue
+                fin = _fin_objet(texte, i)
+                obj = _lire_objet_souple(texte[i:fin]) if fin > 0 else None
+                if obj is None:
+                    i += 1
+                    continue
             liste = obj if isinstance(obj, list) else [obj]
             trouves = []
             for o in liste:
@@ -1314,6 +1371,9 @@ class Gestion(BaseHTTPRequestHandler):
             if (d.get("fichier") or "").startswith(projet + "/"):
                 systeme += "\nLe fichier ouvert dans l'editeur est « %s » : c'est probablement celui dont on parle." % d["fichier"][len(projet) + 1:]
         self._projet = projet
+        self._lus, self._double_ok, self._nouveau_ok, self._relances = set(), {}, False, 0
+        f_ouvert = d.get("fichier") or ""
+        self._fichier_ouvert = f_ouvert[len(projet) + 1:] if projet and f_ouvert.startswith(projet + "/") else None
         self._tours = 6
         if projet and d.get("agent") and d.get("plan") != "planifier":
             outils += OUTILS_COMMANDE
@@ -1366,6 +1426,10 @@ class Gestion(BaseHTTPRequestHandler):
     def executer_outil(self, nom, args):
         if not isinstance(args, dict):
             args = {}
+        garde = self.garde_fichier(nom, args)
+        if garde:
+            self.ligne({"outil": garde["court"]})
+            return {"erreur": garde["message"]}
         if nom == "executer_commande":
             cmd = (args.get("commande") or "").strip()
             projet = getattr(self, "_projet", None)
@@ -1380,9 +1444,55 @@ class Gestion(BaseHTTPRequestHandler):
             self.ligne({"commande": {"commande": cmd, "code": res["code"], "sortie": res["sortie"][-8000:]}})
             return {"code_sortie": res["code"], "sortie": res["sortie"][-12000:]}
         res = appeler_outil(nom, args, getattr(self, "_projet", None))
+        if isinstance(res, dict) and res.get("ok") and nom in ("ecrire_fichier", "modifier_fichier"):
+            try:
+                self.__dict__.setdefault("_lus", set()).add(chemin_projet(self._projet, args.get("chemin"))[1])
+            except (ValueError, TypeError):
+                pass
         if isinstance(res, dict) and res.get("_evenement"):
             self.ligne({"fichier": res.pop("_evenement")})
         return res
+
+    def garde_fichier(self, nom, args):
+        """Garde-fous pour toujours ecrire dans le BON fichier."""
+        projet = getattr(self, "_projet", None)
+        if not projet or nom not in ("ecrire_fichier", "modifier_fichier", "lire_fichier"):
+            return None
+        try:
+            p, rel = chemin_projet(projet, args.get("chemin"))
+        except ValueError as e:
+            return {"court": "Chemin refusé", "message": str(e)}
+        lus = self.__dict__.setdefault("_lus", set())
+        if nom == "lire_fichier":
+            if os.path.isfile(p):
+                lus.add(rel)
+            return None
+        existe = os.path.isfile(p)
+        # 1. jamais modifier ou ecraser un fichier sans l'avoir lu dans cette demande
+        if existe and rel not in lus:
+            return {"court": "Doit lire %s avant d'y écrire" % rel,
+                    "message": "Tu n'as pas encore lu « %s ». Lis-le d'abord avec lire_fichier, puis refais ta "
+                               "modification au bon endroit." % rel}
+        # 2. nouveau fichier : verifier qu'on ne cree pas un double d'un fichier existant
+        if nom == "ecrire_fichier" and not existe:
+            base = chemin_sur(projet)
+            tous = [os.path.relpath(os.path.join(b, f), base).replace("\\", "/")
+                    for b, _, fs in marcher(base, limite=800) for f in fs]
+            meme_nom = [t for t in tous if os.path.basename(t).lower() == os.path.basename(rel).lower()]
+            if meme_nom and not getattr(self, "_double_ok", {}).get(rel):
+                self.__dict__.setdefault("_double_ok", {})[rel] = True
+                return {"court": "Vérifie le bon fichier : %s existe déjà" % meme_nom[0],
+                        "message": "Attention : « %s » existe deja dans le projet. Si c'est ce fichier qu'il faut changer, "
+                                   "lis-le et modifie-le au lieu d'en creer un nouveau a « %s ». Si tu veux vraiment un "
+                                   "nouveau fichier a cet endroit, refais exactement le meme appel." % (meme_nom[0], rel)}
+            ouvert = getattr(self, "_fichier_ouvert", None)
+            if ouvert and os.path.splitext(ouvert)[1] == os.path.splitext(rel)[1] and not getattr(self, "_nouveau_ok", False):
+                self._nouveau_ok = True
+                return {"court": "Vérifie : le fichier ouvert est %s" % ouvert,
+                        "message": "Le fichier ouvert par l'utilisateur est « %s ». Si la demande le concerne, modifie-le "
+                                   "au lieu de creer « %s ». Si un nouveau fichier est vraiment voulu, refais le meme appel."
+                                   % (ouvert, rel)}
+        return None
 
     # -- Ollama : boucle d'outils puis reponse en flux
     def jasette_ollama(self, modele, messages, sources, outils):
@@ -1439,6 +1549,17 @@ class Gestion(BaseHTTPRequestHandler):
                         self.ligne({"texte": reste})
                 elif retenu is None and texte:
                     self.ligne({"texte": texte})
+                if not appels and re.search(r'"name"\s*:\s*"(%s)"' % "|".join(map(re.escape, noms)), texte) \
+                        and getattr(self, "_relances", 0) < 2:
+                    # Appel d'outil mal ecrit : on le dit a l'IA pour qu'elle recommence
+                    self._relances = getattr(self, "_relances", 0) + 1
+                    self.ligne({"outil": "Appel mal formé — le Codex recommence"})
+                    messages.append({"role": "assistant", "content": texte})
+                    messages.append({"role": "user", "content":
+                        "Ton appel d'outil n'etait pas du JSON valide : rien n'a ete ecrit. Recommence avec un vrai "
+                        "appel d'outil. Dans le JSON, le contenu est UNE chaine entre guillemets doubles avec \\n pour "
+                        "les retours de ligne (jamais de triple guillemets). Ne dis pas que c'est fait avant que ce soit fait."})
+                    continue
                 if not appels:
                     self.ligne({"fini": True, "jetons_s": round(stats.get("eval_count", 0) / max(stats.get("eval_duration", 1) / 1e9, 0.001), 1)})
                     return
