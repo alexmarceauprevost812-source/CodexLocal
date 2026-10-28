@@ -71,6 +71,7 @@ PARAMS_DEFAUT = {
     "internet": True,                         # l'IA locale peut aller chercher sur Internet
     "anthropic_key": "",                      # cle API Claude (optionnelle)
     "mot_de_passe": "",                       # empreinte PBKDF2 du mot de passe d'entree
+    "garder_eveillee": True,                  # l'IA reste chargee et le PC ne dort pas tant que le Ti-Labo est ouvert
     "interface": "",                          # "bureau" (facon Windows), "classique" ou "" (on demande au demarrage)
 }
 
@@ -3732,6 +3733,41 @@ def demarrer_et_charger():
             prechauffer(nom)
 
 
+def garder_eveillee():
+    """Le gardien : tant que le Ti-Labo est ouvert, l'IA du Codex et de la Jasette reste en memoire.
+    Si elle s'est endormie (memoire reprise par Windows, moteur redemarre, PC sorti de veille),
+    on la recharge tout seul, avant la prochaine question."""
+    while True:
+        time.sleep(45)
+        try:
+            p = lire_params()
+            if p.get("moteur") != "ollama" or not p.get("garder_eveillee", True):
+                continue
+            if not ollama_vivant(cle=True):
+                demarrer_ollama()
+            voulues = [n for n in dict.fromkeys([p.get("modele_codex"), p.get("modele_jasette")]) if n and not n.startswith("claude")]
+            charges = {c["nom"] for c in ia_chargees().get("chargees", [])}
+            for nom in voulues:
+                if nom not in charges and nom + ":latest" not in charges:
+                    prechauffer(nom)
+                    break  # une a la fois : on ne remplit pas la memoire d'un coup
+        except Exception:
+            pass
+
+
+def empecher_veille():
+    """Windows : le PC ne se met pas en veille tant que le Ti-Labo est ouvert (l'ecran peut s'eteindre).
+    Sinon la veille vide la memoire et l'IA doit se recharger depuis la cle."""
+    if not WINDOWS or not lire_params().get("garder_eveillee", True):
+        return
+    try:
+        import ctypes
+        ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+    except Exception:
+        pass
+
+
 def main():
     global PORT_APP
     while not port_libre(PORT_APP) and PORT_APP < 8800:
@@ -3741,6 +3777,8 @@ def main():
     print("  Cle : %s" % RACINE)
     print("=" * 52)
     threading.Thread(target=demarrer_et_charger, daemon=True).start()
+    threading.Thread(target=garder_eveillee, daemon=True).start()
+    empecher_veille()
     serveur = ThreadingHTTPServer(("127.0.0.1", PORT_APP), Gestion)
     serveur.daemon_threads = True
     # Deux bureaux : le bureau facon Windows (par defaut) ou l'interface classique (--classique)
