@@ -1,6 +1,6 @@
 // Ti-Labo — le visage de l'IA : deux yeux orange qui vivent.
 // repos : clignent et regardent autour · ecoute : regardent ce que tu ecris
-// pense : cherchent en haut, plisses · parle : yeux rieurs qui sautillent · oups : yeux tristes
+// pense : cherchent en haut, plisses · parle : yeux rieurs qui sautillent · oups : yeux tristes (juste les yeux, sans visage dessine)
 (function () {
   "use strict";
   const css = `
@@ -27,32 +27,9 @@
   .ti-yeux .points i{width:calc(var(--t)*.05);height:calc(var(--t)*.05);border-radius:50%;background:#FF7A1A;opacity:.3;animation:tiPoint 1.2s infinite}
   .ti-yeux .points i:nth-child(2){animation-delay:.2s}.ti-yeux .points i:nth-child(3){animation-delay:.4s}
   @keyframes tiPoint{40%{opacity:1}}
-  /* Theme Halloween : yeux de citrouille (triangles) qui scintillent comme une chandelle, et une bouche en dents de scie */
-  .ti-yeux.halloween{background:radial-gradient(circle at 50% 40%,#3b1206,#0b0302 70%);box-shadow:inset 0 0 0 1px rgba(255,140,0,.45),0 0 calc(var(--t)*.3) rgba(255,110,0,.3)}
-  .ti-yeux.halloween .ti-oeil{width:calc(var(--t)*.26);height:calc(var(--t)*.24);border-radius:0;
-    clip-path:polygon(50% 0,100% 100%,0 100%);background:linear-gradient(180deg,#ffe08a,#ff9a1a 60%,#ff6a00);animation:tiChandelle 1.6s infinite}
-  .ti-yeux.halloween .ti-oeil:first-child{clip-path:polygon(70% 0,100% 100%,0 100%)}
-  .ti-yeux.halloween .ti-oeil:last-child{clip-path:polygon(30% 0,100% 100%,0 100%)}
-  .ti-yeux.halloween .regard{margin-top:calc(var(--t)*-.14)}
-  .ti-yeux .bouche{display:none;position:absolute;left:22%;right:22%;bottom:16%;height:calc(var(--t)*.12);
-    background:linear-gradient(180deg,#ffd27a,#ff7a00);animation:tiChandelle 1.6s infinite .3s;
-    clip-path:polygon(0 0,12% 45%,24% 0,36% 45%,50% 0,64% 45%,76% 0,88% 45%,100% 0,90% 100%,10% 100%)}
-  .ti-yeux.halloween .bouche{display:block}
-  .ti-yeux.halloween.parle .bouche{animation:tiChandelle 1.6s infinite,tiMache .35s ease-in-out infinite alternate}
-  .ti-yeux.halloween.pense .points{bottom:4%}
-  .ti-yeux.halloween.parle .ti-oeil{border-radius:0;height:calc(var(--t)*.2)}
-  @keyframes tiChandelle{0%,100%{filter:brightness(1)}20%{filter:brightness(1.35)}40%{filter:brightness(.8)}60%{filter:brightness(1.2)}80%{filter:brightness(.9)}}
-  @keyframes tiMache{to{transform:scaleY(.55)}}
-  @media (prefers-reduced-motion:reduce){.ti-yeux.halloween .ti-oeil,.ti-yeux .bouche{animation:none}}
   @media (prefers-reduced-motion:reduce){.ti-yeux .regard,.ti-oeil{transition:none}.ti-yeux.parle .ti-oeil,.ti-yeux .points i{animation:none}}`;
   const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
 
-  /** Halloween tout seul du 15 octobre au 2 novembre ; sinon le choix garde (double-tap sur le visage). */
-  function theme() {
-    try { const t = localStorage.getItem("tilabo-yeux"); if (t) return t; } catch (_) {}
-    const d = new Date(), m = d.getMonth(), j = d.getDate();
-    return (m === 9 && j >= 15) || (m === 10 && j <= 2) ? "halloween" : "normal";
-  }
   const calme = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const visages = [];
   let etat = "repos", minuterie = null;
@@ -61,10 +38,7 @@
     const d = document.createElement("div");
     d.className = "ti-yeux repos" + (grand ? " grand" : "");
     d.setAttribute("role", "img"); d.setAttribute("aria-label", "Le visage de l'IA");
-    d.innerHTML = '<div class="regard"><span class="ti-oeil"></span><span class="ti-oeil"></span></div><div class="bouche"></div><div class="points"><i></i><i></i><i></i></div>';
-    if (theme() === "halloween") d.classList.add("halloween");
-    d.title = "Touche deux fois pour changer le visage (normal / Halloween)";
-    d.addEventListener("dblclick", () => TiYeux.theme(theme() === "halloween" ? "normal" : "halloween"));
+    d.innerHTML = '<div class="regard"><span class="ti-oeil"></span><span class="ti-oeil"></span></div><div class="points"><i></i><i></i><i></i></div>';
     visages.push(d);
     return d;
   }
@@ -108,11 +82,6 @@
       vivre();
     },
     get actuel() { return etat; },
-    /** normal | halloween (garde le choix sur cet appareil) */
-    theme(t) {
-      try { localStorage.setItem("tilabo-yeux", t); } catch (_) {}
-      visages.forEach((v) => v.classList.toggle("halloween", t === "halloween"));
-    },
   };
   vivre();
 })();
