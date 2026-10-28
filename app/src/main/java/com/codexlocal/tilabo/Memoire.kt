@@ -97,7 +97,11 @@ object Memoire {
         // Les souvenirs sont courts : on donne ceux qui partagent un mot, sinon les plus recents
         souvenirs.map { s -> s to mots(s.optString("texte")).count { it in q } }
             .sortedWith(compareByDescending<Pair<JSONObject, Int>> { it.second }.thenByDescending { it.first.optLong("date") })
-            .take(8).forEach { (s, score) -> if (score > 0 || souvenirs.size <= 8) sv.put(s.optString("texte")) }
+            .take(8).let { meilleurs ->
+                // aucun souvenir ne partage un mot : on donne les plus recents (peu importe combien il y en a)
+                val lies = meilleurs.any { it.second > 0 }
+                meilleurs.forEach { (s, score) -> if (score > 0 || !lies) sv.put(s.optString("texte")) }
+            }
         val ex = JSONArray()
         if (q.isNotEmpty()) {
             synchronized(this) { runCatching { indexer() } }
