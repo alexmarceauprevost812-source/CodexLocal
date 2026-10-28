@@ -323,15 +323,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.tvLocalStatus.text = getString(R.string.msg_loading_model)
 
         busyJob = lifecycleScope.launch {
-            try {
-                LocalEngine.load(this@SettingsActivity, file.absolutePath, prefs.config()) { msg ->
-                    runOnUiThread { binding.tvLocalStatus.text = msg }
-                }
-                binding.tvLocalStatus.text = getString(R.string.msg_model_loaded, file.name)
-            } catch (e: Exception) {
-                binding.tvLocalStatus.text =
-                    getString(R.string.msg_error, e.message ?: e.toString())
-            }
+            chargerLeModele(file)
         }
     }
 
@@ -340,10 +332,13 @@ class SettingsActivity : AppCompatActivity() {
         busyJob = lifecycleScope.launch {
             try {
                 binding.tvLocalStatus.text = "Copie de $name…"
+                val total = tailleDuFichier(uri)
+                binding.pbLocal.montrerProgres(if (total > 0) 0 else null)
                 val dest = withContext(Dispatchers.IO) {
                     ModelStore.importFromUri(this@SettingsActivity, uri, name) { done ->
                         runOnUiThread {
-                            binding.tvLocalStatus.text = "Copie : ${done / 1_048_576} Mo"
+                            binding.tvLocalStatus.text = texteAvancement("Copie", done, total)
+                            binding.pbLocal.montrerProgres(pourcent(done, total))
                         }
                     }
                 }
@@ -352,6 +347,7 @@ class SettingsActivity : AppCompatActivity() {
                 binding.tvLocalStatus.text = "Importé : ${dest.name} — chargement…"
                 chargerLeModele(dest)
             } catch (e: Exception) {
+                binding.pbLocal.cacherProgres()
                 binding.tvLocalStatus.text =
                     getString(R.string.msg_error, e.message ?: e.toString())
             }
@@ -382,14 +378,14 @@ class SettingsActivity : AppCompatActivity() {
         busyJob = lifecycleScope.launch {
             try {
                 val dest = File(ModelStore.modelsDir(this@SettingsActivity), name)
+                binding.tvLocalStatus.text = "Téléchargement de $name…"
+                binding.pbLocal.montrerProgres(null)
                 withContext(Dispatchers.IO) {
                     ModelStore.download(url, dest) { done, total ->
-                        val text = if (total > 0) {
-                            "${done / 1_048_576} / ${total / 1_048_576} Mo"
-                        } else {
-                            "${done / 1_048_576} Mo"
+                        runOnUiThread {
+                            binding.tvLocalStatus.text = texteAvancement("Téléchargement", done, total)
+                            binding.pbLocal.montrerProgres(pourcent(done, total))
                         }
-                        runOnUiThread { binding.tvLocalStatus.text = "Téléchargement : $text" }
                     }
                 }
                 prefs.localModelPath = dest.absolutePath
@@ -397,6 +393,7 @@ class SettingsActivity : AppCompatActivity() {
                 binding.tvLocalStatus.text = "Téléchargé : ${dest.name} — chargement…"
                 chargerLeModele(dest)
             } catch (e: Exception) {
+                binding.pbLocal.cacherProgres()
                 binding.tvLocalStatus.text =
                     getString(R.string.msg_error, e.message ?: e.toString())
             } finally {
@@ -407,16 +404,44 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Charge le modele juste apres son installation : un clic et c'est pret. */
     private suspend fun chargerLeModele(fichier: File) {
+        binding.pbLocal.montrerProgres(0)
         try {
-            LocalEngine.load(this, fichier.absolutePath, prefs.config()) { msg ->
+            LocalEngine.load(
+                this, fichier.absolutePath, prefs.config(),
+                onProgres = { pct -> runOnUiThread { binding.pbLocal.montrerProgres(pct) } }
+            ) { msg ->
                 runOnUiThread { binding.tvLocalStatus.text = msg }
             }
             binding.tvLocalStatus.text = getString(R.string.msg_model_loaded, fichier.name)
         } catch (e: Exception) {
             binding.tvLocalStatus.text =
                 getString(R.string.msg_error, e.message ?: e.toString())
+        } finally {
+            binding.pbLocal.cacherProgres()
         }
     }
+
+    /** « Téléchargement : 45 % — 512 / 1130 Mo », ou seulement les Mo si la taille est inconnue. */
+    private fun texteAvancement(action: String, fait: Long, total: Long): String {
+        val mo = fait / 1_048_576
+        return if (total > 0) {
+            "$action : ${pourcent(fait, total)} % — $mo / ${total / 1_048_576} Mo"
+        } else {
+            "$action : $mo Mo"
+        }
+    }
+
+    /** Pourcentage de 0 a 99 (100 seulement quand c'est vraiment fini), null si le total est inconnu. */
+    private fun pourcent(fait: Long, total: Long): Int? =
+        if (total > 0) (fait * 100 / total).toInt().coerceIn(0, 99) else null
+
+    /** Taille du fichier choisi, ou -1 si Android ne la donne pas. */
+    private fun tailleDuFichier(uri: Uri): Long = runCatching {
+        contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+            val i = c.getColumnIndex(OpenableColumns.SIZE)
+            if (i >= 0 && c.moveToFirst() && !c.isNull(i)) c.getLong(i) else -1L
+        } ?: -1L
+    }.getOrDefault(-1L)
 
     private fun displayName(uri: Uri): String {
         runCatching {

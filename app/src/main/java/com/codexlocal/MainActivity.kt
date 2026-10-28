@@ -1401,8 +1401,16 @@ class MainActivity : AppCompatActivity() {
         }
         val dejaCharge = LocalEngine.isLoadedFor(cfg.localModelPath)
         if (!dejaCharge) binding.status.text = getString(R.string.msg_loading_model)
-        LocalEngine.load(this, cfg.localModelPath, cfg, repartirDeZero) { msg ->
-            runOnUiThread { binding.status.text = msg }
+        if (!dejaCharge) binding.pbModele.montrerProgres(0)
+        try {
+            LocalEngine.load(
+                this, cfg.localModelPath, cfg, repartirDeZero,
+                onProgres = { pct -> runOnUiThread { binding.pbModele.montrerProgres(pct) } }
+            ) { msg ->
+                runOnUiThread { binding.status.text = msg }
+            }
+        } finally {
+            binding.pbModele.cacherProgres()
         }
         if (repartirDeZero) {
             // Les roles de l'equipe ne partagent pas de conversation : la suivante repart a zero.

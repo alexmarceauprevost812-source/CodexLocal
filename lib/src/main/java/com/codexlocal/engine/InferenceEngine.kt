@@ -43,6 +43,9 @@ interface InferenceEngine {
      */
     fun setContextSize(tokens: Int)
 
+    /** Avancement de la lecture du fichier modele pendant [loadModel], de 0 a 1. */
+    fun loadProgress(): Float
+
     /** Jetons deja utilises dans la memoire du modele, ou 0 si aucun modele n'est charge. */
     fun contextUsed(): Int
 

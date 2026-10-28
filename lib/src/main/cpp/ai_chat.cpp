@@ -1,6 +1,7 @@
 #include <android/log.h>
 #include <jni.h>
 #include <algorithm>
+#include <atomic>
 #include <iomanip>
 #include <cmath>
 #include <string>
@@ -64,10 +65,28 @@ Java_com_codexlocal_engine_internal_InferenceEngineImpl_init(JNIEnv *env, jobjec
     LOGi("Backend initiated; Log handler set.");
 }
 
+// CodexLocal : avancement du chargement du modele (0..1), lu depuis Kotlin pour la barre de progression.
+static std::atomic<float> g_load_progress{0.0f};
+
+static bool on_load_progress(float progress, void * /*user_data*/) {
+    g_load_progress.store(progress);
+    return true; // continuer le chargement
+}
+
+extern "C"
+JNIEXPORT jfloat JNICALL
+Java_com_codexlocal_engine_internal_InferenceEngineImpl_nativeLoadProgress(
+        JNIEnv * /*unused*/, jobject /*unused*/) {
+    return (jfloat) g_load_progress.load();
+}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_codexlocal_engine_internal_InferenceEngineImpl_load(JNIEnv *env, jobject, jstring jmodel_path) {
     llama_model_params model_params = llama_model_default_params();
+    g_load_progress.store(0.0f);
+    model_params.progress_callback = on_load_progress;
+    model_params.progress_callback_user_data = nullptr;
 
     const auto *model_path = env->GetStringUTFChars(jmodel_path, 0);
     LOGd("%s: Loading model from: \n%s\n", __func__, model_path);
@@ -105,7 +124,22 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
     ctx_params.n_ubatch = BATCH_SIZE;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
+    // Vitesse d'ecriture : sur telephone, chaque mot genere relit toute la memoire de conversation.
+    // - Flash Attention : calcul de l'attention plus rapide et plus econome ;
+    // - memoire (cache KV) en 8 bits au lieu de 16 : deux fois moins de donnees a relire a chaque
+    //   mot, quasi sans perte de qualite (et deux fois plus de place pour la conversation).
+    ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
+    ctx_params.type_k = GGML_TYPE_Q8_0;
+    ctx_params.type_v = GGML_TYPE_Q8_0;
     auto *context = llama_init_from_model(g_model, ctx_params);
+    if (context == nullptr) {
+        // Certains modeles refusent ce reglage : on reessaie avec la configuration d'origine.
+        LOGw("%s: fast settings refused, retrying with defaults", __func__);
+        ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
+        ctx_params.type_k = GGML_TYPE_F16;
+        ctx_params.type_v = GGML_TYPE_F16;
+        context = llama_init_from_model(g_model, ctx_params);
+    }
     if (context == nullptr) {
         LOGe("%s: llama_new_context_with_model() returned null)", __func__);
     }
