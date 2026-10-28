@@ -39,7 +39,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font-f
 .gad .met .e{font-size:30px}
 @media (max-width:600px){#gadgets{display:none}}
 /* barre des taches */
-#barre{position:fixed;left:0;right:0;bottom:0;height:var(--barre);z-index:20;display:flex;align-items:center;gap:6px;padding:0 8px calc(env(safe-area-inset-bottom));
+#barre{position:fixed;left:0;right:0;bottom:0;height:var(--barre);z-index:100020;display:flex;align-items:center;gap:6px;padding:0 8px calc(env(safe-area-inset-bottom));
   background:rgba(10,10,10,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,122,26,.25)}
 #demarrer{height:42px;min-width:42px;border-radius:12px;border:0;background:linear-gradient(145deg,var(--or2),var(--or));display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;color:#000;font-weight:800;font-size:14px;box-shadow:0 0 14px rgba(255,122,26,.45)}
 #demarrer img{width:26px;height:26px;object-fit:contain;filter:drop-shadow(0 0 2px #000)}
@@ -55,8 +55,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font-f
 #zoneEtat .pt.on{background:#4ade80;box-shadow:0 0 8px #4ade80}
 #horloge{text-align:right;line-height:1.15}
 #horloge small{display:block;color:var(--doux);font-size:11px}
-/* menu demarrer */
-#menu{position:fixed;left:8px;bottom:calc(var(--barre) + 8px);z-index:30;width:min(420px,calc(100vw - 16px));max-height:min(620px,calc(100vh - var(--barre) - 24px));
+/* menu demarrer (z-index > 100000 : toujours au-dessus des fenetres, qui montent a chaque clic) */
+#menu{position:fixed;left:8px;bottom:calc(var(--barre) + 8px);z-index:100030;width:min(420px,calc(100vw - 16px));max-height:min(620px,calc(100vh - var(--barre) - 24px));
   display:none;flex-direction:column;background:rgba(14,14,14,.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,122,26,.35);border-radius:18px;
   box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;animation:monte .18s ease-out}
 #menu.ouvert{display:flex}
@@ -89,7 +89,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font-f
 .fen .poignee{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none}
 .fen .poignee::after{content:"";position:absolute;right:4px;bottom:4px;width:8px;height:8px;border-right:2px solid #555;border-bottom:2px solid #555}
 /* menu contextuel du bureau */
-#ctx{position:fixed;z-index:40;display:none;background:rgba(18,18,18,.96);border:1px solid #333;border-radius:12px;padding:6px;min-width:200px;box-shadow:0 12px 30px rgba(0,0,0,.6)}
+#ctx{position:fixed;z-index:100040;display:none;background:rgba(18,18,18,.96);border:1px solid #333;border-radius:12px;padding:6px;min-width:200px;box-shadow:0 12px 30px rgba(0,0,0,.6)}
 #ctx div{padding:9px 12px;border-radius:8px;font-size:14px;cursor:pointer}#ctx div:hover{background:rgba(255,122,26,.15)}
 /* telephone : les applis s'ouvrent dans des fenetres plein ecran, la barre des taches reste visible (comme Windows) */
 .fen.tel{border-radius:0;border:0;min-width:0;min-height:0;box-shadow:none;animation:ouvreTel .18s ease-out}
@@ -102,7 +102,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font-f
 #chipMeteo .e{font-size:18px}
 @media (max-width:420px){#demarrer span{display:none}#demarrer{padding:0 8px}#ptWeb{display:none}#horloge small{display:none}.tache{padding:0 7px;min-width:36px}}
 #menu .tag{font-size:10px;color:#5eead4;border:1px solid #134e4a;border-radius:6px;padding:0 5px;margin-left:6px;vertical-align:1px}
-.bulleMaj{position:fixed;right:12px;bottom:calc(var(--barre) + 10px);z-index:25;background:#1a0c02;border:1px solid var(--or);border-radius:14px;padding:10px 14px;font-size:13.5px;max-width:300px}
+.bulleMaj{position:fixed;right:12px;bottom:calc(var(--barre) + 10px);z-index:100025;background:#1a0c02;border:1px solid var(--or);border-radius:14px;padding:10px 14px;font-size:13.5px;max-width:300px}
 </style>
 </head>
 <body>

@@ -359,8 +359,10 @@ function dessinerArbre(){
     const d = document.createElement("div"); d.className = "ligne fich" + (epingles.has(f.chemin) ? " ep" : "") + (nouveaux.has(f.chemin) ? " nouveau" : "");
     d.innerHTML = "<span class='n'>" + echap(f.chemin) + "</span><small>" + (f.taille < 1024 ? f.taille + " o" : Math.round(f.taille / 1024) + " Ko") + "</small>";
     d.querySelector(".n").onclick = () => { fermerV("vFich"); voirFichier(f.chemin); };
-    const sh = document.createElement("button"); sh.textContent = window.TiLaboApp ? "📤" : "⬇️"; sh.title = "Partager ce fichier";
-    sh.onclick = () => partager(f.chemin); d.appendChild(sh);
+    if (peutPartager()) {
+      const sh = document.createElement("button"); sh.textContent = window.TiLaboApp ? "📤" : "⬇️"; sh.title = "Partager ce fichier";
+      sh.onclick = () => partager(f.chemin); d.appendChild(sh);
+    }
     const b = document.createElement("button"); b.textContent = "📎";
     b.onclick = () => { epingles.has(f.chemin) ? epingles.delete(f.chemin) : epingles.add(f.chemin); dessinerArbre(); dessinerEpingles(); };
     d.appendChild(b); A.appendChild(d);
@@ -368,6 +370,8 @@ function dessinerArbre(){
 }
 function dessinerEpingles(){ $("#epingles").innerHTML = [...epingles].map(c => "<span>📎 " + echap(c) + "</span>").join(""); }
 /** Partager un fichier ou tout le projet (.zip) : feuille de partage du telephone, ou telechargement sur le PC. */
+/** L'APK Ti-Labo perso n'a pas (encore) le partage : on cache les boutons au lieu d'ouvrir une page d'erreur. */
+const peutPartager = () => !!(window.TiLaboApp && TiLaboApp.partager);
 function partager(chemin){
   if (!projet) return;
   if (window.TiLaboApp && TiLaboApp.partager) TiLaboApp.partager(projet.chemin, chemin || "");
@@ -657,6 +661,7 @@ $("#bFich").onclick = () => { $("#vFich").classList.add("ouvert"); chargerArbre(
 $("#bNouv").onclick = nouvelleSession;
 $("#bHist").onclick = ouvrirHist;
 $("#bPartProj").onclick = () => partager("");
+if (!peutPartager()) $("#bPartProj").hidden = true;
 try { $("#mode").value = localStorage.getItem("tilabo-codex-mode") || "direct"; } catch (_) {}
 $("#mode").onchange = () => { try { localStorage.setItem("tilabo-codex-mode", $("#mode").value); } catch (_) {} };
 
