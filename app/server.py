@@ -679,8 +679,8 @@ INVITE_FICHIERS = ("\n\nTu travailles dans le projet « %s » sur la cle. Tu as 
                    "lire_fichier, ecrire_fichier (creer ou remplacer un fichier) et modifier_fichier (remplacer un passage). "
                    "Quand on te demande de coder, ECRIS directement dans les bons fichiers avec ces outils au lieu de "
                    "seulement afficher le code : lis d'abord les fichiers concernes, garde le style existant, puis "
-                   "explique en quelques lignes ce que tu as change et dans quels fichiers. Le code s'affiche dans l'editeur au "
-                   "centre : NE recopie PAS le code dans ta reponse, donne seulement un court resume.")
+                   "termine par UNE ligne qui nomme les fichiers changes. Le code s'affiche deja a l'utilisateur : NE recopie "
+                   "PAS le code dans ta reponse.")
 OUTILS_COMMANDE = [
     {"type": "function", "function": {
         "name": "executer_commande",
@@ -830,11 +830,12 @@ def annuler_changement(ident):
 # ---------------------------------------------------------------- invites systeme
 INVITE_JASETTE = ("Tu es l'IA locale du Ti-Labo d'Alex, qui roule sur sa cle USB-C. "
                   "Reponds en francais quebecois naturel, clair et direct.")
-INVITE_CODEX = ("Tu es le Codex du Ti-Labo : un assistant de programmation local. Reponds en francais. "
-                "Tu fais du CODE seulement : pas de schema, pas de diagramme mermaid, pas de long plan "
-                "(les plans et schemas se font dans la Jasette). "
-                "Explique simplement, donne du code complet et pret a coller dans des blocs ``` avec le langage. "
-                "Quand on te donne un fichier, base-toi dessus et indique precisement quoi changer.")
+INVITE_CODEX = ("Tu es le Codex du Ti-Labo, un agent de programmation comme Codex ou Claude Code. Tu ecris du CODE, "
+                "pas de la conversation. Regles : 1) pas de schema, pas de diagramme, pas de plan (ca se fait dans la "
+                "Jasette) ; 2) pas d'introduction ni de politesse ; 3) quand un projet est ouvert, ecris le code "
+                "directement dans les fichiers avec tes outils ; sinon reponds uniquement par des blocs ``` complets "
+                "avec le nom du fichier sur la ligne juste avant ; 4) ta seule phrase finale : une ligne qui dit quels "
+                "fichiers ont change (ex. « main.py modifie, utils.py cree »). Reponds en francais.")
 INVITE_OUTILS = ("\n\nTu as des outils : recherche_web, lire_page, chercher_code_github, chercher_mes_projets. "
                  "Utilise-les seulement si tu en as vraiment besoin (info recente, doc d'une librairie, exemple de code "
                  "que tu ne connais pas). Sinon reponds directement. Quand tu t'en sers, cite les liens a la fin "
