@@ -49,9 +49,13 @@ object MoteurCrypto {
         "\\b(prix|valeur|cours|combien|vaut|valent|cote|coût\\w*|cout\\w*|price|worth|value|taux|monte|baisse|graphique)\\b"
     )
 
+    private val horsLigne = Regex("\\b(sans internet|hors ligne|sans recherche|pas de recherche|offline)\\b")
+
     /** Identifiant CoinGecko si le message demande le prix d'une crypto, sinon null. */
     fun detecter(message: String): String? {
         val texte = message.lowercase(Locale.ROOT)
+        // Même refus explicite que la recherche web : « sans internet », « hors ligne »…
+        if (horsLigne.containsMatchIn(texte)) return null
         if (!intention.containsMatchIn(texte)) return null
         val mots = Regex("[\\p{L}\\p{N}]+").findAll(texte).map { it.value }.toSet()
         // Les sigles courts (sol, dot, link…) sont des mots courants : on exige « crypto » autour.

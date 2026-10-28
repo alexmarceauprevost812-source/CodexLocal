@@ -31,6 +31,7 @@ class ChatRicheTest {
         assertEquals("solana", MoteurCrypto.detecter("valeur de la crypto sol"))
         assertNull("sans crypto, « sol » est un mot normal", MoteurCrypto.detecter("le prix du sol de cuisine"))
         assertNull("sans demande de prix", MoteurCrypto.detecter("explique-moi le bitcoin"))
+        assertNull("hors ligne demandé", MoteurCrypto.detecter("Sans internet, combien vaut le BTC ?"))
     }
 
     @Test fun cryptoCardUsesLivePriceAndLogo() = runBlocking {
