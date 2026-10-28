@@ -385,6 +385,8 @@ function changerFond(){
   localStorage.setItem("tilabo-fond", FONDS[i]); appliquerFond();
 }
 function appliquerFond(){ $("#fond").className = localStorage.getItem("tilabo-fond") || ""; }
+// fond change depuis Parametres (dans une fenetre) : le bureau ouvert suit tout de suite
+addEventListener("storage", e => { if (e.key === "tilabo-fond") appliquerFond(); });
 
 // ------------------------------------------------------------ horloge, gadgets
 function horloge(){
