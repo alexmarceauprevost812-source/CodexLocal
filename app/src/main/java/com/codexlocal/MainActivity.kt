@@ -213,6 +213,32 @@ class MainActivity : AppCompatActivity() {
         appliquerFond()
         refreshStatus()
         verifierProjetActif()
+        prechargerModele()
+    }
+
+    private var prechargement: Job? = null
+
+    /**
+     * Charge le modele local en memoire des qu'on arrive dans CodexLocal (et au retour du Ti-Labo),
+     * pour que la premiere reponse de la jasette et du Codex parte tout de suite.
+     */
+    private fun prechargerModele() {
+        val cfg = prefs.config()
+        if (cfg.provider != ProviderType.LOCAL || cfg.localModelPath.isBlank()) return
+        if (!File(cfg.localModelPath).isFile) return
+        if (LocalEngine.isLoadedFor(cfg.localModelPath) || LocalEngine.enChargement != null) return
+        if (job?.isActive == true || prechargement?.isActive == true) return
+        prechargement = lifecycleScope.launch {
+            binding.status.text = "⏳ Chargement de l'IA en mémoire… (" + File(cfg.localModelPath).name + ")"
+            try {
+                LocalEngine.load(this@MainActivity, cfg.localModelPath, cfg) { }
+                if (job?.isActive != true) binding.status.text = "⚡ IA prête : " + File(cfg.localModelPath).name
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (job?.isActive != true) binding.status.text = "Chargement impossible : " + (e.message ?: "erreur")
+            }
+        }
     }
 
     /** Le projet ouvert a pu etre supprime depuis un autre ecran (Bureau, fiche du projet). */

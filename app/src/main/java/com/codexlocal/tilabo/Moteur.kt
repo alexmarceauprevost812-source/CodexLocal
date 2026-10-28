@@ -82,9 +82,30 @@ object Moteur {
         }
     }
 
-    /** Le dernier .gguf choisi : recharge tout seul apres que CodexLocal a pris le moteur. */
+    /** Le dernier .gguf choisi : recharge tout seul apres que CodexLocal a pris le moteur,
+     *  et il est garde dans les preferences pour etre precharge au prochain lancement. */
     @Volatile var dernierChemin: String? = null
         private set
+
+    private fun prefs(ctx: Context) = ctx.applicationContext.getSharedPreferences("tilabo_moteur", Context.MODE_PRIVATE)
+
+    /** Le dernier .gguf choisi, meme apres un redemarrage de l'appli. */
+    fun dernier(ctx: Context): String? =
+        dernierChemin ?: prefs(ctx).getString("dernier", null)?.takeIf { File(it).isFile }?.also { dernierChemin = it }
+
+    /**
+     * Charge tout de suite en memoire la derniere IA du Ti-Labo (en arriere-plan), pour que la premiere
+     * reponse de la Jasette et du Codex parte sans attendre. Ne fait rien si elle est deja prete.
+     */
+    fun precharger(ctx: Context) {
+        val app = ctx.applicationContext
+        val f = dernier(app) ?: return
+        if (chemin == f || enChargement != null || com.codexlocal.LocalEngine.enChargement != null) return
+        Thread {
+            runCatching { kotlinx.coroutines.runBlocking { charger(app, f) } }
+            TiLaboService.majNotification(app)
+        }.apply { isDaemon = true; name = "TiLabo-prechargement" }.start()
+    }
 
     /**
      * Le moteur est partage avec la jasette de CodexLocal (meme appli, meme llama.cpp) :
@@ -128,6 +149,7 @@ object Moteur {
             consigneActive = CONSIGNE_DEFAUT
             chemin = f.path
             dernierChemin = f.path
+            prefs(ctx).edit().putString("dernier", f.path).apply()
             return f.name
         } catch (ex: Exception) {
             derniereErreur = ex.message ?: ex.javaClass.simpleName
@@ -138,6 +160,9 @@ object Moteur {
             enChargement = null
         }
     }
+
+    /** « Decharger » choisi par l'utilisateur : on ne la prechargera plus au lancement. */
+    fun oublierDernier(ctx: Context) { prefs(ctx).edit().remove("dernier").apply() }
 
     suspend fun decharger() = verrou.withLock {
         dernierChemin = null
@@ -164,7 +189,7 @@ object Moteur {
             val e = engine(ctx)
             // CodexLocal a pu prendre le moteur entre-temps : on recharge le dernier .gguf du Ti-Labo
             if (com.codexlocal.LocalEngine.loadedPath != null || chemin == null) {
-                val dernier = dernierChemin ?: chemin
+                val dernier = dernier(ctx) ?: chemin
                 check(dernier != null) { "Aucune IA chargee. Choisis un .gguf dans IA locales." }
                 if (com.codexlocal.LocalEngine.loadedPath != null) { prendreLeMoteur(); oublier() }
                 if (chemin == null) chargerInterne(ctx, dernier)

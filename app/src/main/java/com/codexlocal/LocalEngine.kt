@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
@@ -29,6 +30,14 @@ object LocalEngine {
     @Volatile
     var loadedPath: String? = null
         private set
+
+    /** Nom du modele en train de se charger (affiche « chargement… »), null sinon. */
+    @Volatile
+    var enChargement: String? = null
+        private set
+
+    /** Un seul chargement a la fois (le prechargement au demarrage et un envoi peuvent se croiser). */
+    private val verrouChargement = kotlinx.coroutines.sync.Mutex()
 
     private var systemPromptSent = false
     private var appliedTemperature = Float.NaN
@@ -80,6 +89,14 @@ object LocalEngine {
         cfg: AppConfig,
         repartirDeZero: Boolean = false,
         onStatus: (String) -> Unit
+    ) = verrouChargement.withLock { chargerSansVerrou(context, modelPath, cfg, repartirDeZero, onStatus) }
+
+    private suspend fun chargerSansVerrou(
+        context: Context,
+        modelPath: String,
+        cfg: AppConfig,
+        repartirDeZero: Boolean,
+        onStatus: (String) -> Unit
     ) {
         val e = engine(context)
         awaitReady(e)
@@ -98,6 +115,7 @@ object LocalEngine {
         if (loadedPath != null) withContext(Dispatchers.Default) { unload() }
 
         onStatus("Chargement du modele…")
+        enChargement = File(modelPath).name
         try {
             // Plus la memoire du modele est grande, plus la session peut durer sans rien oublier.
             e.setContextSize(
@@ -112,6 +130,8 @@ object LocalEngine {
             // Le prochain essai (autre modele, par exemple) doit repartir d'un moteur sain.
             reinitialiser(e)
             throw ex
+        } finally {
+            enChargement = null
         }
         appliedTemperature = cfg.temperature
         loadedPath = modelPath

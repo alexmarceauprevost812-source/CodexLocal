@@ -183,13 +183,19 @@ class ServeurLocal(private val ctx: Context) {
                     .put("version", BuildConfigInfo.version(ctx))
                     .put("modele", Moteur.nom ?: JSONObject.NULL)
                     .put("chemin", Moteur.chemin ?: JSONObject.NULL)
-                    .put("chargement", Moteur.enChargement ?: JSONObject.NULL)
+                    .put("chargement", Moteur.enChargement ?: com.codexlocal.LocalEngine.enChargement ?: JSONObject.NULL)
+                    .put("pret", Moteur.chemin != null)
+                    .put("dernier", Moteur.dernier(ctx) ?: JSONObject.NULL)
                     .put("erreur", Moteur.derniereErreur ?: JSONObject.NULL)
                     .put("memoire", JSONObject().put("utilise", utilise).put("capacite", capacite))
                     .put("acces_fichiers", android.os.Environment.isExternalStorageManager())
                     .put("fichiers", FichiersGguf.lister(ctx)))
             }
             "/tilabo/fichiers" -> json(out, 200, JSONObject().put("fichiers", FichiersGguf.lister(ctx)))
+            "/tilabo/precharger" -> {
+                Moteur.precharger(ctx)
+                json(out, 200, JSONObject().put("ok", true))
+            }
             "/tilabo/charger" -> {
                 val d = JSONObject(String(r.corps, Charsets.UTF_8).ifBlank { "{}" })
                 val chemin = d.optString("chemin")
@@ -205,6 +211,7 @@ class ServeurLocal(private val ctx: Context) {
             }
             "/tilabo/decharger" -> {
                 runBlocking { Moteur.decharger() }
+                Moteur.oublierDernier(ctx)
                 TiLaboService.majNotification(ctx)
                 json(out, 200, JSONObject().put("ok", true))
             }

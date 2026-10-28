@@ -133,6 +133,8 @@ class TiLaboActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // L'IA du Ti-Labo se charge en memoire des qu'on ouvre le Ti-Labo : reponses rapides
+        Moteur.precharger(this)
         if (attendAcces && Environment.isExternalStorageManager()) {
             attendAcces = false
             demarrer()

@@ -276,3 +276,46 @@
 
   TL.chargerReglages();
 })();
+
+// IA en mémoire : pastille « ⚡ prête / ⏳ chargement… / 💤 charger » dans la Jasette et le Codex.
+// L'IA se charge toute seule quand on ouvre le Ti-Labo ; la pastille montre où elle en est.
+(function () {
+  const p = location.pathname.replace(/\/$/, "") || "/";
+  if (!["/", "/jasette", "/codex"].includes(p)) return;
+  const tete = document.querySelector("header");
+  if (!tete) return;
+  const st = document.createElement("style");
+  st.textContent = `.tl-charge{border:1px solid #262626;background:#0d0d0d;color:#B3B3B3;border-radius:999px;padding:6px 10px;font-size:12.5px;white-space:nowrap;min-height:34px}
+  .tl-charge.prete{color:#4ade80;border-color:#14532d;background:#06180c}
+  .tl-charge.charge{color:#facc15;border-color:#713f12;background:#1a1204}
+  .tl-charge.dort{color:#FF9A4D;border-color:#7A3A0E}`;
+  document.head.appendChild(st);
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "tl-charge"; b.hidden = true;
+  const avant = tete.querySelector("#bNouv");
+  avant ? tete.insertBefore(b, avant) : tete.appendChild(b);
+  let suivi = null, dernier = null;
+  async function maj() {
+    let e;
+    try { e = await (await fetch("/tilabo/etat")).json(); } catch (_) { b.hidden = true; return false; }
+    dernier = e.dernier;
+    b.hidden = !e.chargement && !e.pret && !e.dernier;
+    if (e.chargement) { b.className = "tl-charge charge"; b.textContent = "⏳ chargement…"; b.title = "L'IA se charge en mémoire (une seule fois) : " + e.chargement; }
+    else if (e.pret) { b.className = "tl-charge prete"; b.textContent = "⚡ prête"; b.title = "L'IA est en mémoire : les réponses partent tout de suite"; }
+    else { b.className = "tl-charge dort"; b.textContent = "💤 charger"; b.title = "Charger l'IA en mémoire pour des réponses rapides"; }
+    return !!e.chargement;
+  }
+  function suivre() {
+    clearInterval(suivi);
+    suivi = setInterval(async () => { if (!(await maj())) { clearInterval(suivi); suivi = null; } }, 1500);
+  }
+  b.onclick = async () => {
+    if (b.classList.contains("prete") || !dernier) return;
+    try { await fetch("/tilabo/precharger", { method: "POST", body: "{}" }); } catch (_) {}
+    b.className = "tl-charge charge"; b.textContent = "⏳ chargement…";
+    suivre();
+  };
+  maj().then((enCours) => { if (enCours) suivre(); });
+  setInterval(maj, 20000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) maj().then((x) => x && suivre()); });
+})();
