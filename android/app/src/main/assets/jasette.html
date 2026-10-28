@@ -240,11 +240,11 @@ let derniereQuestion = "";
 async function envoyer(texte){
   derniereQuestion = texte;
   // « retiens que… » : on le garde dans la Memoire
-  const ret = texte.match(/^\s*(?:retiens|souviens[- ]toi|rappelle[- ]toi|n'oublie pas|note)\s+(?:que\s+|bien\s+que\s+|ça\s*:?\s*)?(.+)/i);
+  const ret = texte.match(/^\s*(?:retiens|souviens[- ]toi|rappelle[- ]toi|n'oublie pas|note)\s+(?:que\s+|bien\s+que\s+|ça\s*:?\s*)?([\s\S]+)/i);
   if (ret) {
     bulle("moi", echap(texte));
     try {
-      const r = await fetch("/tilabo/memoire/ajouter", {method: "POST", body: JSON.stringify({texte: ret[1]})});
+      const r = await fetch("/tilabo/memoire/ajouter", {method: "POST", body: JSON.stringify({texte: ret[1].trim()})});
       // fetch ne lance pas d'erreur sur un refus (texte trop long, ecriture impossible) : on verifie avant de confirmer
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error ? j.error.message : "Mémoire indisponible (" + r.status + ")"); }
       bulle("ia", "🧠 C'est noté ! Je m'en souviendrai. <span class='pense'>(Menu › Mémoire pour voir tout ce que je retiens)</span>");
