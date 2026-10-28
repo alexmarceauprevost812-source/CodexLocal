@@ -38,6 +38,7 @@ class TiLaboService : Service() {
 
     private var serveur: ServeurLocal? = null
     private var reveil: PowerManager.WakeLock? = null
+    private var gardien: Thread? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -54,6 +55,16 @@ class TiLaboService : Service() {
         reveil = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TiLabo:moteur").apply { acquire() }
         runCatching { Rappels.canal(this); Rappels.planifier(applicationContext) }
+        // Le gardien : l'IA du Ti-Labo ne s'endort pas. Si Android a repris sa memoire, on la recharge
+        // (sauf si CodexLocal se sert du moteur en ce moment : un seul modele a la fois).
+        gardien = Thread {
+            while (!Thread.currentThread().isInterrupted) {
+                try { Thread.sleep(60_000) } catch (_: InterruptedException) { break }
+                if (Moteur.chemin == null && Moteur.enChargement == null &&
+                    com.codexlocal.LocalEngine.loadedPath == null && com.codexlocal.LocalEngine.enChargement == null
+                ) Moteur.precharger(applicationContext)
+            }
+        }.apply { isDaemon = true; name = "TiLabo-gardien"; start() }
         serveur = ServeurLocal(applicationContext).also {
             try {
                 it.demarrer()
@@ -72,6 +83,7 @@ class TiLaboService : Service() {
     }
 
     override fun onDestroy() {
+        gardien?.interrupt()
         serveur?.arreter()
         serveur = null
         Thread { kotlinx.coroutines.runBlocking { Moteur.decharger() } }.start()
