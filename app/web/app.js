@@ -639,7 +639,7 @@ $("#sc-reduire").onclick = () => {
 /* ------------------------------------------------------------ changements de fichiers du Codex */
 function carteFichier(zone, f) {
   const el = document.createElement("div");
-  el.className = "carte-fichier";
+  el.className = "carte-fichier" + (f.action === "cree" ? " cree" : "");
   const verbe = f.action === "cree" ? "Créé" : "Modifié";
   el.innerHTML = `${ic("dossier")}<span><b>${verbe}</b> <code>${esc(f.chemin)}</code> <span class="plus">+${f.plus}</span> <span class="moins">−${f.moins}</span> <span class="tag vert" title="Écrit et vérifié sur la clé">✓ enregistré</span></span>
     <span class="espace" style="flex:1"></span>
@@ -691,14 +691,19 @@ function carteFichier(zone, f) {
 async function animerChangement(f) {
   const zone = $(".zone-edit");
   const badge = document.createElement("div");
-  badge.className = "badge-fichier";
+  badge.className = "badge-fichier" + (f.action === "cree" ? " cree" : "");
   badge.innerHTML = `${ic(f.action === "cree" ? "plus" : "dossier")}<span>${f.action === "cree" ? "Nouveau fichier" : "Le Codex passe à"}</span><code>${esc(f.chemin.split("/").slice(1).join("/"))}</code>`;
   zone.appendChild(badge);
   zone.classList.remove("change-fichier");
   void zone.offsetWidth; // relance l'animation
   zone.classList.add("change-fichier");
   const noeud = $$("#arbre [data-f]").find((b) => b.dataset.f === f.chemin);
-  if (noeud) { noeud.scrollIntoView({ block: "nearest" }); noeud.classList.add("pulse"); setTimeout(() => noeud.classList.remove("pulse"), 1600); }
+  if (noeud) {
+    noeud.scrollIntoView({ block: "nearest" });
+    const cls = f.action === "cree" ? "neuf" : "pulse";
+    noeud.classList.add(cls);
+    setTimeout(() => noeud.classList.remove(cls), cls === "neuf" ? 2600 : 1600);
+  }
   await new Promise((ok) => setTimeout(ok, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 650));
   setTimeout(() => badge.remove(), 1400);
 }
@@ -734,6 +739,9 @@ async function ecrireAuCentre(f) {
   const pasParImage = Math.max(3, Math.ceil(reste / 90)); // environ 1,5 s, meme pour un gros fichier
   ed.readOnly = true;
   ed.classList.add("ecrit-par-ia");
+  const zoneEd = $(".zone-edit");
+  zoneEd.style.setProperty("--avance", "0%");
+  zoneEd.classList.add("ecrit");
   let i = debut;
   await new Promise((ok) => {
     function tape() {
@@ -742,6 +750,7 @@ async function ecrireAuCentre(f) {
       majNumeros();
       ed.scrollTop = ed.scrollHeight;
       synchroDefilement();
+      zoneEd.style.setProperty("--avance", (reste ? Math.round(((i - debut) / reste) * 100) : 100) + "%");
       if (i < nouveau.length && !document.hidden) requestAnimationFrame(tape);
       else { ed.value = nouveau; majNumeros(); ok(); }
     }
@@ -749,6 +758,8 @@ async function ecrireAuCentre(f) {
   });
   ed.readOnly = false;
   ed.classList.remove("ecrit-par-ia");
+  zoneEd.style.setProperty("--avance", "100%");
+  setTimeout(() => zoneEd.classList.remove("ecrit"), 450);
   marquerModifie(false);
   // place le curseur au debut du changement
   ed.focus({ preventScroll: true });
@@ -1000,8 +1011,13 @@ async function choisirProjetSilencieux() {
   const garde = etat.fichier;
   const noeuds = await api("arbre?projet=" + encodeURIComponent(etat.projet)).catch(() => null);
   if (!noeuds) return;
+  const connus = new Set($$("#arbre [data-f]").map((b) => b.dataset.f));
   $("#arbre").innerHTML = noeuds.map((n) => `<button class="noeud ${n.type} ${n.chemin === garde ? "actif" : ""}" style="padding-left:${12 + n.prof * 14}px" ${n.type === "fichier" ? `data-f="${esc(n.chemin)}"` : "tabindex='-1'"}>${n.type === "dossier" ? "├ " + esc(n.nom) + "/" : "└ " + esc(n.nom)}</button>`).join("");
   $$("#arbre [data-f]").forEach((b) => (b.onclick = () => ouvrirFichier(b.dataset.f)));
+  // petit effet discret sur les fichiers qui viennent d'apparaitre
+  if (connus.size) $$("#arbre [data-f]").forEach((b) => {
+    if (!connus.has(b.dataset.f)) { b.classList.add("neuf"); setTimeout(() => b.classList.remove("neuf"), 2600); }
+  });
 }
 
 /* ------------------------------------------------------------ IA locales */

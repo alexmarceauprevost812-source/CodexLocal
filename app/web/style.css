@@ -399,3 +399,32 @@ input[type=range]{accent-color:var(--accent)}
 @media (max-width:900px){.dv-travail{grid-template-columns:1fr}.dv-editeur{position:static}#dv-texte{min-height:40vh}}
 .btn[hidden]{display:none}
 .plan-actions.recup{flex-wrap:wrap}.plan-actions.recup span{flex-basis:100%;color:var(--text2);font-size:13px;margin-bottom:4px}
+
+/* ---------- animations discretes (v3.9+) */
+/* barre de progression en degrade pendant que le Codex ecrit */
+.zone-edit::before{content:"";position:absolute;left:0;top:0;height:2px;width:var(--avance,0%);z-index:6;opacity:0;pointer-events:none;
+  background:linear-gradient(90deg,var(--accent),var(--accent-light),#FFD166,var(--accent-light),var(--accent));background-size:200% 100%;
+  box-shadow:0 0 8px rgba(255,122,26,.45);transition:width .15s linear,opacity .3s}
+.zone-edit.ecrit::before{opacity:1;animation:degrade 1.6s linear infinite}
+@keyframes degrade{to{background-position:-200% 0}}
+/* leger reflet qui passe sur le code pendant l'ecriture */
+.zone-edit.ecrit .zone-code::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent 0%,rgba(255,122,26,.035) 50%,transparent 100%);background-size:100% 220px;background-repeat:no-repeat;
+  animation:reflet 2.4s ease-in-out infinite}
+@keyframes reflet{from{background-position:0 -220px}to{background-position:0 calc(100% + 220px)}}
+/* nom du fichier souligne en degrade pendant l'ecriture */
+.onglet .nom{position:relative}
+.zone-edit.ecrit .onglet .nom::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);background-size:200% 100%;animation:degrade 1.4s linear infinite}
+/* badge « Nouveau fichier » : contour en degrade */
+.badge-fichier.cree{border-color:transparent;
+  background:linear-gradient(var(--accent-bg),var(--accent-bg)) padding-box,linear-gradient(90deg,var(--accent),#FFD166,var(--accent)) border-box;
+  box-shadow:0 8px 30px rgba(0,0,0,.6),0 0 18px rgba(255,122,26,.25)}
+/* fichier qui vient d'apparaitre dans l'arbre */
+.noeud.neuf{animation:neuf 2.6s ease both}
+@keyframes neuf{0%{opacity:0;transform:translateX(-10px);color:var(--accent)}
+  12%{opacity:1;transform:none;background:var(--accent-bg);color:var(--accent)}
+  70%{background:var(--accent-bg);color:var(--accent)}100%{background:transparent}}
+/* cartes de fichiers dans la conversation */
+.carte-fichier.cree{border-color:var(--accent-border)}
+@media (prefers-reduced-motion:reduce){.zone-edit::before,.zone-edit.ecrit .zone-code::after,.noeud.neuf{animation:none}}
