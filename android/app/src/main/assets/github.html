@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo — GitHub</title>
+<style>
+:root{--orange:#FF7A1A;--bord:#262626;--doux:#B3B3B3}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--bord)}
+header b{flex:1;color:var(--orange);font-size:17px}
+button{font:inherit;border-radius:10px;min-height:40px;padding:0 12px;background:#161616;color:var(--orange);border:1px solid var(--bord)}
+button.plein{background:var(--orange);color:#000;font-weight:700;border:0}
+button:disabled{opacity:.4}
+main{max-width:620px;margin:0 auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom))}
+h2{font-size:16px;color:var(--orange);margin:20px 0 8px}
+.carte{background:#0d0d0d;border:1px solid var(--bord);border-radius:14px;padding:12px;margin-bottom:10px}
+.ligne{display:flex;gap:8px;align-items:center}
+input{flex:1;min-width:0;background:#0e0e0e;color:#fff;border:1px solid var(--bord);border-radius:10px;padding:10px;font:inherit}
+input:focus{outline:none;border-color:var(--orange)}
+.depot{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #161616}
+.depot .n{flex:1;min-width:0}
+.depot .n div{font:14px ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.depot small{color:var(--doux);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note{color:var(--doux);font-size:13px;line-height:1.5}
+</style>
+</head>
+<body>
+<header><b>🐙 GitHub</b></header>
+<main>
+  <div class="carte">
+    <p class="note" style="margin-top:0">Clone un dépôt dans <b>TiLabo/projets</b> du téléphone, puis ouvre-le dans le Codex.</p>
+    <div class="ligne"><input id="depot" placeholder="proprio/depot ou adresse github.com"><button class="plein" id="bCloner">Cloner</button></div>
+  </div>
+
+  <h2>🔑 Jeton GitHub</h2>
+  <div class="carte">
+    <p class="note" id="etatJeton" style="margin-top:0">…</p>
+    <div class="ligne"><input id="jeton" type="password" placeholder="github_pat_…" autocomplete="off"><button id="bJeton">Garder</button></div>
+    <p class="note">Il reste sur le téléphone. Il sert pour tes dépôts privés et la liste ci-dessous.</p>
+  </div>
+
+  <h2>📚 Mes dépôts</h2>
+  <div class="carte" id="depots"><p class="note">…</p></div>
+</main>
+<script src="/menu.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const echap = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+async function api(c, corps){
+  const r = await fetch(c, {method: "POST", body: JSON.stringify(corps || {})});
+  const j = await r.json(); if (!r.ok) throw new Error(j.error ? j.error.message : r.status); return j;
+}
+async function cloner(depot, bouton){
+  if (!depot.trim()) return;
+  bouton.disabled = true; const avant = bouton.textContent; bouton.textContent = "…";
+  try {
+    const r = await api("/tilabo/github/cloner", {depot});
+    if (confirm("✅ " + r.nom + " cloné (" + r.fichiers + " fichiers, branche " + r.branche + ").\nL'ouvrir dans le Codex ?")) {
+      localStorage.setItem("tilabo-projet", JSON.stringify({nom: r.nom, chemin: r.chemin, ou: "Téléphone"}));
+      location.href = "/codex";
+    }
+  } catch (e) { alert("⚠ " + e.message); }
+  bouton.disabled = false; bouton.textContent = avant;
+}
+$("#bCloner").onclick = () => cloner($("#depot").value, $("#bCloner"));
+$("#bJeton").onclick = async () => {
+  await api("/tilabo/reglages", {github_token: $("#jeton").value}); $("#jeton").value = ""; await TL.chargerReglages(); depots();
+};
+document.addEventListener("tl-reglages", () => {
+  const r = TL.reglages || {};
+  $("#etatJeton").textContent = r.github_token_present ? "✅ Jeton enregistré (" + r.github_token_fin + ")" : "Aucun jeton : seulement les dépôts publics.";
+});
+async function depots(){
+  const D = $("#depots");
+  try {
+    const l = (await api("/tilabo/github/depots")).depots;
+    D.innerHTML = l.length ? "" : "<p class='note'>Aucun dépôt.</p>";
+    l.forEach(x => {
+      const d = document.createElement("div"); d.className = "depot";
+      d.innerHTML = "<div class='n'><div>" + (x.prive ? "🔒 " : "🌍 ") + echap(x.nom) + "</div><small>" + echap(x.description || x.branche) + "</small></div>";
+      const b = document.createElement("button"); b.textContent = "Cloner"; b.onclick = () => cloner(x.nom, b);
+      d.appendChild(b); D.appendChild(d);
+    });
+  } catch (e) { D.innerHTML = "<p class='note'>" + echap(e.message) + "</p>"; }
+}
+depots();
+</script>
+</body>
+</html>

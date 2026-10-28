@@ -39,6 +39,18 @@ else
   echo "== Pas d'Ollama : pas grave, tes .gguf de CodexLocal marchent avec llama-server"
 fi
 
+# Projets : le meme dossier que l'appli Ti-Labo (TiLabo/projets du telephone)
+PARTAGE="/storage/emulated/0/TiLabo/projets"
+if mkdir -p "$PARTAGE" 2>/dev/null && [ -w "$PARTAGE" ]; then
+  # Une seule fois : on copie les projets deja dans ~/TiLabo/projets (sans rien ecraser)
+  if [ -d "$ICI/projets" ] && [ ! -f "$ICI/projets/.copie-partage" ]; then
+    for d in "$ICI/projets"/*/; do [ -d "$d" ] && cp -rn "$d" "$PARTAGE/" 2>/dev/null; done
+    touch "$ICI/projets/.copie-partage"
+  fi
+  export TILABO_PROJETS="$PARTAGE"
+  echo "== Projets : $PARTAGE (memes projets que l'appli Ti-Labo)"
+fi
+
 # Garde le telephone eveille pendant que le Ti-Labo roule (sinon Android coupe Termux)
 command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock || true
 

@@ -16,6 +16,9 @@ header b{color:var(--orange);font-size:17px}
 header small{display:block;color:var(--doux);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 button{font:inherit;border:0;border-radius:10px;min-height:40px;padding:0 14px;background:#161616;color:var(--orange);border:1px solid var(--bord)}
 button.plein{background:var(--orange);color:#000;font-weight:700;border:0}
+#bWeb{min-width:44px;font-size:18px;padding:0}
+#bWeb.on{background:#08131d;border-color:#7CC4FF;box-shadow:0 0 10px rgba(124,196,255,.35)}
+#bWeb.off{display:none}
 button:disabled{opacity:.4}
 #fil{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
 .msg{max-width:92%;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
@@ -52,6 +55,7 @@ textarea:focus{outline:none;border-color:var(--orange)}
 </header>
 <div id="fil"><div class="vide" id="vide"><img src="/logo.png" alt=""><p>Jasette autonome : tes IA <b>.gguf</b> roulent directement dans l'appli, sans Termux ni Internet.</p></div></div>
 <form id="f">
+  <button type="button" id="bWeb" title="Chercher sur Internet">🌐</button>
   <textarea id="q" rows="1" placeholder="Écris ton message…"></textarea>
   <button class="plein" id="bEnv" type="submit">➤</button>
 </form>
@@ -64,8 +68,10 @@ textarea:focus{outline:none;border-color:var(--orange)}
   <button style="width:100%;margin-top:8px" onclick="fermer()">Fermer</button>
 </div></div>
 
+<script src="/menu.js"></script>
 <script>
 const $ = s => document.querySelector(s);
+const colorer = TL.colorer;
 let historique = [], ctrl = null, modele = null;
 
 function echap(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
@@ -77,9 +83,9 @@ function rendu(t){
   morceaux.forEach((m, i) => {
     if (i % 2) {
       const nl = m.indexOf("\n"); const code = nl >= 0 ? m.slice(nl + 1) : m;
-      h += "<pre><button class='copier' type='button'>Copier</button><code>" + echap(code.replace(/\n$/, "")) + "</code></pre>";
+      h += "<pre><button class='copier' type='button'>Copier</button><code>" + colorer(code.replace(/\n$/, ""), m.slice(0, nl)) + "</code></pre>";
     } else {
-      h += echap(m).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+      h += TL.enrichir(echap(m)).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
         .replace(/\u0000P([\s\S]*?)\u0000/g, (_, p) => p ? "<div class='pense'>" + p + "</div>" : "");
     }
   });
@@ -140,16 +146,37 @@ async function charger(f, b){
   etat();
 }
 
-async function envoyer(texte){
-  if (!modele) { await etat(); if (!modele) { ouvrirIA(); return; } }
-  historique.push({role: "user", content: texte});
-  bulle("moi", echap(texte));
-  const sortie = bulle("ia", "<span class='pense'>…</span>");
+const CONSIGNE = "Tu es l'IA locale du Ti-Labo, un laboratoire de developpeur quebecois. Reponds en francais, clairement. " +
+  "Rends tes reponses vivantes et colorees : des emojis bien choisis 🎨✨, des titres courts (### Titre), des listes. " +
+  "Pour du code, donne des blocs ``` complets avec le langage. " +
+  "Si on te donne des resultats Internet, appuie-toi dessus et cite les sources [titre](adresse).";
+const CONSIGNE_WEB = " Si tu as besoin d'une information recente ou que tu ne connais pas, ecris seul sur une ligne : " +
+  "=== CHERCHER: mots-cles === puis arrete ta reponse : tu recevras les resultats.";
+let web = localStorage.getItem("tilabo-web") !== "0";
+function majWeb(){ const b = $("#bWeb"); b.className = TL.internet ? (web ? "on" : "") : "off"; }
+$("#bWeb").onclick = () => { web = !web; localStorage.setItem("tilabo-web", web ? "1" : "0"); majWeb(); };
+document.addEventListener("tl-reglages", majWeb);
+
+async function rechercher(q, sortie){
+  sortie.insertAdjacentHTML("beforeend", TL.outil("🔎 Recherche : " + q));
+  const [res, imgs] = await Promise.all([TL.chercher(q).catch(() => []), TL.images(q).catch(() => [])]);
+  let page = null;
+  if (res[0]) page = await TL.page(res[0].url).catch(() => null);
+  sortie.insertAdjacentHTML("beforeend", TL.galerie(imgs) + TL.cartesSources(res));
+  return res.length ? TL.pourIA(q, res, page) : "La recherche Internet pour « " + q + " » n'a rien donne.\n\n";
+}
+
+async function tour(message, entete){
+  historique.push({role: "user", content: message});
+  const sortie = bulle("ia", "");
+  if (entete) sortie.appendChild(entete);
+  const zone = document.createElement("div"); zone.innerHTML = "<span class='pense'>…</span>"; sortie.appendChild(zone);
   let rep = "";
   ctrl = new AbortController(); $("#bEnv").textContent = "■";
   try {
+    const sys = CONSIGNE + (TL.internet ? CONSIGNE_WEB : "");
     const r = await fetch("/v1/chat/completions", {method: "POST", signal: ctrl.signal,
-      body: JSON.stringify({messages: historique, stream: true})});
+      body: JSON.stringify({messages: [{role: "system", content: sys}, ...historique], stream: true})});
     if (!r.ok) { const j = await r.json(); throw new Error(j.error ? j.error.message : r.status); }
     const lecteur = r.body.getReader(); const dec = new TextDecoder(); let tampon = "";
     for (;;) {
@@ -162,15 +189,34 @@ async function envoyer(texte){
         try { rep += JSON.parse(d).choices[0].delta.content || ""; } catch (_) {}
       }
       const enBas = $("#fil").scrollHeight - $("#fil").scrollTop - $("#fil").clientHeight < 80;
-      sortie.innerHTML = rendu(rep);
+      zone.innerHTML = rendu(rep);
       if (enBas) $("#fil").scrollTop = $("#fil").scrollHeight;
     }
   } catch (e) {
     if (e.name !== "AbortError") rep += (rep ? "\n\n" : "") + "⚠ " + e.message;
   }
-  sortie.innerHTML = rendu(rep || "(arrêté)");
+  zone.innerHTML = rendu(rep || "(arrêté)");
   historique.push({role: "assistant", content: rep});
   ctrl = null; $("#bEnv").textContent = "➤";
+  return {rep, sortie};
+}
+
+async function envoyer(texte){
+  if (!modele) { await etat(); if (!modele) { ouvrirIA(); return; } }
+  bulle("moi", echap(texte));
+  let message = texte, entete = null;
+  if (TL.internet && web) {
+    entete = document.createElement("div");
+    const ctx = await rechercher(texte.slice(0, 120), entete);
+    message = ctx + "Question : " + texte;
+  }
+  for (let n = 0; n < 3; n++) {
+    const {rep, sortie} = await tour(message, entete);
+    const m = TL.internet && rep.match(/^\s*={2,}\s*CHERCHER\s*:\s*(.+?)\s*=*\s*$/im);
+    if (!m) return;
+    entete = document.createElement("div");
+    message = (await rechercher(m[1], entete)) + "Continue ta reponse avec ces resultats.";
+  }
 }
 
 $("#f").onsubmit = e => {
@@ -185,7 +231,8 @@ $("#q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey 
 $("#bIA").onclick = ouvrirIA;
 $("#bNouv").onclick = () => { if (ctrl) ctrl.abort(); historique = []; $("#fil").innerHTML = ""; bulle("ia", "<span class='pense'>Nouvelle jasette.</span>"); };
 $("#panneau").onclick = e => { if (e.target.id === "panneau") fermer(); };
-etat().then(r => { if (r && !r.modele && !r.chargement) ouvrirIA(); });
+etat().then(r => { if (location.hash === "#ia" || (r && !r.modele && !r.chargement)) ouvrirIA(); });
+window.addEventListener("hashchange", () => { if (location.hash === "#ia") ouvrirIA(); });
 setInterval(etat, 5000);
 </script>
 </body>

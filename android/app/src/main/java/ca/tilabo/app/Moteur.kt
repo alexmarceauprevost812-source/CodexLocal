@@ -181,6 +181,15 @@ object Moteur {
         }
     }
 
+    /**
+     * Le client renverra la derniere reponse sous une autre forme (ex. appels d'outils remis en JSON) :
+     * on retient cette forme pour reconnaitre la suite de la conversation sans repartir de zero.
+     */
+    fun corrigerDerniereReponse(texte: String) {
+        val c = connus
+        if (c.isNotEmpty() && c.last().role == "assistant") connus = c.dropLast(1) + Msg("assistant", texte)
+    }
+
     private fun rappel(avant: List<Msg>, question: String): String {
         val b = StringBuilder("Voici notre conversation jusqu'ici :\n\n")
         // Les derniers echanges suffisent ; le moteur coupe au milieu si c'est trop long.

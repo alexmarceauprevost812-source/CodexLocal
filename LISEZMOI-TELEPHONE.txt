@@ -64,6 +64,17 @@ le même que CodexLocal) : elle lit tes .gguf directement, sans llama-server.
 - Avec Termux : elle démarre le Ti-Labo complet et l'affiche en plein écran ;
   « IA locales > Utiliser » sur un .gguf passe par le moteur de l'appli.
 - Sans Termux : « Jasette sans Termux » parle directement à tes .gguf.
+Menu (☰, comme sur la clé) : Bureau, Jasette, Codex, IA locales, Clé USB-C,
+GitHub, et Studio/Mémoire (Ti-Labo complet dans Termux).
+- Codex : écrit directement dans les fichiers du projet (TiLabo/projets),
+  code en couleur au centre, mode « Plan d'abord », bouton Annuler.
+- 🌐 Internet (activable dans le menu) : l'IA cherche sur le web, avec
+  cartes de sources et images dans le chat.
+- Clé USB-C : « Copier sur le téléphone » un projet de la clé, débrancher,
+  coder, rebrancher, « Renvoyer sur la clé » : tu continues sur le PC.
+  Un fichier changé des deux côtés n'est jamais écrasé (l'autre version est
+  gardée à côté).
+- Le Ti-Labo de Termux et l'appli partagent TiLabo/projets du téléphone.
 Elle trouve les .gguf dans CodexLocal/models, Téléchargements,
 TiLabo/ia/gguf et sur la clé USB-C (TiLabo/ia/gguf).
 

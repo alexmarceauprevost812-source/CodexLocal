@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo</title>
+<style>
+:root{--orange:#FF7A1A;--bord:#262626;--doux:#B3B3B3}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--bord)}
+header b{flex:1;color:var(--orange);font-size:17px}
+button{font:inherit;border-radius:10px;min-height:38px;padding:0 12px;background:#161616;color:var(--orange);border:1px solid var(--bord)}
+main{max-width:620px;margin:0 auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom))}
+.heros{text-align:center;margin:6px 0 10px}
+.heros img{width:min(250px,64vw);height:auto;filter:drop-shadow(0 0 24px rgba(255,90,0,.35))}
+.statut{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
+.statut div{background:#0d0d0d;border:1px solid var(--bord);border-radius:12px;padding:9px;font-size:12px;color:var(--doux);min-width:0}
+.statut b{display:block;color:#fff;font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.icones{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.icones a{display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;color:#E5E5E5;font-size:13px;text-align:center}
+.boite{width:100%;aspect-ratio:1;max-width:96px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:38px;
+  background:radial-gradient(circle at 30% 25%,var(--c2),var(--c1));box-shadow:0 6px 18px -6px var(--c1),inset 0 1px 0 rgba(255,255,255,.25);transition:transform .12s}
+.icones a:active .boite{transform:scale(.93)}
+.astuce{margin-top:18px;background:#120a03;border:1px solid #4a2408;border-radius:12px;padding:12px;color:#E5E5E5;font-size:14px;line-height:1.5}
+</style>
+</head>
+<body>
+<header><b>Bureau</b></header>
+<main>
+  <div class="heros"><img src="/logo.png" alt="Ti-Labo"></div>
+  <div class="statut">
+    <div>🧠 IA<b id="sIA">…</b></div>
+    <div>🔌 Clé USB-C<b id="sCle">…</b></div>
+    <div>🌐 Internet<b id="sWeb">…</b></div>
+  </div>
+  <div class="icones">
+    <a href="/jasette"><span class="boite" style="--c1:#c2410c;--c2:#FF7A1A">💬</span>Jasette</a>
+    <a href="/codex"><span class="boite" style="--c1:#1d4ed8;--c2:#60a5fa">🧑‍💻</span>Codex</a>
+    <a href="/jasette#ia"><span class="boite" style="--c1:#7e22ce;--c2:#c084fc">🧠</span>IA locales</a>
+    <a href="/cle"><span class="boite" style="--c1:#15803d;--c2:#4ade80">🔌</span>Clé USB-C</a>
+    <a href="/github"><span class="boite" style="--c1:#334155;--c2:#94a3b8">🐙</span>GitHub</a>
+    <a href="#" id="complet"><span class="boite" style="--c1:#be123c;--c2:#fb7185">🎬</span>Studio, Mémoire…</a>
+  </div>
+  <div class="astuce" id="astuce">💡 Copie un projet de ta clé sur le téléphone (🔌 Clé USB-C), débranche la clé, code avec le Codex, puis rebranche-la et renvoie tes changements : tu continues sur le PC où tu étais rendu.</div>
+</main>
+<script src="/menu.js"></script>
+<script>
+document.getElementById("complet").onclick = e => { e.preventDefault(); document.getElementById("tl-complet").click(); };
+async function maj(){
+  try {
+    const e = await (await fetch("/tilabo/etat")).json();
+    document.getElementById("sIA").textContent = e.chargement ? "chargement…" : (e.modele ? e.modele.replace(/\.gguf$/i, "") : "aucune");
+  } catch (_) { document.getElementById("sIA").textContent = "arrêtée"; }
+  try {
+    const c = await (await fetch("/tilabo/sync/cle", {method: "POST", body: "{}"})).json();
+    const lies = await (await fetch("/tilabo/sync/lies", {method: "POST", body: "{}"})).json();
+    const branchee = (c.projets || []).length > 0 || (lies.projets || []).some(p => p.branchee);
+    document.getElementById("sCle").textContent = branchee ? "branchée ✅" : "débranchée";
+  } catch (_) { document.getElementById("sCle").textContent = "?"; }
+  document.getElementById("sWeb").textContent = TL.internet ? "activé" : "désactivé";
+}
+document.addEventListener("tl-reglages", maj);
+maj(); setInterval(maj, 6000);
+</script>
+</body>
+</html>

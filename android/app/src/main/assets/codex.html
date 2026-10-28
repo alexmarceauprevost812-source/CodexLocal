@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo — Codex</title>
+<style>
+:root{--fond:#000;--carte:#0e0e0e;--bord:#262626;--orange:#FF7A1A;--texte:#fff;--doux:#B3B3B3;
+  --kw:#FF9F4A;--str:#9BE37A;--com:#6B7280;--num:#7CC4FF;--fn:#F7D774;--tag:#FF7A9C}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);font-family:system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--bord)}
+header img{width:34px;height:34px;object-fit:contain}
+.onglets{display:flex;gap:4px;flex:1;min-width:0}
+.onglets a{color:var(--doux);text-decoration:none;padding:7px 10px;border-radius:8px;font-size:15px}
+.onglets a.actif{color:#000;background:var(--orange);font-weight:700}
+button{font:inherit;border-radius:10px;min-height:38px;padding:0 12px;background:#161616;color:var(--orange);border:1px solid var(--bord)}
+button.plein{background:var(--orange);color:#000;font-weight:700;border:0}
+button:disabled{opacity:.4}
+#barre{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #141414;font-size:13px;color:var(--doux)}
+#barre .p{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#barre .p b{color:var(--texte)}
+label.plan{display:flex;align-items:center;gap:5px;white-space:nowrap}
+label.plan input{accent-color:var(--orange);width:18px;height:18px}
+#fil{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:94%;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+.moi{align-self:flex-end;background:#1a1a1a;border:1px solid var(--bord);border-radius:14px 14px 4px 14px;padding:9px 12px}
+.ia{align-self:flex-start}
+.ia pre{white-space:pre;overflow-x:auto;background:var(--carte);border:1px solid var(--bord);border-radius:8px;padding:10px;margin:6px 0;font:12.5px/1.45 ui-monospace,monospace}
+.ia code{font-family:ui-monospace,monospace;background:var(--carte);padding:1px 5px;border-radius:5px}
+.ia pre code{background:none;padding:0}
+.pense{color:var(--doux);font-style:italic;border-left:2px solid var(--bord);padding-left:8px;margin:4px 0}
+.carte{display:flex;align-items:center;gap:8px;background:#120a03;border:1px solid #4a2408;border-left:3px solid var(--orange);border-radius:10px;padding:8px 10px;margin:6px 0;white-space:normal;cursor:pointer}
+.carte .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,monospace;font-size:13px}
+.carte small{color:var(--doux)}
+.carte.lu{background:#0b0f14;border-color:#1d3347;border-left-color:var(--num)}
+.carte.err{border-left-color:#ff4d4d}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.vide{margin:auto;text-align:center;color:var(--doux);max-width:330px;line-height:1.5}
+.vide img{width:150px;height:150px;object-fit:contain}
+#epingles{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px}
+#epingles span{font:12px ui-monospace,monospace;background:#161616;border:1px solid var(--bord);border-radius:20px;padding:4px 10px;color:var(--orange)}
+form{display:flex;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--bord)}
+textarea{flex:1;resize:none;max-height:160px;min-height:44px;background:var(--carte);color:var(--texte);border:1px solid var(--bord);border-radius:12px;padding:11px 12px;font:inherit}
+textarea:focus{outline:none;border-color:var(--orange)}
+/* Ecran central : le code que le Codex ecrit */
+#ecran{position:fixed;left:8px;right:8px;top:96px;bottom:84px;display:none;flex-direction:column;background:#070707;border:1px solid var(--orange);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.55),0 0 30px rgba(255,122,26,.25);z-index:5}
+#ecran.ouvert{display:flex}
+#ecran .tete{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--bord)}
+#ecran .nom{flex:1;min-width:0;font:600 14px ui-monospace,monospace;color:var(--orange);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ecran .etat{font-size:12px;color:var(--doux)}
+#code{flex:1;overflow:auto;margin:0;padding:10px 0;font:12.5px/1.5 ui-monospace,monospace;white-space:pre;counter-reset:l}
+#code .l{display:block;padding:0 12px 0 0}
+#code .l::before{counter-increment:l;content:counter(l);display:inline-block;width:38px;margin-right:10px;text-align:right;color:#3a3a3a}
+#ecran .pied{display:flex;gap:8px;padding:8px 10px;border-top:1px solid var(--bord)}
+#ecran .pied button{flex:1}
+@keyframes change{0%{transform:translateY(14px) scale(.98);opacity:.2;border-color:#fff}100%{transform:none;opacity:1}}
+#ecran.change{animation:change .45s ease-out}
+@keyframes clign{50%{opacity:0}}
+.curseur{display:inline-block;width:7px;height:14px;background:var(--orange);vertical-align:-2px;animation:clign 1s steps(1) infinite}
+.k{color:var(--kw)}.s{color:var(--str)}.c{color:var(--com);font-style:italic}.nb{color:var(--num)}.f{color:var(--fn)}.t{color:var(--tag)}
+/* feuilles */
+.voile{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.voile.ouvert{display:flex}
+.feuille{width:100%;max-width:560px;max-height:82vh;overflow-y:auto;background:#0b0b0b;border:1px solid var(--bord);border-radius:16px 16px 0 0;padding:14px}
+.feuille h2{color:var(--orange);font-size:18px;margin:0 0 8px}
+.ligne{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid #161616}
+.ligne .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ligne small{color:var(--doux)}
+.fich{font:13px ui-monospace,monospace}
+.fich.ep .n{color:var(--orange)}
+.note{color:var(--doux);font-size:13px;line-height:1.5}
+input[type=text]{width:100%;background:var(--carte);color:var(--texte);border:1px solid var(--bord);border-radius:10px;padding:10px;font:inherit}
+</style>
+</head>
+<body>
+<header>
+  <img src="/logo.png" alt="">
+  <nav class="onglets"><a href="/">Jasette</a><a class="actif" href="/codex">Codex</a></nav>
+  <button id="bFich" title="Fichiers">📁</button>
+  <button id="bNouv" title="Nouvelle session">＋</button>
+</header>
+<div id="barre">
+  <div class="p" id="projetNom">Aucun projet</div>
+  <label class="plan"><input type="checkbox" id="plan"> Plan d'abord</label>
+  <button id="bProj">Projet</button>
+</div>
+<div id="fil"><div class="vide" id="vide"><img src="/logo.png" alt=""><p>Le <b>Codex</b> du Ti-Labo écrit directement dans les fichiers de ton projet, avec ton IA .gguf. Mêmes dossiers <b>TiLabo/projets</b> que ta clé USB-C.</p></div></div>
+<div id="epingles"></div>
+<form id="f">
+  <textarea id="q" rows="1" placeholder="Qu'est-ce que le Codex doit coder ?"></textarea>
+  <button class="plein" id="bEnv" type="submit">➤</button>
+</form>
+
+<div id="ecran">
+  <div class="tete"><span class="nom" id="ecNom"></span><span class="etat" id="ecEtat"></span></div>
+  <pre id="code"></pre>
+  <div class="pied">
+    <button id="ecCopier">Copier</button>
+    <button id="ecAnnuler" style="display:none">Annuler</button>
+    <button class="plein" id="ecFermer">Fermer</button>
+  </div>
+</div>
+
+<div class="voile" id="vProj"><div class="feuille">
+  <h2>Projets</h2>
+  <div id="listeProj"><p class="note">Recherche…</p></div>
+  <p class="note">Nouveau projet (dans TiLabo/projets du téléphone) :</p>
+  <div style="display:flex;gap:8px"><input type="text" id="nomProj" placeholder="mon-projet"><button class="plein" id="bCreer">Créer</button></div>
+  <p class="note">Pour un projet de la clé USB-C : TiLabo/projets sur la clé. Le Ti-Labo de Termux utilise ces mêmes dossiers.</p>
+  <button style="width:100%;margin-top:8px" onclick="fermerV('vProj')">Fermer</button>
+</div></div>
+
+<div class="voile" id="vFich"><div class="feuille">
+  <h2>Fichiers</h2>
+  <p class="note">Touche un fichier pour le voir. 📎 = le donner au Codex comme contexte.</p>
+  <div id="arbre"></div>
+  <button style="width:100%;margin-top:8px" onclick="fermerV('vFich')">Fermer</button>
+</div></div>
+
+<script src="/menu.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const MAX_LECTURES = 4, MAX_TOURS = 3, MAX_CTX = 24000;
+let projet = null, arbre = [], historique = [], epingles = new Set(), envoyes = {}, arbreEnvoye = "";
+let ctrl = null, ecranFichier = null;
+
+function echap(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+async function api(chemin, corps){
+  const r = await fetch(chemin, corps === undefined ? {} : {method: "POST", body: JSON.stringify(corps)});
+  const j = await r.json(); if (!r.ok) throw new Error(j.error ? j.error.message : r.status); return j;
+}
+
+// ---------------------------------------------------------------- coloration
+const colorer = TL.colorer;
+function lignes(html){ return html.split("\n").map(l => "<span class='l'>" + (l || " ") + "</span>").join(""); }
+
+// ---------------------------------------------------------------- ecran central
+function montrer(nom, code, etat, annuler){
+  const e = $("#ecran");
+  if (ecranFichier !== nom) { e.classList.remove("change"); void e.offsetWidth; e.classList.add("change"); }
+  ecranFichier = nom;
+  e.classList.add("ouvert");
+  $("#ecNom").textContent = nom;
+  $("#ecEtat").textContent = etat || "";
+  const enBas = $("#code").scrollHeight - $("#code").scrollTop - $("#code").clientHeight < 60;
+  $("#code").innerHTML = lignes(colorer(code, nom)) + (etat === "écrit…" ? "<span class='curseur'></span>" : "");
+  if (etat === "écrit…" && enBas) $("#code").scrollTop = $("#code").scrollHeight;
+  $("#ecCopier").onclick = () => navigator.clipboard.writeText(code).then(() => $("#ecCopier").textContent = "Copié", () => {});
+  $("#ecCopier").textContent = "Copier";
+  const a = $("#ecAnnuler");
+  a.style.display = annuler ? "" : "none";
+  a.onclick = annuler;
+}
+$("#ecFermer").onclick = () => { $("#ecran").classList.remove("ouvert"); ecranFichier = null; };
+async function voirFichier(chemin){
+  try { const j = await api("/tilabo/projet/lire", {projet: projet.chemin, chemin}); montrer(chemin, j.contenu, "lecture"); }
+  catch (e) { alert(e.message); }
+}
+
+// ---------------------------------------------------------------- lecture des reponses (meme format que CodexLocal)
+const RE_CHERCHER = /^\s*={2,}\s*CHERCHER\s*:\s*(.+?)\s*=*\s*$/im;
+const RE_FICHIER = /^\s*={2,}\s*FICHIER\s*:\s*(.+?)\s*=*\s*$/i, RE_LIRE = /^\s*={2,}\s*LIRE\s*:\s*(.+?)\s*=*\s*$/i, RE_FIN = /^\s*={2,}\s*FIN\s*={2,}\s*$/i;
+const RE_NOM = /([\w.\-\/]+\.[A-Za-z0-9]{1,8})/;
+function sansReflexion(t){ return t.replace(/<think>[\s\S]*?(<\/think>|$)/g, ""); }
+function extraire(reponse){
+  const L = sansReflexion(reponse).split("\n"), actions = [];
+  let cur = null;
+  for (const l of L) {
+    let m;
+    if (cur) {
+      if (RE_FIN.test(l)) { actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: true}); cur = null; }
+      else if ((m = l.match(RE_FICHIER))) { actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: false}); cur = {chemin: m[1], l: []}; }
+      else cur.l.push(l);
+      continue;
+    }
+    if ((m = l.match(RE_FICHIER))) cur = {chemin: m[1], l: []};
+    else if ((m = l.match(RE_LIRE))) actions.push({type: "lire", chemin: m[1]});
+  }
+  if (cur) actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: false});
+  if (actions.length) return actions.map(nettoyer);
+  // Petits modeles : blocs ``` avec un nom de fichier juste avant ou dans l'ouverture
+  const res = []; let dansBloc = false, nom = null, buf = [], avant = "";
+  for (const l of L) {
+    const ouv = l.match(/^\s*```+\s*([^\s`]*)\s*(.*)$/);
+    if (!dansBloc && ouv) {
+      const n = (ouv[2].match(RE_NOM) || ouv[1].match(/\.[A-Za-z0-9]+$/) && ouv[1].match(RE_NOM) || avant.match(RE_NOM) || [])[1];
+      dansBloc = true; nom = n || null; buf = [];
+    } else if (dansBloc && /^\s*```+\s*$/.test(l)) {
+      dansBloc = false;
+      if (!nom && buf.length) { const c = buf[0].match(/^\s*(?:\/\/|#|<!--|\/\*)\s*([\w.\-\/]+\.[A-Za-z0-9]{1,8})/); if (c) nom = c[1]; }
+      if (nom && buf.length > 1) res.push(nettoyer({type: "ecrire", chemin: nom, contenu: buf.join("\n"), complet: true}));
+    } else if (dansBloc) buf.push(l);
+    else if (l.trim()) avant = l;
+  }
+  return res;
+}
+function nettoyer(a){ a.chemin = a.chemin.replace(/[`*"']/g, "").replace(/^\.?\//, "").trim(); return a; }
+
+/** Pendant l'ecriture : le fichier en cours (dernier === FICHIER sans === FIN). */
+function fichierEnCours(reponse){
+  const L = sansReflexion(reponse).split("\n"); let cur = null;
+  for (const l of L) {
+    let m;
+    if ((m = l.match(RE_FICHIER))) cur = {chemin: nettoyer({chemin: m[1]}).chemin, l: []};
+    else if (cur && RE_FIN.test(l)) cur = null;
+    else if (cur) cur.l.push(l);
+  }
+  return cur ? {chemin: cur.chemin, contenu: cur.l.join("\n")} : null;
+}
+
+/** Affichage d'une reponse : les blocs de fichiers deviennent des cartes. */
+function rendu(t){
+  t = t.replace(/<think>([\s\S]*?)(<\/think>|$)/g, (_, p) => "\u0000P" + p.trim() + "\u0000");
+  t = t.replace(/^\s*={2,}\s*FICHIER\s*:\s*(.+?)\s*=*\s*\n[\s\S]*?(^\s*={2,}\s*FIN\s*={2,}\s*$|$(?![\s\S]))/gim,
+    (_, n) => "\u0000F" + n.trim() + "\u0000");
+  t = t.replace(/^\s*={2,}\s*CHERCHER\s*:\s*(.+?)\s*=*\s*$/gim, (_, n) => "\u0000W" + n.trim() + "\u0000");
+  t = t.replace(/^\s*={2,}\s*LIRE\s*:\s*(.+?)\s*=*\s*$/gim, (_, n) => "\u0000L" + n.trim() + "\u0000");
+  const m = t.split(/```/); let h = "";
+  m.forEach((x, i) => {
+    if (i % 2) { const nl = x.indexOf("\n"); const code = nl >= 0 ? x.slice(nl + 1) : x; h += "<pre><code>" + colorer(code.replace(/\n$/, ""), x.slice(0, nl)) + "</code></pre>"; }
+    else h += TL.enrichir(echap(x)).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+  });
+  return h.replace(/\u0000P([\s\S]*?)\u0000/g, (_, p) => p ? "<div class='pense'>" + p + "</div>" : "")
+    .replace(/\u0000F([^\u0000]*)\u0000/g, (_, n) => "<div class='carte'><span>✎</span><span class='n'>" + n + "</span><small>écrit…</small></div>")
+    .replace(/\u0000W([^\u0000]*)\u0000/g, (_, n) => TL.outil("🔎 Recherche : " + n))
+    .replace(/\u0000L([^\u0000]*)\u0000/g, (_, n) => "<div class='carte lu'><span>👁</span><span class='n'>" + n + "</span><small>lecture</small></div>");
+}
+
+// ---------------------------------------------------------------- projet
+function consigne(){
+  return "Tu es le Codex du Ti-Labo, un assistant de programmation local qui ECRIT DIRECTEMENT dans les fichiers. " +
+    "Tu travailles dans le projet « " + projet.nom + " ».\n\n" +
+    "Pour creer ou remplacer un fichier, ecris son contenu COMPLET exactement ainsi :\n" +
+    "=== FICHIER: chemin/relatif.ext ===\n(contenu complet du fichier)\n=== FIN ===\n\n" +
+    "Pour lire un fichier existant avant de le modifier, ecris seul sur une ligne :\n=== LIRE: chemin/relatif.ext ===\n" +
+    "puis arrete ta reponse : tu recevras son contenu.\n\n" +
+    "Regles : chemins relatifs au projet ; toujours le fichier en entier (jamais « ... » ni de morceau) ; " +
+    "pas de bloc ``` autour des fichiers ; explique en une a trois phrases ce que tu fais, avec quelques emojis 🛠️✨ ; reponds en francais." +
+    (TL.internet ? "\n\nSi tu as besoin de documentation ou d'un exemple recent, ecris seul sur une ligne :\n=== CHERCHER: mots-cles ===\n" +
+      "puis arrete ta reponse : tu recevras les resultats Internet." : "");
+}
+async function chargerArbre(){
+  if (!projet) return;
+  try { arbre = (await api("/tilabo/projet/arbre", {projet: projet.chemin})).fichiers; } catch (e) { arbre = []; }
+  dessinerArbre();
+}
+function dessinerArbre(){
+  const A = $("#arbre"); A.innerHTML = "";
+  if (!projet) { A.innerHTML = "<p class='note'>Choisis d'abord un projet.</p>"; return; }
+  if (!arbre.length) { A.innerHTML = "<p class='note'>Projet vide.</p>"; return; }
+  arbre.forEach(f => {
+    const d = document.createElement("div"); d.className = "ligne fich" + (epingles.has(f.chemin) ? " ep" : "");
+    d.innerHTML = "<span class='n'>" + echap(f.chemin) + "</span><small>" + (f.taille < 1024 ? f.taille + " o" : Math.round(f.taille / 1024) + " Ko") + "</small>";
+    d.querySelector(".n").onclick = () => { fermerV("vFich"); voirFichier(f.chemin); };
+    const b = document.createElement("button"); b.textContent = "📎";
+    b.onclick = () => { epingles.has(f.chemin) ? epingles.delete(f.chemin) : epingles.add(f.chemin); dessinerArbre(); dessinerEpingles(); };
+    d.appendChild(b); A.appendChild(d);
+  });
+}
+function dessinerEpingles(){ $("#epingles").innerHTML = [...epingles].map(c => "<span>📎 " + echap(c) + "</span>").join(""); }
+function choisir(p){
+  projet = p; localStorage.setItem("tilabo-projet", JSON.stringify(p));
+  $("#projetNom").innerHTML = "<b>" + echap(p.nom) + "</b> · " + echap(p.ou);
+  nouvelleSession(); chargerArbre(); fermerV("vProj");
+}
+async function ouvrirProjets(){
+  $("#vProj").classList.add("ouvert");
+  const L = $("#listeProj");
+  try {
+    const ps = (await api("/tilabo/projets")).projets;
+    L.innerHTML = ps.length ? "" : "<p class='note'>Aucun projet pour l'instant.</p>";
+    ps.forEach(p => {
+      const d = document.createElement("div"); d.className = "ligne";
+      d.innerHTML = "<span class='n'>" + echap(p.nom) + "<br><small>" + echap(p.ou) + "</small></span>";
+      const b = document.createElement("button"); b.className = "plein"; b.textContent = "Ouvrir"; b.onclick = () => choisir(p);
+      d.appendChild(b); L.appendChild(d);
+    });
+  } catch (e) { L.innerHTML = "<p class='note'>Erreur : " + echap(e.message) + "</p>"; }
+}
+$("#bCreer").onclick = async () => {
+  try { choisir(await api("/tilabo/projets/creer", {nom: $("#nomProj").value})); $("#nomProj").value = ""; }
+  catch (e) { alert(e.message); }
+};
+function fermerV(id){ $("#" + id).classList.remove("ouvert"); }
+document.querySelectorAll(".voile").forEach(v => v.onclick = e => { if (e.target === v) v.classList.remove("ouvert"); });
+
+function nouvelleSession(){
+  if (ctrl) ctrl.abort();
+  historique = []; envoyes = {}; arbreEnvoye = "";
+  $("#fil").innerHTML = "";
+  bulle("ia", "<span class='pense'>" + (projet ? "Projet « " + echap(projet.nom) + " » ouvert. Dis au Codex quoi coder." : "Choisis un projet.") + "</span>");
+}
+
+// ---------------------------------------------------------------- envoi
+function bulle(cls, html){
+  $("#vide")?.remove();
+  const d = document.createElement("div"); d.className = "msg " + cls; d.innerHTML = html;
+  $("#fil").appendChild(d); $("#fil").scrollTop = $("#fil").scrollHeight; return d;
+}
+async function contexte(){
+  let c = "";
+  const liste = arbre.map(f => f.chemin).join("\n");
+  if (liste !== arbreEnvoye) { c += "Fichiers du projet :\n" + (liste || "(aucun)") + "\n\n"; arbreEnvoye = liste; }
+  let taille = 0;
+  for (const ch of epingles) {
+    try {
+      const t = (await api("/tilabo/projet/lire", {projet: projet.chemin, chemin: ch})).contenu;
+      if (envoyes[ch] === t || taille + t.length > MAX_CTX) continue;
+      envoyes[ch] = t; taille += t.length;
+      c += "Contenu actuel de " + ch + " :\n" + t + "\n\n";
+    } catch (_) {}
+  }
+  return c;
+}
+
+async function tour(texte, sortie){
+  historique.push({role: "user", content: texte});
+  let rep = "";
+  ctrl = new AbortController(); $("#bEnv").textContent = "■";
+  try {
+    const r = await fetch("/v1/chat/completions", {method: "POST", signal: ctrl.signal,
+      body: JSON.stringify({messages: [{role: "system", content: consigne()}, ...historique], stream: true, max_tokens: 4096, temperature: 0.4})});
+    if (!r.ok) { const j = await r.json(); throw new Error(j.error ? j.error.message : r.status); }
+    const lecteur = r.body.getReader(), dec = new TextDecoder(); let tampon = "";
+    for (;;) {
+      const {done, value} = await lecteur.read(); if (done) break;
+      tampon += dec.decode(value, {stream: true});
+      const ls = tampon.split("\n"); tampon = ls.pop();
+      for (const l of ls) {
+        if (!l.startsWith("data:")) continue;
+        const d = l.slice(5).trim(); if (d === "[DONE]") continue;
+        try { rep += JSON.parse(d).choices[0].delta.content || ""; } catch (_) {}
+      }
+      sortie.innerHTML = rendu(rep);
+      const enCours = fichierEnCours(rep);
+      if (enCours) montrer(enCours.chemin, enCours.contenu, "écrit…");
+      $("#fil").scrollTop = $("#fil").scrollHeight;
+    }
+  } catch (e) {
+    if (e.name !== "AbortError") rep += (rep ? "\n\n" : "") + "⚠ " + e.message;
+  }
+  ctrl = null; $("#bEnv").textContent = "➤";
+  historique.push({role: "assistant", content: rep});
+  sortie.innerHTML = rendu(rep || "(arrêté)");
+  return rep;
+}
+
+async function appliquer(rep, sortie){
+  const actions = extraire(rep);
+  const ecritures = actions.filter(a => a.type === "ecrire").slice(0, 20);
+  const lectures = actions.filter(a => a.type === "lire").slice(0, MAX_LECTURES);
+  const cartes = [...sortie.querySelectorAll(".carte:not(.lu)")];
+  let derniere = null;
+  for (let i = 0; i < ecritures.length; i++) {
+    const a = ecritures[i];
+    let carte = cartes[i];
+    if (!carte) { carte = document.createElement("div"); carte.className = "carte"; sortie.appendChild(carte); }
+    try {
+      const r = await api("/tilabo/projet/ecrire", {projet: projet.chemin, chemin: a.chemin, contenu: a.contenu});
+      const nb = a.contenu.split("\n").length;
+      const annuler = async () => {
+        await api("/tilabo/projet/ecrire", {projet: projet.chemin, chemin: a.chemin, contenu: r.ancien});
+        carte.querySelector("small").textContent = "annulé"; $("#ecran").classList.remove("ouvert"); chargerArbre();
+      };
+      carte.innerHTML = "<span>✎</span><span class='n'>" + echap(a.chemin) + "</span><small>" +
+        (r.nouveau ? "créé" : "modifié") + " · " + nb + " lignes" + (a.complet ? "" : " · coupé ?") + "</small>";
+      carte.onclick = () => montrer(a.chemin, a.contenu, r.nouveau ? "créé" : "modifié", annuler);
+      derniere = () => montrer(a.chemin, a.contenu, r.nouveau ? "créé" : "modifié", annuler);
+      if (epingles.has(a.chemin)) envoyes[a.chemin] = a.contenu;
+    } catch (e) {
+      carte.className = "carte err"; carte.innerHTML = "<span>⚠</span><span class='n'>" + echap(a.chemin) + "</span><small>" + echap(e.message) + "</small>";
+    }
+  }
+  if (derniere) derniere();
+  if (ecritures.length) chargerArbre();
+  return lectures;
+}
+
+async function envoyer(texte){
+  if (!projet) { ouvrirProjets(); return; }
+  const plan = $("#plan").checked;
+  bulle("moi", echap(texte));
+  let message = (await contexte()) + texte;
+  if (plan) message += "\n\n(Mode plan : donne seulement un plan court en etapes numerotees, sans ecrire de fichier. J'approuverai ensuite.)";
+  for (let n = 0; n <= MAX_TOURS; n++) {
+    const sortie = bulle("ia", "<span class='pense'>…</span>");
+    const rep = await tour(message, sortie);
+    if (plan && n === 0) {
+      const a = document.createElement("div"); a.className = "actions";
+      const b = document.createElement("button"); b.className = "plein"; b.textContent = "✓ Coder ce plan";
+      b.onclick = () => { a.remove(); $("#plan").checked = false; envoyer("Le plan est bon. Applique-le maintenant en ecrivant les fichiers."); };
+      a.appendChild(b); sortie.appendChild(a);
+      return;
+    }
+    const lectures = await appliquer(rep, sortie);
+    const recherche = TL.internet && rep.match(RE_CHERCHER);
+    if ((!lectures.length && !recherche) || n === MAX_TOURS) return;
+    // Le Codex a demande a lire des fichiers ou a chercher sur Internet : on lui donne et il continue
+    message = "";
+    if (recherche) {
+      const q = recherche[1];
+      const [res, imgs] = await Promise.all([TL.chercher(q).catch(() => []), TL.images(q).catch(() => [])]);
+      const page = res[0] ? await TL.page(res[0].url).catch(() => null) : null;
+      sortie.insertAdjacentHTML("beforeend", TL.galerie(imgs.slice(0, 4)) + TL.cartesSources(res));
+      message += res.length ? TL.pourIA(q, res, page) : "La recherche « " + q + " » n'a rien donne.\n\n";
+    }
+    for (const l of lectures) {
+      try { const t = (await api("/tilabo/projet/lire", {projet: projet.chemin, chemin: l.chemin})).contenu; envoyes[l.chemin] = t; message += "Contenu de " + l.chemin + " :\n" + t + "\n\n"; }
+      catch (e) { message += "Impossible de lire " + l.chemin + " : " + e.message + "\n\n"; }
+    }
+    message += "Continue le travail.";
+  }
+}
+
+$("#f").onsubmit = e => {
+  e.preventDefault();
+  if (ctrl) { ctrl.abort(); return; }
+  const t = $("#q").value.trim(); if (!t) return;
+  $("#q").value = ""; $("#q").style.height = "";
+  envoyer(t);
+};
+$("#q").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; });
+$("#bProj").onclick = ouvrirProjets;
+$("#bFich").onclick = () => { $("#vFich").classList.add("ouvert"); chargerArbre(); };
+$("#bNouv").onclick = nouvelleSession;
+
+(async () => {
+  try { const p = JSON.parse(localStorage.getItem("tilabo-projet") || "null"); if (p) { projet = p; $("#projetNom").innerHTML = "<b>" + echap(p.nom) + "</b> · " + echap(p.ou); await chargerArbre(); } } catch (_) {}
+  try { const e = await api("/tilabo/etat"); if (!e.modele) bulle("ia", "<span class='pense'>Aucune IA chargée : va dans Jasette › IA et choisis un .gguf.</span>"); } catch (_) {}
+  if (!projet) ouvrirProjets();
+})();
+</script>
+</body>
+</html>

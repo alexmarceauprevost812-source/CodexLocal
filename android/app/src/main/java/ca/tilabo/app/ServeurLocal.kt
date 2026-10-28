@@ -198,7 +198,54 @@ class ServeurLocal(private val ctx: Context) {
                 json(out, 200, JSONObject().put("ok", true))
             }
             "/v1/chat/completions", "/chat/completions" -> jasette(r, out)
-            "/", "/index.html" -> asset(out, "jasette.html", "text/html; charset=utf-8")
+            "/tilabo/projets" -> json(out, 200, JSONObject().put("projets", Projets.lister()))
+            "/tilabo/projets/creer", "/tilabo/projet/arbre", "/tilabo/projet/lire", "/tilabo/projet/ecrire" -> {
+                val d = JSONObject(String(r.corps, Charsets.UTF_8).ifBlank { "{}" })
+                try {
+                    val res: Any = when (r.chemin) {
+                        "/tilabo/projets/creer" -> Projets.creer(d.optString("nom"))
+                        "/tilabo/projet/arbre" -> JSONObject().put("fichiers", Projets.arbre(Projets.projet(d.optString("projet"))))
+                        "/tilabo/projet/lire" -> JSONObject().put("contenu",
+                            Projets.lire(Projets.projet(d.optString("projet")), d.optString("chemin")))
+                        else -> Projets.ecrire(Projets.projet(d.optString("projet")), d.optString("chemin"),
+                            if (d.isNull("contenu")) null else d.optString("contenu"))
+                    }
+                    json(out, 200, res)
+                } catch (e: Exception) {
+                    erreur(out, 400, e.message ?: "Erreur")
+                }
+            }
+            "/tilabo/reglages", "/tilabo/web/chercher", "/tilabo/web/page", "/tilabo/web/images",
+            "/tilabo/github/depots", "/tilabo/github/cloner",
+            "/tilabo/sync/cle", "/tilabo/sync/lies", "/tilabo/sync/etat", "/tilabo/sync/cloner", "/tilabo/sync/synchroniser" -> {
+                val d = JSONObject(String(r.corps, Charsets.UTF_8).ifBlank { "{}" })
+                try {
+                    if (r.chemin.startsWith("/tilabo/web/") && !Reglages.internet(ctx))
+                        throw IllegalStateException("Internet est désactivé pour l'IA (Réglages du Ti-Labo)")
+                    val res: Any = when (r.chemin) {
+                        "/tilabo/reglages" -> { if (r.methode == "POST") Reglages.ecrire(ctx, d); Reglages.lire(ctx) }
+                        "/tilabo/web/chercher" -> JSONObject().put("resultats", Web.chercher(d.optString("requete")))
+                        "/tilabo/web/page" -> Web.lirePage(d.optString("url"))
+                        "/tilabo/web/images" -> JSONObject().put("images", Web.images(d.optString("requete")))
+                        "/tilabo/github/depots" -> JSONObject().put("depots", GitHub.mesDepots(ctx))
+                        "/tilabo/github/cloner" -> GitHub.cloner(ctx, d.optString("depot"), d.optString("branche"))
+                        "/tilabo/sync/cle" -> JSONObject().put("projets", Sync.projetsCle())
+                        "/tilabo/sync/lies" -> JSONObject().put("projets", Sync.projetsLies())
+                        "/tilabo/sync/etat" -> Sync.etat(d.optString("projet"))
+                        "/tilabo/sync/cloner" -> Sync.cloner(d.optString("projet"))
+                        else -> Sync.synchroniser(d.optString("projet"), d.optString("vers"))
+                    }
+                    json(out, 200, res)
+                } catch (e: Exception) {
+                    erreur(out, 400, e.message ?: e.javaClass.simpleName)
+                }
+            }
+            "/codex" -> asset(out, "codex.html", "text/html; charset=utf-8")
+            "/jasette" -> asset(out, "jasette.html", "text/html; charset=utf-8")
+            "/cle" -> asset(out, "cle.html", "text/html; charset=utf-8")
+            "/github" -> asset(out, "github.html", "text/html; charset=utf-8")
+            "/menu.js" -> asset(out, "menu.js", "text/javascript; charset=utf-8")
+            "/", "/index.html" -> asset(out, "bureau.html", "text/html; charset=utf-8")
             "/logo.png" -> asset(out, "logo.png", "image/png")
             else -> erreur(out, 404, "introuvable : ${r.chemin}")
         }
@@ -223,15 +270,9 @@ class ServeurLocal(private val ctx: Context) {
 
     private fun jasette(r: Requete, out: OutputStream) {
         val d = JSONObject(String(r.corps, Charsets.UTF_8))
-        // Pas d'outils pour l'instant : le Ti-Labo continue alors sans recherche web.
-        if (d.has("tools") && (d.optJSONArray("tools")?.length() ?: 0) > 0) {
-            return erreur(out, 400, "Ce moteur ne gere pas les outils")
-        }
         if (Moteur.chemin == null) return erreur(out, 503, "Aucune IA chargee dans l'appli Ti-Labo")
-        val arr = d.optJSONArray("messages") ?: JSONArray()
-        val messages = (0 until arr.length()).mapNotNull { i ->
-            arr.optJSONObject(i)?.let { Moteur.Msg(it.optString("role"), texte(it.opt("content"))) }
-        }
+        val outils = d.optJSONArray("tools")?.takeIf { it.length() > 0 }
+        val messages = Outils.convertir(d.optJSONArray("messages") ?: JSONArray(), outils) { texte(it) }
         val temp = if (d.has("temperature")) d.optDouble("temperature").toFloat() else null
         val max = when {
             d.has("max_tokens") -> d.optInt("max_tokens")
@@ -242,19 +283,41 @@ class ServeurLocal(private val ctx: Context) {
         val modele = Moteur.nom ?: "gguf"
         val cree = System.currentTimeMillis() / 1000
 
-        if (!d.optBoolean("stream", false)) {
+        if (!d.optBoolean("stream", false) || outils != null) {
             val b = StringBuilder()
             try {
                 runBlocking { Moteur.repondre(ctx, messages, temp, max).collect { b.append(it) } }
             } catch (e: Exception) {
                 return erreur(out, 500, e.message ?: "Erreur du moteur")
             }
+            val (contenu, appels) = if (outils != null) Outils.extraire(b.toString(), outils) else b.toString() to JSONArray()
+            val message = JSONObject().put("role", "assistant").put("content", contenu)
+            if (appels.length() > 0) {
+                message.put("tool_calls", appels)
+                Outils.convertir(JSONArray().put(message), null) { texte(it) }
+                    .lastOrNull { it.role == "assistant" }?.let { Moteur.corrigerDerniereReponse(it.contenu) }
+            }
+            val fin = if (appels.length() > 0) "tool_calls" else "stop"
+            if (d.optBoolean("stream", false)) {
+                // Demande en flux avec outils : on renvoie la reponse entiere en un seul morceau.
+                out.write(("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=utf-8\r\n" +
+                    "Cache-Control: no-store\r\nConnection: close\r\n\r\n").toByteArray())
+                val delta = JSONObject().put("role", "assistant").put("content", contenu)
+                if (appels.length() > 0) {
+                    for (i in 0 until appels.length()) appels.getJSONObject(i).put("index", i)
+                    delta.put("tool_calls", appels)
+                }
+                val o = JSONObject().put("id", id).put("object", "chat.completion.chunk").put("created", cree)
+                    .put("model", modele).put("choices", JSONArray().put(JSONObject().put("index", 0)
+                        .put("delta", delta).put("finish_reason", fin)))
+                out.write("data: $o\n\ndata: [DONE]\n\n".toByteArray())
+                out.flush()
+                return
+            }
             return json(out, 200, JSONObject()
                 .put("id", id).put("object", "chat.completion").put("created", cree).put("model", modele)
                 .put("choices", JSONArray().put(JSONObject()
-                    .put("index", 0)
-                    .put("message", JSONObject().put("role", "assistant").put("content", b.toString()))
-                    .put("finish_reason", "stop"))))
+                    .put("index", 0).put("message", message).put("finish_reason", fin))))
         }
 
         out.write(("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=utf-8\r\n" +

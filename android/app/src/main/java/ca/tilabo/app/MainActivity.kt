@@ -151,13 +151,30 @@ class MainActivity : Activity() {
                     "<button class='second' onclick='TiLaboApp.plusTard()'>Plus tard</button>"))
             return
         }
-        lancer()
+        ouvrirBureau()
     }
 
+    /** Le Bureau de l'appli (moteur gguf, Jasette, Codex, Clé USB-C, GitHub). */
+    private fun ouvrirBureau() {
+        afficher(page("Démarrage…", "<p>On prépare le moteur d'IA du téléphone.</p><div class='roue'></div>"))
+        Thread {
+            for (n in 0 until 40) {
+                if (vivant(URL_AUTONOME + "tilabo/etat")) { principal.post { vue.loadUrl(URL_AUTONOME) }; return@Thread }
+                try { Thread.sleep(250) } catch (e: InterruptedException) { break }
+            }
+            principal.post {
+                afficher(page("Le moteur ne démarre pas",
+                    "<p>Le port 8081 est peut-être pris par llama-server dans Termux. Arrête-le (Ctrl+C dans Termux) puis réessaie.</p>",
+                    "<button onclick='TiLaboApp.reessayer()'>Réessayer</button>"))
+            }
+        }.start()
+    }
+
+    /** Le Ti-Labo complet (Python, dans Termux) : Studio, Mémoire… */
     private fun lancer() {
-        afficher(page("Démarrage…",
-            "<p>Moteur gguf de l'appli : prêt.<br>On réveille le Ti-Labo dans Termux.</p><div class='roue'></div>",
-            "<button class='second' onclick='TiLaboApp.autonome()'>Jasette sans Termux</button>"))
+        afficher(page("Ti-Labo complet…",
+            "<p>On réveille le Ti-Labo dans Termux (Studio, Mémoire…).<br>Tes IA .gguf passent par le moteur de l'appli.</p><div class='roue'></div>",
+            "<button class='second' onclick='TiLaboApp.autonome()'>Retour au Bureau</button>"))
         Thread {
             if (vivant(URL_TILABO)) principal.post { vue.loadUrl(URL_TILABO) }
             else principal.post { lancerTermux() }
@@ -167,7 +184,7 @@ class MainActivity : Activity() {
     private fun lancerTermux() {
         if (!termuxInstalle()) {
             afficher(page("Termux est absent",
-                "<p>Tes IA <b>.gguf</b> marchent déjà dans l'appli : touche « Jasette sans Termux ».</p>" +
+                "<p>Tout le reste marche déjà dans l'appli : touche « Retour au Bureau ».</p>" +
                     "<p class='petit'>Pour le Ti-Labo complet (Codex, Studio, GitHub…), installe Termux depuis F-Droid ou GitHub, " +
                     "puis suis LISEZMOI-TELEPHONE.</p>",
                 boutonsAide()))
@@ -213,12 +230,12 @@ class MainActivity : Activity() {
     }
 
     private fun boutonsAide() =
-        "<button onclick='TiLaboApp.autonome()'>Jasette sans Termux</button>" +
+        "<button onclick='TiLaboApp.autonome()'>Retour au Bureau</button>" +
             "<button class='second' onclick='TiLaboApp.reessayer()'>Réessayer le Ti-Labo</button>"
 
     private fun aideReglages(detail: String?) {
         afficher(page("Le Ti-Labo complet ne démarre pas",
-            "<p>Tes IA .gguf marchent quand même : « Jasette sans Termux ».</p>" +
+            "<p>Jasette, Codex, Clé USB-C et GitHub marchent quand même : « Retour au Bureau ».</p>" +
                 "<p>Pour le Ti-Labo complet, fais ceci <b>une seule fois</b> dans Termux :</p>" +
                 "<ol><li>Le dossier <code>~/TiLabo</code> doit exister (voir LISEZMOI-TELEPHONE).</li>" +
                 "<li><pre>mkdir -p ~/.termux\necho \"allow-external-apps=true\" &gt;&gt; ~/.termux/termux.properties\ntermux-reload-settings</pre></li>" +
@@ -295,7 +312,8 @@ class MainActivity : Activity() {
     inner class Pont {
         @JavascriptInterface fun reessayer() = principal.post { demarrer() }.let { }
         @JavascriptInterface fun autonome() = principal.post { vue.loadUrl(URL_AUTONOME) }.let { }
-        @JavascriptInterface fun plusTard() = principal.post { attendAcces = false; lancer() }.let { }
+        @JavascriptInterface fun plusTard() = principal.post { attendAcces = false; ouvrirBureau() }.let { }
+        @JavascriptInterface fun complet() = principal.post { lancer() }.let { }
         @JavascriptInterface fun message(t: String) = principal.post {
             Toast.makeText(this@MainActivity, t, Toast.LENGTH_LONG).show()
         }.let { }
