@@ -93,7 +93,8 @@ function conseil(m){
 }
 
 async function chercher(ville){
-  await TL.pret;
+  // relire le reglage a chaque recherche : Internet a pu etre coupe depuis l'ouverture de la page
+  await TL.chargerReglages();
   if (TL.internet === false) {
     $("#res").innerHTML = "<div class='etat'>🌐 La météo vient du web, et le Ti-Labo est en mode 100 % hors-ligne.<br>Permets Internet dans ⚙️ Paramètres.</div>";
     return;
