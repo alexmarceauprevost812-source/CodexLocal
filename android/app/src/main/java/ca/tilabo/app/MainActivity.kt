@@ -300,7 +300,11 @@ class MainActivity : Activity() {
 
     @Deprecated("API Activity")
     override fun onBackPressed() {
-        if (vue.canGoBack()) vue.goBack() else super.onBackPressed()
+        // Sur le bureau, Retour reduit d'abord la fenetre ouverte (comme Windows), puis on navigue/quitte
+        vue.evaluateJavascript("(window.tlRetour && window.tlRetour()) ? 1 : 0") { r ->
+            if (r == "1") return@evaluateJavascript
+            if (vue.canGoBack()) vue.goBack() else super.onBackPressed()
+        }
     }
 
     // ------------------------------------------------------------------ pages locales
