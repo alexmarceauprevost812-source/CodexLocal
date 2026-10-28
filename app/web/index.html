@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/web/devoirs.css">
 <link rel="stylesheet" href="/web/agenda.css">
 <script>window.TILABO_JETON = "__JETON__";</script>
+<script src="/web/teinte.js"></script>
 <script>
 // Ouvert dans une fenetre du bureau facon Windows : on cache l'en-tete et le panneau de gauche,
 // et on reprend la session du bureau (aucun mot de passe a retaper).
@@ -443,6 +444,11 @@ Chaque « ## » devient une diapo quand tu présentes."></textarea>
       <section class="vue" id="v-parametres" aria-label="Paramètres">
         <div class="entete"><div><h1>Paramètres</h1></div></div>
         <div class="carte">
+          <h2 style="margin-bottom:12px">🎨 Couleur des boutons</h2>
+          <p class="sous" style="margin:-6px 0 12px">La couleur des boutons et des yeux de l'IA, partout dans le Ti-Labo.</p>
+          <div id="choixCouleur"></div>
+        </div>
+        <div class="carte">
           <h2 style="margin-bottom:12px">Moteur de chat</h2>
           <div class="grille">
             <div><label class="lib" for="pa-moteur">Moteur</label>
@@ -498,6 +504,11 @@ Chaque « ## » devient une diapo quand tu présentes."></textarea>
 <script src="/web/devoirs.js"></script>
 <script src="/web/nouvelles.js"></script>
 <script src="/web/agenda.js"></script>
+<script src="/web/logos.js"></script>
+<script src="/web/carte-meteo.js"></script>
+<script>if (window.TiTeinte) TiTeinte.choix(document.getElementById("choixCouleur"));</script>
+<script src="/web/yeux.js"></script>
+<script src="/web/halloween.js" data-mode="yeux"></script>
 <script src="/web/app.js"></script>
 </body>
 </html>

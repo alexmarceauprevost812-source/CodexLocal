@@ -6,6 +6,7 @@
 <title>Ti-Labo — Bureau</title>
 <link rel="icon" href="/web/logo.png">
 <script>window.TILABO_JETON = "__JETON__";</script>
+<script src="/web/teinte.js"></script>
 <style>
 :root{--or:#FF7A1A;--or2:#ff9a4d;--txt:#f5f5f5;--doux:#a3a3a3;--ligne:rgba(255,255,255,.09);--verre:rgba(18,18,20,.74);--barre:52px}
 *{box-sizing:border-box}
@@ -47,7 +48,7 @@ button{font:inherit;color:inherit}
 .vide{color:var(--doux);font-size:13px}
 @media (max-width:900px){#gadgets{display:none}#bureau{right:0}}
 /* barre des taches (centree comme Windows 11) */
-#barre{position:fixed;left:0;right:0;bottom:0;height:var(--barre);z-index:50;display:flex;align-items:center;padding:0 10px;
+#barre{position:fixed;left:0;right:0;bottom:0;height:var(--barre);z-index:100050;display:flex;align-items:center;padding:0 10px;
   background:rgba(16,16,18,.86);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid var(--ligne)}
 #centre{flex:1;display:flex;justify-content:center;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
 .tache{position:relative;width:44px;height:40px;border:0;border-radius:7px;background:transparent;display:grid;place-items:center;font-size:21px;cursor:default;flex:none}
@@ -58,8 +59,8 @@ button{font:inherit;color:inherit}
 .sep{width:1px;height:24px;background:var(--ligne);margin:0 4px;flex:none}
 #zone{display:flex;align-items:center;gap:10px;font-size:12px;color:#e5e5e5;white-space:nowrap}
 #zone .h{text-align:right;line-height:1.25}
-/* menu demarrer */
-#menu{position:fixed;left:50%;bottom:calc(var(--barre) + 10px);transform:translateX(-50%);z-index:60;width:min(620px,calc(100vw - 20px));max-height:min(660px,calc(100vh - var(--barre) - 24px));
+/* menu demarrer (z-index > 100000 : toujours au-dessus des fenetres, qui montent a chaque clic) */
+#menu{position:fixed;left:50%;bottom:calc(var(--barre) + 10px);transform:translateX(-50%);z-index:100060;width:min(620px,calc(100vw - 20px));max-height:min(660px,calc(100vh - var(--barre) - 24px));
   display:none;flex-direction:column;background:rgba(24,24,27,.95);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);border:1px solid var(--ligne);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.6);animation:monte .16s ease-out}
 #menu.ouvert{display:flex}
 @keyframes monte{from{transform:translate(-50%,16px);opacity:0}}
@@ -89,10 +90,10 @@ body.glisse .fen .cache-iframe{display:block}
 .fen .poignee{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;touch-action:none}
 .notes{flex:1;width:100%;resize:none;border:0;outline:none;background:#0f0f11;color:#e5e5e5;padding:14px 16px;font:14px/1.6 "Cascadia Code",Consolas,monospace;user-select:text}
 /* menu contextuel */
-#ctx{position:fixed;z-index:70;display:none;background:rgba(28,28,31,.97);border:1px solid var(--ligne);border-radius:9px;padding:5px;min-width:220px;box-shadow:0 14px 34px rgba(0,0,0,.6)}
+#ctx{position:fixed;z-index:100070;display:none;background:rgba(28,28,31,.97);border:1px solid var(--ligne);border-radius:9px;padding:5px;min-width:220px;box-shadow:0 14px 34px rgba(0,0,0,.6)}
 #ctx div{padding:8px 12px;border-radius:6px;font-size:13px;cursor:default}#ctx div:hover{background:rgba(255,255,255,.08)}
 /* choix du bureau (premier demarrage) */
-#choix{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(5,5,5,.86);backdrop-filter:blur(10px)}
+#choix{position:fixed;inset:0;z-index:100090;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(5,5,5,.86);backdrop-filter:blur(10px)}
 #choix[hidden]{display:none}
 #choix .boite{max-width:900px;width:100%;text-align:center}
 #choix h1{font-size:clamp(24px,3.4vw,34px);margin:0 0 6px}#choix .sous{color:var(--doux);margin:0 0 26px}
@@ -112,7 +113,7 @@ body.glisse .fen .cache-iframe{display:block}
 .mini.cl .hd{position:absolute;left:0;right:0;top:0;height:16px;background:#141416;border-bottom:1px solid #262626}
 .mini.cl .ct{position:absolute;left:31%;right:6%;top:26px;bottom:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mini.cl .ct i{border-radius:5px;background:#1b1b1e}
 /* verrouillage */
-#verrou{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(900px 600px at 50% 30%,#3a1606,#050505 75%)}
+#verrou{position:fixed;inset:0;z-index:100100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(900px 600px at 50% 30%,#3a1606,#050505 75%)}
 #verrou[hidden]{display:none}
 #verrou img{width:110px;height:110px;object-fit:contain}
 #verrou .h{font-size:64px;font-weight:600;letter-spacing:-2px}
@@ -192,6 +193,8 @@ const APPS = [
   {id: "codex", e: "🧑‍💻", n: "Codex", c1: "#1d4ed8", c2: "#60a5fa"},
   {id: "projets", e: "📁", n: "Mes projets", c1: "#b45309", c2: "#fcd34d"},
   {id: "studio", e: "🎬", n: "Studio", c1: "#be123c", c2: "#fb7185"},
+  {id: "ecriture", e: "✍️", n: "Écriture", u: "/ecriture", c1: "#57534e", c2: "#d6d3d1", desc: "Écrire avec les pouvoirs magiques de l'IA"},
+  {id: "meteo", e: "🌤️", n: "Météo", u: "/meteo", c1: "#1d4ed8", c2: "#7dd3fc", desc: "La météo cherchée sur le web"},
   {id: "agenda", e: "🗓️", n: "Agenda", c1: "#c2410c", c2: "#fdba74"},
   {id: "notes", e: "📝", n: "Notes", c1: "#4d7c0f", c2: "#a3e635", interne: true},
   {id: "explorateur", e: "🗄️", n: "Explorateur", c1: "#a16207", c2: "#fde047", action: true, desc: "Ouvre le dossier des projets dans Windows"},
@@ -203,7 +206,7 @@ const APPS = [
   {id: "ia", e: "🤖", n: "IA locales", c1: "#6d28d9", c2: "#a78bfa"},
   {id: "parametres", e: "⚙️", n: "Paramètres", c1: "#3f3f46", c2: "#a1a1aa"},
 ];
-const EPINGLES = ["jasette", "codex", "projets", "agenda", "notes"];
+const EPINGLES = ["jasette", "codex", "ecriture", "projets", "agenda"];
 const app = (id) => APPS.find((a) => a.id === id);
 let projets = [], etatTL = {};
 
@@ -231,7 +234,10 @@ function lancer(a, opts = {}) {
   if (a.action) return api("ouvrir-dossier", {chemin: ""}).catch((e) => alert(e.message));
   const cle = a.id + (opts.projet ? ":" + opts.projet : "");
   const deja = fenetres.find((f) => f.cle === cle);
-  if (deja) { deja.el.classList.remove("min"); activer(deja); return; }
+  if (deja) {
+    if (opts.src) deja.el.querySelector("iframe").src = opts.src;
+    deja.el.classList.remove("min"); activer(deja); return;
+  }
   const el = document.createElement("div"); el.className = "fen";
   const w = Math.min(1100, Math.max(640, innerWidth * 0.62)), h = Math.min(720, innerHeight - 140);
   decal = (decal + 28) % 168;
@@ -247,7 +253,8 @@ function lancer(a, opts = {}) {
     setTimeout(() => t.focus(), 60);
   } else {
     const f = document.createElement("iframe");
-    f.src = "/index.html?cadre=1&vue=" + encodeURIComponent(a.id) + (opts.projet ? "&projet=" + encodeURIComponent(opts.projet) : "");
+    f.src = opts.src || (a.u ? a.u + "?cadre=1" :
+      "/index.html?cadre=1&vue=" + encodeURIComponent(a.id) + (opts.projet ? "&projet=" + encodeURIComponent(opts.projet) : ""));
     f.title = titre;
     el.insertBefore(f, el.querySelector(".cache-iframe"));
   }
@@ -322,7 +329,17 @@ function remplirMenu(q) {
       C.appendChild(d);
     });
   }
-  if (!as.length && !ps.length) C.insertAdjacentHTML("beforeend", '<p class="vide" style="padding:8px">Rien trouvé.</p>');
+  // « Normandin », « météo Paris » : la météo de cette ville, cherchée sur le web
+  const v = q.replace(/^(la\s+)?m[ée]t[ée]o(?:\s+(?:à|a|de|du|au|pour)(?=\s))?\s*/i, "").trim();
+  if (q && v && v.length < 50) {
+    const vraie = $("#cherche").value.trim().replace(/^(la\s+)?m[ée]t[ée]o(?:\s+(?:à|a|de|du|au|pour)(?=\s))?\s*/i, "").trim();
+    C.insertAdjacentHTML("beforeend", "<h5>Météo</h5>");
+    const d = document.createElement("div"); d.className = "proj";
+    d.innerHTML = `🌤️ <span>Météo à ${esc(vraie)}</span><small>Cherchée sur le web</small>`;
+    d.onclick = () => { fermerMenu(); lancer(app("meteo"), {src: "/meteo?cadre=1&ville=" + encodeURIComponent(vraie)}); };
+    C.appendChild(d);
+  }
+  if (!as.length && !ps.length && !(q && v)) C.insertAdjacentHTML("beforeend", '<p class="vide" style="padding:8px">Rien trouvé.</p>');
 }
 $("#demarrer").onclick = (e) => { e.stopPropagation(); $("#menu").classList.contains("ouvert") ? fermerMenu() : ouvrirMenu(); };
 $("#cherche").oninput = (e) => remplirMenu(e.target.value);
@@ -352,7 +369,8 @@ $("#bureau").addEventListener("contextmenu", (e) => {
   e.preventDefault();
   const m = $("#ctx");
   m.innerHTML = "<div data-c='rafr'>🔄 Actualiser</div><div data-c='fond'>🖼️ Changer le fond d'écran</div><div data-c='explo'>🗄️ Ouvrir le dossier des projets</div><div data-c='param'>⚙️ Paramètres</div>" +
-    (window.TiNoel ? "<div data-c='noel'>🎄 Thème de Noël : " + (TiNoel.actif() ? "désactiver" : "activer") + "</div>" : "");
+    (window.TiNoel ? "<div data-c='noel'>🎄 Thème de Noël : " + (TiNoel.actif() ? "désactiver" : "activer") + "</div>" : "") +
+    (window.TiHalloween ? "<div data-c='halloween'>🦇 Thème Halloween : " + (TiHalloween.actif() ? "désactiver" : "activer") + "</div>" : "");
   Object.assign(m.style, {display: "block", left: Math.min(e.clientX, innerWidth - 240) + "px", top: Math.min(e.clientY, innerHeight - 220) + "px"});
   m.onclick = (ev) => {
     const c = ev.target.dataset.c; m.style.display = "none";
@@ -361,6 +379,7 @@ $("#bureau").addEventListener("contextmenu", (e) => {
     if (c === "explo") lancer(app("explorateur"));
     if (c === "param") lancer(app("parametres"));
     if (c === "noel" && window.TiNoel) TiNoel.basculer();
+    if (c === "halloween" && window.TiHalloween) TiHalloween.basculer();
   };
 });
 const FONDS = ["", "radial-gradient(1000px 700px at 20% 85%,#4a1606,#050505 70%)", "linear-gradient(160deg,#0b1026,#050505 62%)", "radial-gradient(900px 700px at 70% 10%,#0f2a17,#050505 70%)", "linear-gradient(135deg,#1f2937,#0b0b0c 70%)"];
@@ -403,6 +422,22 @@ async function meteo() {
     C.innerHTML = `<div class="met"><span class="e">${e}</span><div><b>${Math.round(m.current.temperature_2m)}°C</b><small>${desc} · ressenti ${Math.round(m.current.apparent_temperature)}° · vent ${Math.round(m.current.wind_speed_10m)} km/h</small><small>${esc(l.name)}${l.admin1 ? ", " + esc(l.admin1) : ""}</small></div></div><div class="jours">${jours}</div>`;
   } catch (err) { C.className = "vide"; C.textContent = "Météo indisponible pour le moment (" + err.message + ")."; }
 }
+// Toucher la meteo du bureau ouvre l'appli Meteo (previsions, conseil du jour)
+$("#meteoCorps").style.cursor = "pointer";
+$("#meteoCorps").onclick = () => lancer(app("meteo"));
+// Les applis dans les fenetres peuvent en ouvrir une autre (ex. Meteo -> Jasette)
+// Avec une question : la Jasette la recoit et l'envoie (fenetre deja ouverte ou nouvelle)
+window.tlOuvrir = (id, question) => {
+  const a = app(id); if (!a) return;
+  const deja = question && fenetres.find((f) => f.cle === id);
+  if (deja) {
+    deja.el.classList.remove("min"); activer(deja);
+    const fr = deja.el.querySelector("iframe");
+    if (fr) fr.contentWindow.postMessage({tlQuestion: question}, location.origin);
+    return;
+  }
+  lancer(a, question ? {src: "/index.html?cadre=1&vue=" + encodeURIComponent(id) + "&question=" + encodeURIComponent(question)} : {});
+};
 $("#btVille").onclick = () => {
   const v = prompt("Ville pour la météo :", ville());
   if (v && v.trim()) { try { localStorage.setItem("tilabo-ville", v.trim()); } catch (_) {} meteo(); }
@@ -501,5 +536,7 @@ function verrouiller() {
 </script>
 <script src="/web/agenda.js"></script>
 <script src="/web/noel.js" data-barre="52px"></script>
+<script src="/web/yeux.js"></script>
+<script src="/web/halloween.js" data-barre="52px"></script>
 </body>
 </html>
