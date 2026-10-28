@@ -385,6 +385,10 @@ function changerFond(){
   localStorage.setItem("tilabo-fond", FONDS[i]); appliquerFond();
 }
 function appliquerFond(){ $("#fond").className = localStorage.getItem("tilabo-fond") || ""; }
+// La permission de position arrive dans la page du bureau : on la relaie aux fenetres (ex. Jasette qui attend la meteo)
+addEventListener("tl-position", e => document.querySelectorAll(".fen iframe").forEach(f => {
+  try { f.contentWindow.dispatchEvent(new CustomEvent("tl-position", {detail: e.detail})); } catch (_) {}
+}));
 // fond change depuis Parametres (dans une fenetre) : le bureau ouvert suit tout de suite
 addEventListener("storage", e => { if (e.key === "tilabo-fond") appliquerFond(); });
 
