@@ -6,6 +6,10 @@
   "use strict";
   const script = document.currentScript;
   const BARRE = (script && script.dataset.barre) || "56px";
+  const CADRE = script && script.dataset.cadre;        // où mettre la neige (sinon après #fond)
+  const GADGETS = (script && script.dataset.gadgets) || "#gadgets";
+  const CARTE = (script && script.dataset.carte) || "gad"; // classe de la carte compte à rebours
+  const STYLE = script && script.dataset.style;        // "famille" : fond d'hiver pour Mon assistante
   const CLE = "tilabo-noel";
 
   function enSaison(d) {
@@ -41,6 +45,13 @@
   .noel-gad h4{color:#f87171!important}
   .noel-gad .compte{font-size:26px;font-weight:700;color:#fff;line-height:1.1}
   .noel-gad .compte small{display:block;font-size:12.5px;font-weight:400;color:#a3a3a3;margin-top:3px}
+  .noel-gad{position:relative}
+  .noel-gad .ferme{position:absolute;top:8px;right:10px;border:0;background:transparent;color:inherit;opacity:.55;font-size:15px;cursor:pointer;min-width:28px;min-height:28px}
+  .noel-gad .ferme:hover{opacity:1}
+  html.noel.noel-famille .bureau{background:radial-gradient(1100px 700px at 75% 0%,#1e5a3c 0%,#0c2a1c 50%,#06140d 85%)!important}
+  html.noel.noel-famille .noel-gad .compte{color:inherit}
+  html.noel-famille .noel-sapin{right:calc(min(420px,42vw) + 56px);width:150px}
+  html.noel-famille .noel-gad h4{margin:0}
   @media (max-width:600px){.noel-sapin{display:none}}
   @media (prefers-reduced-motion:reduce){.noel-guirlande i,.noel-sapin .lum,.noel-etoile{animation:none}}
   `;
@@ -114,20 +125,24 @@
     if (elements.length) return;
     document.documentElement.classList.add("noel");
     const style = document.createElement("style"); style.textContent = css; document.head.appendChild(style);
+    if (STYLE) document.documentElement.classList.add("noel-" + STYLE);
     const c = document.createElement("canvas"); c.className = "noel-neige";
-    const fond = document.getElementById("fond");
-    (fond && fond.parentNode ? fond.parentNode.insertBefore(c, fond.nextSibling) : document.body.prepend(c));
+    const cadre = CADRE && document.querySelector(CADRE), fond = document.getElementById("fond");
+    if (cadre) cadre.prepend(c);
+    else if (fond && fond.parentNode) fond.parentNode.insertBefore(c, fond.nextSibling);
+    else document.body.prepend(c);
     neige(c);
     const g = document.createElement("div"); g.className = "noel-guirlande";
     g.innerHTML = "<i></i>".repeat(Math.max(16, Math.round(innerWidth / 46)));
     document.body.appendChild(g);
     const s = document.createElement("div"); s.innerHTML = SAPIN; const sapin = s.firstElementChild; document.body.appendChild(sapin);
     elements = [style, c, g, sapin];
-    const gadgets = document.getElementById("gadgets");
+    const gadgets = document.querySelector(GADGETS);
     if (gadgets) {
-      const gad = document.createElement("div"); gad.className = "gad noel-gad";
+      const gad = document.createElement("div"); gad.className = CARTE + " noel-gad";
       const [a, b] = texteCompte();
-      gad.innerHTML = `<h4>🎄 Temps des Fêtes</h4><div class="compte">${a}<small>${b}</small></div>`;
+      gad.innerHTML = `<button class="ferme" title="Enlever le thème de Noël" aria-label="Enlever le thème de Noël">✕</button><h4>🎄 Temps des Fêtes</h4><div class="compte">${a}<small>${b}</small></div>`;
+      gad.querySelector(".ferme").onclick = (e) => { e.stopPropagation(); window.TiNoel.regler("non"); };
       gadgets.insertBefore(gad, gadgets.children[1] || null);
       elements.push(gad);
     }
@@ -135,7 +150,7 @@
   function eteindre() {
     cancelAnimationFrame(anim);
     elements.forEach(e => e.remove()); elements = [];
-    document.documentElement.classList.remove("noel");
+    document.documentElement.classList.remove("noel", "noel-" + STYLE);
   }
 
   window.TiNoel = {
