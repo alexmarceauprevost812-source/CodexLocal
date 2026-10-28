@@ -1861,6 +1861,7 @@ class Gestion(BaseHTTPRequestHandler):
         if not modele:
             raise ValueError("Choisis un modele d'IA (IA locales sur la cle)")
         systeme = INVITE_CODEX if mode == "codex" else INVITE_DEVOIR if mode == "devoir" else INVITE_JASETTE
+        systeme += contexte_tilabo(modele, p)
         if mode == "devoir":
             if d.get("devoir_actuel"):
                 systeme += INVITE_DEVOIR_RETOUCHE % d["devoir_actuel"][:60000]
@@ -3093,6 +3094,100 @@ def creer_image(d, envoyer):
         raise ValueError("Echec : " + dernier[-300:])
     envoyer({"fini": True, "image": {"nom": os.path.basename(sortie), "url": "/images/" + urllib.parse.quote(os.path.basename(sortie))}})
 
+
+
+
+# ---------------------------------------------------------------- « ou tu roules » : la fiche donnee a chaque IA
+def memoire_vive():
+    """(total_go, libre_go) de la RAM de la machine, ou (None, None)."""
+    try:
+        if WINDOWS:
+            import ctypes
+
+            class MEM(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                            ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                            ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                            ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+            m = MEM()
+            m.dwLength = ctypes.sizeof(MEM)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+            return round(m.ullTotalPhys / 1e9, 1), round(m.ullAvailPhys / 1e9, 1)
+        info = {}
+        with open("/proc/meminfo") as f:
+            for l in f:
+                k, v = l.split(":", 1)
+                info[k] = int(v.split()[0]) * 1024
+        return round(info["MemTotal"] / 1e9, 1), round(info.get("MemAvailable", 0) / 1e9, 1)
+    except Exception:
+        return None, None
+
+
+_cache_tailles = {"t": 0, "tailles": {}}
+
+
+def taille_modele_go(modele):
+    if time.time() - _cache_tailles["t"] > 60:
+        try:
+            ms = http_json(ollama_url("/api/tags"), delai=2).get("models") or []
+            _cache_tailles["tailles"] = {m["name"]: m.get("size", 0) for m in ms}
+        except Exception:
+            _cache_tailles["tailles"] = {}
+        _cache_tailles["t"] = time.time()
+    t = _cache_tailles["tailles"]
+    v = t.get(modele) or t.get(modele + ":latest") or 0
+    return round(v / 1e9, 1) if v else None
+
+
+def contexte_tilabo(modele, p):
+    total, libre = memoire_vive()
+    try:
+        cle_libre = round(shutil.disk_usage(RACINE).free / 1e9, 1)
+    except OSError:
+        cle_libre = None
+    taille = None if modele.startswith("claude-") else taille_modele_go(modele)
+    if modele.startswith("claude-"):
+        moteur = "Claude d'Anthropic, par Internet avec la cle API d'Alex (pas local)"
+    elif p.get("moteur") == "openai":
+        moteur = "un serveur compatible OpenAI (LM Studio / llama.cpp) sur cette machine"
+    elif p.get("moteur") == "ollama_pc":
+        moteur = "l'Ollama installe sur le PC (127.0.0.1:11434), avec les IA du PC"
+    elif ANDROID:
+        moteur = "Ollama dans Termux sur le telephone (ou le moteur llama.cpp de l'appli Ti-Labo)"
+    else:
+        moteur = "l'Ollama PORTABLE range sur la cle (port %s), avec les IA rangees sur la cle (ia\\modeles)" % _hote.split(":")[-1]
+    if ANDROID:
+        machine = "le telephone Android d'Alex (Termux)"
+    elif WINDOWS:
+        machine = "le PC Windows ou la cle USB-C est branchee"
+    else:
+        machine = "un ordinateur Linux"
+    l = ["\n\nOU TU ROULES (faits verifies par le Ti-Labo, a croire avant tes idees generales) :",
+         "- Tu es « %s », une IA qui tourne en ce moment dans le Ti-Labo, le mini-logiciel de developpeur d'Alex." % modele,
+         "- Machine : %s. Processeurs : %s coeurs." % (machine, os.cpu_count() or "?"),
+         "- Moteur : %s." % moteur]
+    if total:
+        l.append("- Memoire vive (RAM) de la machine : %s Go au total, environ %s Go libres maintenant." % (total, libre))
+    if taille:
+        l.append("- Ta propre taille : %s Go (tu es charge en RAM pendant que tu reponds)." % taille)
+    if cle_libre is not None and not ANDROID:
+        l.append("- Espace libre sur la cle : %s Go." % cle_libre)
+    if not ANDROID:
+        l.append("- COMMENT CA MARCHE : la cle USB-C ne fait que STOCKER. C'est le processeur et la RAM du PC qui "
+                 "EXECUTENT les programmes portables rangés sur la cle : Python portable (outils\\python) fait rouler "
+                 "le serveur du Ti-Labo sur http://127.0.0.1:8765 (sur ce PC seulement), et Ollama portable "
+                 "(outils\\ollama) fait rouler les IA dont les fichiers sont sur la cle. Rien n'est installe sur le PC. "
+                 "C'est exactement ce qui se passe en ce moment pour que tu puisses repondre : NE DIS JAMAIS que c'est "
+                 "impossible de rouler une IA ou un serveur depuis une cle.")
+    l.append("- Regle pour savoir si une IA peut rouler ici : il faut a peu pres sa taille + 2 Go de RAM libre "
+             "(ex. gpt-oss:20b fait environ 13 Go -> il faut environ 16 Go de RAM). Depuis une cle, le premier "
+             "chargement est plus lent (10 a 60 s), ensuite c'est normal. Avec une carte graphique (GPU), c'est plus rapide.")
+    l.append("- Pages du Ti-Labo : Jasette (discussion, plans, schemas), Codex (code dans les projets), Studio, "
+             "Images (creer/modifier des images en local), Devoirs (devoir, impression, presentation), IA locales "
+             "(telecharger/retirer des IA), GitHub, Memoire, Parametres.")
+    l.append("- Si on te pose une question sur ta machine, utilise ces chiffres. Si tu ne sais pas, dis-le au lieu d'inventer.")
+    return "\n".join(l)
 
 
 # ---------------------------------------------------------------- devoirs (document + presentation)
