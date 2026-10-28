@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merci ! — ti-lex</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="img/logo.png">
+<meta name="theme-color" content="#0A0705">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0705;color:#F5EDE6;font-family:Inter,system-ui,sans-serif;line-height:1.6;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box}
+main{max-width:560px;width:100%;text-align:center}
+img{width:96px;height:96px}
+h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(34px,7vw,48px);letter-spacing:-1px;margin:14px 0 10px}
+h1 span{color:#FF7A1A}
+.carte{background:#110B07;border:1px solid #2A1E16;border-radius:16px;padding:22px 22px;text-align:left;margin:26px 0}
+.carte p{margin:0 0 10px;color:#D9CBBE}.carte p:last-child{margin:0}
+a.b{display:inline-block;background:#FF7A1A;color:#160A02;text-decoration:none;font-weight:700;padding:13px 24px;border-radius:12px}
+small{display:block;color:#8C7B6E;margin-top:28px}
+</style>
+</head>
+<body>
+<main>
+  <img src="img/logo.png" alt="Logo Marceau">
+  <h1>Merci <span>!</span></h1>
+  <p style="font-size:18px;color:#D9CBBE;margin:0">Ton paiement est confirmé. Tu reçois ton reçu de Stripe par courriel.</p>
+  <div class="carte" id="complet">
+    <p><strong>📥 ti-lex Complet</strong></p>
+    <p>Ton lien de téléchargement personnel (CodexLocal, Ti-Labo et Mon assistante) t'arrive par courriel, à l'adresse que tu as donnée au paiement, en moins de 24 heures.</p>
+    <p>Pense à regarder dans tes courriels indésirables.</p>
+  </div>
+  <div class="carte" id="cle" hidden>
+    <p><strong>🔌 Clé prête à brancher</strong></p>
+    <p>Ta clé USB-C est préparée à Normandin et postée dans les prochains jours ouvrables. Tu reçois ton numéro de suivi par courriel dès qu'elle part.</p>
+  </div>
+  <a class="b" href="/">Retour à ti-lex</a>
+  <small>ti-lex par Marceau — Produit du Québec</small>
+</main>
+<script>
+if (new URLSearchParams(location.search).get("produit") === "cle") {
+  document.getElementById("complet").hidden = true;
+  document.getElementById("cle").hidden = false;
+}
+</script>
+</body>
+</html>
