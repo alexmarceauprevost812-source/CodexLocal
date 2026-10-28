@@ -1538,6 +1538,30 @@ INVITE_SANS_OUTILS = (
     "Le Ti-Labo enregistre ces blocs tout seul dans le projet.\n\nFICHIERS ACTUELS :\n%s")
 
 
+def recuperer_fichiers(projet, texte, fichier_ouvert=None):
+    """Recupere le code ecrit dans une conversation et l'enregistre dans les fichiers du projet."""
+    projet = nom_valide(projet)
+    chemin_sur(projet)
+    ecrits = []
+    for rel, code in blocs_fichiers(texte, fichier_ouvert):
+        try:
+            p, rel = chemin_projet(projet, rel)
+        except ValueError:
+            continue
+        if os.path.isfile(p):
+            if _RE_ELLIPSE.search(code):
+                continue  # un extrait avec « ... » : on ne remplace pas le fichier complet
+            with open(p, "r", encoding="utf-8", errors="replace") as f:
+                if f.read().rstrip("\n") == code.rstrip("\n"):
+                    continue
+        res = outil_fichier("ecrire_fichier", {"chemin": rel, "contenu": code.rstrip("\n") + "\n"}, projet)
+        if isinstance(res, dict) and res.get("_evenement"):
+            ev = res["_evenement"]
+            ecrits.append({"chemin": projet + "/" + rel, "action": ev["action"], "plus": ev["plus"], "moins": ev["moins"]})
+    return ecrits
+
+
+
 # ---------------------------------------------------------------- serveur HTTP
 class Gestion(BaseHTTPRequestHandler):
     server_version = "TiLabo/1.0"
@@ -1907,6 +1931,9 @@ class Gestion(BaseHTTPRequestHandler):
                                "modele": d.get("modele", ""), "projet": d.get("projet") or "", "messages": msgs},
                               f, ensure_ascii=False)
                 return self.envoyer(200, {"ok": True})
+            if route == "projets/recuperer":
+                textes = [t for t in (d.get("textes") or []) if isinstance(t, str)]
+                return self.envoyer(200, {"fichiers": recuperer_fichiers(d.get("projet"), "\n\n".join(textes))})
             if route == "conversations/lire":
                 with open(id_session(d.get("id")), "r", encoding="utf-8") as f:
                     return self.envoyer(200, json.load(f))
@@ -2048,7 +2075,9 @@ class Gestion(BaseHTTPRequestHandler):
             if self._turbo:
                 systeme += INVITE_TURBO
         if mode == "codex":
-            d["plan"] = None if d.get("plan") != "executer" else "executer"
+            # Codex : 2 modes. « direct » (ecrit tout de suite) ou « planifier » puis « executer » (apres Accepter)
+            if d.get("plan") not in ("planifier", "executer"):
+                d["plan"] = None
         elif mode == "devoir":
             d["plan"] = None
         else:

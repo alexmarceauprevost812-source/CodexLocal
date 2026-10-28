@@ -398,3 +398,4 @@ input[type=range]{accent-color:var(--accent)}
 .dv-modale .galerie button:hover{border-color:var(--accent)}
 @media (max-width:900px){.dv-travail{grid-template-columns:1fr}.dv-editeur{position:static}#dv-texte{min-height:40vh}}
 .btn[hidden]{display:none}
+.plan-actions.recup{flex-wrap:wrap}.plan-actions.recup span{flex-basis:100%;color:var(--text2);font-size:13px;margin-bottom:4px}

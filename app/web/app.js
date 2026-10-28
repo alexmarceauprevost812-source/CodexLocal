@@ -183,7 +183,10 @@ function creerChat(conteneur, mode) {
         <option value="openai">LM Studio / OpenAI</option>
       </select>
       <select class="champ" data-s="modele" aria-label="Modèle d'IA"></select>
-      ${mode === "codex" ? "" : `<select class="champ" data-s="plan" aria-label="Façon de travailler" title="Plan : l'IA réfléchit d'abord à un plan" style="width:auto">
+      ${mode === "codex" ? `<select class="champ" data-s="plan" aria-label="Mode du Codex" title="Codex direct : écrit le code tout de suite. Plan à valider : fait un plan, puis tu cliques Accepter pour qu'il écrive." style="width:auto">
+        <option value="direct">⚡ Codex direct</option>
+        <option value="valider">📋 Plan à valider</option>
+      </select>` : `<select class="champ" data-s="plan" aria-label="Façon de travailler" title="Plan : l'IA réfléchit d'abord à un plan" style="width:auto">
         <option value="direct">Direct</option>
         <option value="auto">Plan puis code (sans attendre)</option>
         <option value="valider">Plan à valider</option>
@@ -294,9 +297,33 @@ function creerChat(conteneur, mode) {
       if (window.TiSchemas && mode !== "codex") TiSchemas.activer($(".contenu", d)).catch(() => {});
     }
     if (mode === "codex" && c.projet && c.projet !== etat.projet) { await choisirProjet(c.projet).catch(() => {}); rendreCodexProjets?.(); }
+    // Codex : si cette vieille conversation contient du code, proposer de l'enregistrer dans le projet
+    if (mode === "codex" && c.projet && hist.some((m) => m.role === "assistant" && (m.content || "").includes("```"))) {
+      proposerRecuperation(c.projet, hist.filter((m) => m.role === "assistant").map((m) => m.content || ""));
+    }
     fil.scrollTop = fil.scrollHeight;
     basculerHistorique(false);
     toast("Conversation rouverte : " + (c.titre || ""));
+  }
+  function proposerRecuperation(projet, textes) {
+    const bar = document.createElement("div");
+    bar.className = "plan-actions recup";
+    bar.innerHTML = `<span>💾 Cette conversation contient du code. L'enregistrer dans les fichiers du projet « ${esc(projet)} » ?</span>
+      <button class="btn prim petit">Récupérer les fichiers</button><button class="btn petit">Non</button>`;
+    const [ok, non] = $$("button", bar);
+    non.onclick = () => bar.remove();
+    ok.onclick = async () => {
+      ok.disabled = true; ok.textContent = "…";
+      try {
+        const r = await api("projets/recuperer", { projet, textes });
+        bar.remove();
+        if (!r.fichiers.length) return toast("Aucun fichier complet à récupérer (que des extraits avec « … »)");
+        r.fichiers.forEach((f) => carteFichier(fil, { chemin: f.chemin, action: f.action, plus: f.plus, moins: f.moins }));
+        apresModifs(new Set(r.fichiers.map((f) => f.chemin)));
+        toast("✅ " + r.fichiers.length + " fichier(s) enregistré(s) dans « " + projet + " »");
+      } catch (e) { ok.disabled = false; ok.textContent = "Récupérer les fichiers"; toast(e.message); }
+    };
+    fil.prepend(bar);
   }
 
   cases.internet.checked = true;
@@ -476,7 +503,8 @@ function creerChat(conteneur, mode) {
     if (reponse && plan === "planifier") {
       const a = document.createElement("div");
       a.className = "plan-actions";
-      a.innerHTML = `<button class="btn prim petit">Envoyer au Codex</button><button class="btn petit">🧐 Avis sur le plan</button><button class="btn petit">Corriger le plan</button>`;
+      const btnPrincipal = mode === "codex" ? "✅ Accepter le plan" : "Envoyer au Codex";
+      a.innerHTML = `<button class="btn prim petit">${btnPrincipal}</button><button class="btn petit">🧐 Avis sur le plan</button><button class="btn petit">Corriger le plan</button>`;
       const [ok, avis, corriger] = $$("button", a);
       avis.onclick = () => {
         avis.disabled = true;
@@ -485,8 +513,13 @@ function creerChat(conteneur, mode) {
           "3. ❓ Ce qui manque\n4. Verdict clair : « Valide-le » ou « Ne le valide pas tel quel », puis le plan corrigé en quelques étapes.\n" +
           "Ne sois pas complaisant : si le plan est mauvais, dis-le.\n\nLe plan :\n" + reponse, "planifier");
       };
-      // Le plan se fait dans la Jasette, le code dans le Codex
-      ok.onclick = () => { a.remove(); allerA("codex"); codex.envoyer("Réalise ce plan dans le projet :\n\n" + reponse); };
+      if (mode === "codex") {
+        // Dans le Codex : on accepte et il écrit les fichiers tout de suite (plan=executer, le code est enregistré)
+        ok.onclick = () => { a.remove(); envoyer("Le plan est bon. Réalise-le maintenant et écris les fichiers du projet.", "executer"); };
+      } else {
+        // Dans la Jasette : le plan se fait ici, le code part au Codex
+        ok.onclick = () => { a.remove(); allerA("codex"); codex.envoyer("Réalise ce plan dans le projet :\n\n" + reponse); };
+      }
       corriger.onclick = () => { a.remove(); zone.placeholder = "Dis ce qu'il faut changer dans le plan…"; zone.focus(); };
       d.appendChild(a);
     }
