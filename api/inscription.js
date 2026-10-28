@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   const prenom = String(d.prenom || "").trim().slice(0, 60);
   const courriel = String(d.courriel || "").trim().toLowerCase().slice(0, 254);
   const province = String(d.province || "").trim().toUpperCase();
-  const message = String(d.message || "").trim().slice(0, 600);
+  const message = String(d.message || "").trim().slice(0, 255);
   if (!prenom) return json(res, 400, { erreur: "Écris ton prénom." });
   if (message.length < 20) return json(res, 400, { erreur: "Écris un message d'au moins 20 caractères." });
   if (!COURRIEL.test(courriel)) return json(res, 400, { erreur: "Ton adresse courriel ne semble pas valide." });
