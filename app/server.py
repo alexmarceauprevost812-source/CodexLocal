@@ -612,8 +612,10 @@ OUTILS_IA = [
 ]
 
 
-def appeler_outil(nom, args):
+def appeler_outil(nom, args, projet=None):
     try:
+        if nom in ("lister_fichiers", "lire_fichier", "ecrire_fichier", "modifier_fichier"):
+            return outil_fichier(nom, args, projet)
         if nom == "recherche_web":
             return recherche_web(args.get("requete", ""))
         if nom == "lire_page":
@@ -631,7 +633,161 @@ def etiquette_outil(nom, args):
     return {"recherche_web": "Recherche web : %s" % args.get("requete", ""),
             "lire_page": "Lecture : %s" % args.get("url", ""),
             "chercher_code_github": "Code GitHub : %s" % args.get("requete", ""),
-            "chercher_mes_projets": "Mes projets : %s" % args.get("requete", "")}.get(nom, nom)
+            "chercher_mes_projets": "Mes projets : %s" % args.get("requete", ""),
+            "lister_fichiers": "Regarde les fichiers du projet",
+            "lire_fichier": "Lit %s" % args.get("chemin", ""),
+            "ecrire_fichier": "Ecrit %s" % args.get("chemin", ""),
+            "modifier_fichier": "Modifie %s" % args.get("chemin", "")}.get(nom, nom)
+
+
+# ---------------------------------------------------------------- Codex : lire, creer et ecrire les fichiers du projet
+SAUVEGARDES = os.path.join(DONNEES, "sauvegardes")
+os.makedirs(SAUVEGARDES, exist_ok=True)
+
+OUTILS_FICHIERS_LECTURE = [
+    {"type": "function", "function": {
+        "name": "lister_fichiers",
+        "description": "Liste les fichiers du projet ouvert (chemins relatifs au projet).",
+        "parameters": {"type": "object", "properties": {}, "required": []}}},
+    {"type": "function", "function": {
+        "name": "lire_fichier",
+        "description": "Lit le contenu complet d'un fichier du projet. Lis toujours un fichier avant de le modifier.",
+        "parameters": {"type": "object", "properties": {"chemin": {"type": "string", "description": "ex. main.py ou src/app.js"}},
+                       "required": ["chemin"]}}},
+]
+OUTILS_FICHIERS_ECRITURE = [
+    {"type": "function", "function": {
+        "name": "ecrire_fichier",
+        "description": "Cree un nouveau fichier ou remplace TOUT le contenu d'un fichier du projet. Donne le contenu complet.",
+        "parameters": {"type": "object", "properties": {
+            "chemin": {"type": "string", "description": "chemin relatif au projet, ex. src/utils.py"},
+            "contenu": {"type": "string", "description": "le contenu complet du fichier"}},
+            "required": ["chemin", "contenu"]}}},
+    {"type": "function", "function": {
+        "name": "modifier_fichier",
+        "description": "Remplace un passage exact d'un fichier existant par un nouveau texte. Le passage doit etre copie "
+                       "exactement du fichier (lis-le d'abord) et n'apparaitre qu'une seule fois.",
+        "parameters": {"type": "object", "properties": {
+            "chemin": {"type": "string"},
+            "ancien": {"type": "string", "description": "le texte exact a remplacer"},
+            "nouveau": {"type": "string", "description": "le texte de remplacement"}},
+            "required": ["chemin", "ancien", "nouveau"]}}},
+]
+
+INVITE_FICHIERS = ("\n\nTu travailles dans le projet « %s » sur la cle. Tu as des outils pour lister_fichiers, "
+                   "lire_fichier, ecrire_fichier (creer ou remplacer un fichier) et modifier_fichier (remplacer un passage). "
+                   "Quand on te demande de coder, ECRIS directement dans les bons fichiers avec ces outils au lieu de "
+                   "seulement afficher le code : lis d'abord les fichiers concernes, garde le style existant, puis "
+                   "explique en quelques lignes ce que tu as change et dans quels fichiers. Le code s'affiche dans l'editeur au "
+                   "centre : NE recopie PAS le code dans ta reponse, donne seulement un court resume.")
+INVITE_FICHIERS_LECTURE = ("\n\nTu peux lister_fichiers et lire_fichier dans le projet « %s » pour bien comprendre "
+                           "avant de faire ton plan. N'ecris rien tant que le plan n'est pas approuve.")
+
+
+def chemin_projet(projet, rel):
+    """Chemin absolu d'un fichier, garanti a l'interieur du projet."""
+    base = chemin_sur(nom_valide(projet))
+    rel = (rel or "").replace("\\", "/").strip().lstrip("/")
+    if rel.startswith(projet + "/"):
+        rel = rel[len(projet) + 1:]
+    if not rel:
+        raise ValueError("Chemin de fichier manquant")
+    p = os.path.realpath(os.path.join(base, rel))
+    if not p.startswith(os.path.realpath(base) + os.sep):
+        raise ValueError("Ce chemin sort du projet")
+    if any(seg in IGNORER for seg in rel.split("/")):
+        raise ValueError("Dossier protege (%s)" % rel)
+    return p, rel
+
+
+def sauvegarder(projet, rel, absolu):
+    ident = time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
+    existait = os.path.isfile(absolu)
+    ancien = ""
+    if existait:
+        with open(absolu, "r", encoding="utf-8", errors="replace") as f:
+            ancien = f.read()
+    with open(os.path.join(SAUVEGARDES, ident + ".json"), "w", encoding="utf-8") as f:
+        json.dump({"projet": projet, "chemin": rel, "existait": existait, "contenu": ancien}, f, ensure_ascii=False)
+    return ident, existait, ancien
+
+
+def compter_lignes(ancien, nouveau):
+    a, n = ancien.splitlines(), nouveau.splitlines()
+    import difflib
+    plus = moins = 0
+    for l in difflib.ndiff(a, n):
+        if l.startswith("+ "):
+            plus += 1
+        elif l.startswith("- "):
+            moins += 1
+    return plus, moins
+
+
+def outil_fichier(nom, args, projet):
+    if not projet:
+        return {"erreur": "Aucun projet ouvert"}
+    if nom == "lister_fichiers":
+        base = chemin_sur(projet)
+        return [os.path.relpath(os.path.join(b, f), base).replace("\\", "/")
+                for b, _, fs in marcher(base, limite=800) for f in fs][:800]
+    p, rel = chemin_projet(projet, args.get("chemin"))
+    if nom == "lire_fichier":
+        if not os.path.isfile(p):
+            return {"erreur": "Fichier introuvable : " + rel}
+        return {"chemin": rel, "contenu": lire_fichier(projet + "/" + rel)[:60000]}
+    if not est_texte(rel) and os.path.splitext(rel)[1]:
+        return {"erreur": "Type de fichier non modifiable ici : " + rel}
+    if nom == "ecrire_fichier":
+        contenu = args.get("contenu")
+        if not isinstance(contenu, str):
+            return {"erreur": "Contenu manquant"}
+        ident, existait, ancien = sauvegarder(projet, rel, p)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8", newline="") as f:
+            f.write(contenu)
+        plus, moins = compter_lignes(ancien, contenu)
+        return {"ok": True, "_evenement": {"action": "modifie" if existait else "cree", "chemin": projet + "/" + rel,
+                                           "sauvegarde": ident, "plus": plus, "moins": moins}}
+    if nom == "modifier_fichier":
+        if not os.path.isfile(p):
+            return {"erreur": "Fichier introuvable : " + rel + " (utilise ecrire_fichier pour le creer)"}
+        ancien_txt, nouveau_txt = args.get("ancien") or "", args.get("nouveau") or ""
+        with open(p, "r", encoding="utf-8", errors="replace") as f:
+            contenu = f.read()
+        n = contenu.count(ancien_txt) if ancien_txt else 0
+        if n == 0:
+            return {"erreur": "Passage introuvable dans " + rel + ". Relis le fichier et copie le passage exactement."}
+        if n > 1:
+            return {"erreur": "Passage trouve %d fois dans %s : ajoute des lignes autour pour qu'il soit unique." % (n, rel)}
+        ident, _, ancien = sauvegarder(projet, rel, p)
+        nouveau = contenu.replace(ancien_txt, nouveau_txt, 1)
+        with open(p, "w", encoding="utf-8", newline="") as f:
+            f.write(nouveau)
+        plus, moins = compter_lignes(ancien, nouveau)
+        return {"ok": True, "_evenement": {"action": "modifie", "chemin": projet + "/" + rel,
+                                           "sauvegarde": ident, "plus": plus, "moins": moins}}
+    return {"erreur": "outil inconnu"}
+
+
+def annuler_changement(ident):
+    if not re.fullmatch(r"[0-9-]+[0-9a-f]{6}", ident or ""):
+        raise ValueError("Sauvegarde invalide")
+    f = os.path.join(SAUVEGARDES, ident + ".json")
+    if not os.path.isfile(f):
+        raise ValueError("Sauvegarde introuvable (deja annulee ?)")
+    with open(f, "r", encoding="utf-8") as fh:
+        s = json.load(fh)
+    p, rel = chemin_projet(s["projet"], s["chemin"])
+    if s["existait"]:
+        with open(p, "w", encoding="utf-8", newline="") as fh:
+            fh.write(s["contenu"])
+    elif os.path.isfile(p):
+        corbeille = os.path.join(DONNEES, "corbeille", time.strftime("%Y%m%d-%H%M%S"))
+        os.makedirs(corbeille, exist_ok=True)
+        shutil.move(p, os.path.join(corbeille, os.path.basename(p)))
+    os.remove(f)
+    return s["projet"] + "/" + rel
 
 
 # ---------------------------------------------------------------- invites systeme
@@ -644,6 +800,11 @@ INVITE_OUTILS = ("\n\nTu as des outils : recherche_web, lire_page, chercher_code
                  "Utilise-les seulement si tu en as vraiment besoin (info recente, doc d'une librairie, exemple de code "
                  "que tu ne connais pas). Sinon reponds directement. Quand tu t'en sers, cite les liens a la fin "
                  "sous « Sources : ».")
+INVITE_SCHEMA_TOUJOURS = ("\n\nSi on te demande un schema, un diagramme, une carte ou un plan visuel, reponds avec un bloc "
+                          "```mermaid valide (flowchart TD, sequenceDiagram, mindmap, classDiagram, timeline...). Le Ti-Labo "
+                          "l'anime et peut en faire une video. Mets les textes des boites entre guillemets.")
+INVITE_SCHEMA = ("\n\nMODE SCHEMA : reponds avec UN schema clair dans un bloc ```mermaid (flowchart TD de preference), "
+                 "8 a 20 boites, textes courts entre guillemets, puis 2 ou 3 phrases d'explication.")
 INVITE_PLAN = ("\n\nMODE PLAN : n'ecris PAS encore de code. Fais d'abord un plan court et clair : "
                "1) ce que tu as compris du but, 2) les etapes numerotees, 3) les fichiers a creer ou modifier, "
                "4) les questions ou choix a confirmer. Termine par : « Je code quand tu approuves le plan. »")
@@ -759,7 +920,7 @@ class Gestion(BaseHTTPRequestHandler):
         p = os.path.realpath(os.path.join(WEB, rel))
         if not p.startswith(os.path.realpath(WEB) + os.sep) or not os.path.isfile(p):
             return self.erreur("Introuvable", 404)
-        types = {".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml",
+        types = {".css": "text/css", ".js": "text/javascript", ".txt": "text/plain; charset=utf-8", ".svg": "image/svg+xml",
                  ".png": "image/png", ".woff2": "font/woff2", ".ico": "image/x-icon"}
         with open(p, "rb") as f:
             self.envoyer(200, f.read(), types.get(os.path.splitext(p)[1], "application/octet-stream"))
@@ -861,6 +1022,8 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, chercher_memoire(d["question"], d.get("projet")))
             if route == "ia/deplacer":
                 return self.operation_flux(deplacer_gguf if d.get("type") == "gguf" else deplacer_ollama, d)
+            if route == "fichier/annuler":
+                return self.envoyer(200, {"chemin": annuler_changement(d.get("sauvegarde"))})
             if route == "ia/renommer":
                 return self.envoyer(200, {"nom": renommer_ia(d)})
             if route == "gguf/demarrer":
@@ -913,8 +1076,37 @@ class Gestion(BaseHTTPRequestHandler):
             raise ValueError("Choisis un modele d'IA (IA locales sur la cle)")
         systeme = INVITE_CODEX if mode == "codex" else INVITE_JASETTE
         internet = bool(d.get("internet")) and bool(p.get("internet"))
+        outils = []
         if internet:
             systeme += INVITE_OUTILS
+            outils += OUTILS_IA
+        projet = d.get("projet")
+        if mode == "codex" and d.get("ecriture") and projet:
+            try:
+                chemin_sur(nom_valide(projet))
+            except ValueError:
+                projet = None
+        else:
+            projet = None
+        if projet:
+            outils += OUTILS_FICHIERS_LECTURE
+            if d.get("plan") == "planifier":
+                systeme += INVITE_FICHIERS_LECTURE % projet
+            else:
+                outils += OUTILS_FICHIERS_ECRITURE
+                systeme += INVITE_FICHIERS % projet
+            # La carte du projet des le depart : le Codex choisit le bon fichier au lieu de deviner
+            liste = outil_fichier("lister_fichiers", {}, projet)
+            if isinstance(liste, list) and liste:
+                systeme += ("\n\nFichiers du projet « %s » (%d) :\n" % (projet, len(liste))
+                            + "\n".join("- " + f for f in liste[:200])
+                            + ("\n- … (%d autres)" % (len(liste) - 200) if len(liste) > 200 else "")
+                            + "\nModifie le fichier existant qui correspond a la demande ; cree un nouveau fichier "
+                              "seulement s'il n'en existe aucun qui convient. Utilise toujours ces chemins exacts.")
+            if d.get("fichier", "").startswith(projet + "/"):
+                systeme += "\nLe fichier ouvert dans l'editeur est « %s » : c'est probablement celui dont on parle." % d["fichier"][len(projet) + 1:]
+        self._projet = projet
+        systeme += INVITE_SCHEMA if d.get("schema") else INVITE_SCHEMA_TOUJOURS
         if d.get("plan") == "planifier":
             systeme += INVITE_PLAN
         elif d.get("plan") == "executer":
@@ -950,29 +1142,37 @@ class Gestion(BaseHTTPRequestHandler):
             messages.append(msg)
 
         if modele.startswith("claude-"):
-            return self.jasette_claude(modele, messages, sources, internet)
+            return self.jasette_claude(modele, messages, sources, outils)
         if p["moteur"] == "openai":
-            return self.jasette_openai(p, modele, messages, sources, internet)
-        return self.jasette_ollama(modele, messages, sources, internet)
+            return self.jasette_openai(p, modele, messages, sources, outils)
+        return self.jasette_ollama(modele, messages, sources, outils)
+
+    def executer_outil(self, nom, args):
+        if not isinstance(args, dict):
+            args = {}
+        res = appeler_outil(nom, args, getattr(self, "_projet", None))
+        if isinstance(res, dict) and res.get("_evenement"):
+            self.ligne({"fichier": res.pop("_evenement")})
+        return res
 
     # -- Ollama : boucle d'outils puis reponse en flux
-    def jasette_ollama(self, modele, messages, sources, internet):
+    def jasette_ollama(self, modele, messages, sources, outils):
         self.debut_flux()
         if sources:
             self.ligne({"sources": sources})
-        if internet:
+        if outils:
             # Ecriture en direct meme avec les outils : on lit le flux, on affiche le texte
             # au fur et a mesure et on ramasse les appels d'outils au passage.
             for _ in range(6):
                 req = urllib.request.Request(ollama_url("/api/chat"), headers={"Content-Type": "application/json"},
                                              data=json.dumps({"model": modele, "messages": messages,
-                                                              "tools": OUTILS_IA, "stream": True}).encode())
+                                                              "tools": outils, "stream": True}).encode())
                 try:
                     r = urllib.request.urlopen(req, timeout=3600)
                 except urllib.error.HTTPError as e:
                     corps = e.read().decode("utf-8", "ignore")
                     if "does not support tools" in corps:
-                        self.ligne({"outil": "Ce modele ne sait pas utiliser Internet — reponse sans recherche"})
+                        self.ligne({"outil": "Ce modele ne sait pas utiliser les outils (Internet, fichiers) — reponse simple"})
                         break
                     self.ligne({"erreur": corps or str(e)})
                     return
@@ -1008,7 +1208,7 @@ class Gestion(BaseHTTPRequestHandler):
                         except ValueError:
                             args = {}
                     self.ligne({"outil": etiquette_outil(f.get("name"), args)})
-                    res = appeler_outil(f.get("name"), args)
+                    res = self.executer_outil(f.get("name"), args)
                     if f.get("name") in ("recherche_web", "chercher_code_github") and isinstance(res, list):
                         self.ligne({"liens": [x.get("url") for x in res[:5] if x.get("url")]})
                     messages.append({"role": "tool", "content": json.dumps(res, ensure_ascii=False)[:14000],
@@ -1041,7 +1241,7 @@ class Gestion(BaseHTTPRequestHandler):
                     self.ligne({"fini": True, "jetons_s": round(o.get("eval_count", 0) / max(o.get("eval_duration", 1) / 1e9, 0.001), 1)})
 
     # -- Claude (API Anthropic) : outils au besoin, puis reponse en flux
-    def jasette_claude(self, modele, messages, sources, internet):
+    def jasette_claude(self, modele, messages, sources, outils):
         if not cle_claude():
             raise ValueError("Ajoute ta cle API Claude dans Parametres")
         systeme, conv = messages_claude(messages)
@@ -1051,7 +1251,7 @@ class Gestion(BaseHTTPRequestHandler):
         try:
             for _ in range(8):
                 corps = {"model": modele, "max_tokens": 16000, "system": systeme, "messages": conv, "stream": True}
-                if internet:
+                if outils:
                     corps["tools"] = outils_claude()
                 blocs, en_cours, arret = [], None, None
                 with requete_claude(corps) as r:
@@ -1099,7 +1299,7 @@ class Gestion(BaseHTTPRequestHandler):
                     if b.get("type") != "tool_use":
                         continue
                     self.ligne({"outil": etiquette_outil(b["name"], b["input"])})
-                    res = appeler_outil(b["name"], b["input"])
+                    res = self.executer_outil(b["name"], b["input"])
                     if b["name"] in ("recherche_web", "chercher_code_github") and isinstance(res, list):
                         self.ligne({"liens": [x.get("url") for x in res[:5] if x.get("url")]})
                     resultats.append({"type": "tool_result", "tool_use_id": b["id"],
@@ -1112,7 +1312,7 @@ class Gestion(BaseHTTPRequestHandler):
         self.ligne({"fini": True})
 
     # -- Moteur compatible OpenAI (LM Studio, llama.cpp server, Jan…)
-    def jasette_openai(self, p, modele, messages, sources, internet):
+    def jasette_openai(self, p, modele, messages, sources, outils):
         base = p["url_openai"].rstrip("/")
         conv = []
         for m in messages:
@@ -1125,11 +1325,11 @@ class Gestion(BaseHTTPRequestHandler):
         self.debut_flux()
         if sources:
             self.ligne({"sources": sources})
-        if internet:
+        if outils:
             for _ in range(6):
                 try:
                     r = http_json(base + "/chat/completions", {"model": modele, "messages": conv,
-                                                               "tools": OUTILS_IA, "stream": False}, delai=1800)
+                                                               "tools": outils, "stream": False}, delai=1800)
                 except urllib.error.HTTPError:
                     self.ligne({"outil": "Ce moteur refuse les outils — reponse sans recherche"})
                     break
@@ -1149,7 +1349,7 @@ class Gestion(BaseHTTPRequestHandler):
                     except ValueError:
                         args = {}
                     self.ligne({"outil": etiquette_outil(f["name"], args)})
-                    res = appeler_outil(f["name"], args)
+                    res = self.executer_outil(f["name"], args)
                     conv.append({"role": "tool", "tool_call_id": a.get("id", ""),
                                  "content": json.dumps(res, ensure_ascii=False)[:14000]})
         req = urllib.request.Request(base + "/chat/completions",
@@ -1560,9 +1760,9 @@ def cle_claude():
     return (lire_params().get("anthropic_key") or "").strip()
 
 
-def outils_claude():
+def outils_claude(outils=None):
     return [{"name": o["function"]["name"], "description": o["function"]["description"],
-             "input_schema": o["function"]["parameters"]} for o in OUTILS_IA]
+             "input_schema": o["function"]["parameters"]} for o in (outils if outils is not None else OUTILS_IA)]
 
 
 def messages_claude(messages):

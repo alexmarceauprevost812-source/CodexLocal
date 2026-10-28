@@ -101,9 +101,14 @@ label.lib{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 .onglet{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel);flex-wrap:wrap}
 .onglet .nom{font:13px var(--mono);color:var(--accent)}
 .editeur{flex:1;display:flex;min-height:0;background:var(--editor)}
-.numeros{padding:12px 8px;text-align:right;color:#444;font:13px/1.55 var(--mono);user-select:none;overflow:hidden;min-width:48px;white-space:pre}
-.editeur textarea{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text2);font:13px/1.55 var(--mono);padding:12px;tab-size:4;white-space:pre;overflow:auto}
-.terminal{height:220px;border-top:1px solid var(--border);display:flex;flex-direction:column;background:#020202}
+.numeros{padding:12px 8px;text-align:right;color:#4a4a4a;font:13.5px/1.6 var(--mono);user-select:none;overflow:hidden;min-width:48px;white-space:pre}
+.zone-code{position:relative;flex:1;min-width:0;overflow:hidden}
+.zone-code pre,.zone-code textarea{position:absolute;inset:0;margin:0;border:none;padding:12px;font:13.5px/1.6 var(--mono);tab-size:4;white-space:pre;letter-spacing:0;word-spacing:0}
+.zone-code pre{overflow:hidden;pointer-events:none;color:#E6E6E6}
+.zone-code textarea{resize:none;outline:none;background:transparent;color:transparent;caret-color:#fff;overflow:auto;-webkit-text-fill-color:transparent}
+.zone-code textarea::selection{background:rgba(255,122,26,.35);-webkit-text-fill-color:transparent}
+.zone-code textarea::placeholder{color:var(--dim);-webkit-text-fill-color:var(--dim)}
+.terminal{height:170px;border-top:1px solid var(--border);display:flex;flex-direction:column;background:#020202}
 .terminal pre{flex:1;margin:0;padding:10px 12px;overflow:auto;font:12.5px/1.5 var(--mono);color:#cfcfcf;white-space:pre-wrap}
 .terminal form{display:flex;border-top:1px solid #151515}
 .terminal span{padding:9px 0 9px 12px;color:var(--accent);font:13px var(--mono)}
@@ -207,3 +212,54 @@ label.lib{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 .verrou-boite{width:min(340px,100%);display:flex;flex-direction:column;align-items:stretch;gap:12px;text-align:center}
 .verrou-boite svg{align-self:center}
 .verrou-logo{font-size:30px;color:var(--accent)}
+
+/* ---------- fichiers modifies par le Codex */
+.carte-fichier{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;padding:6px 8px;margin:2px 0;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+.carte-fichier svg{color:var(--accent);width:16px;height:16px}
+.carte-fichier .plus{color:var(--green);font-family:var(--mono)}
+.carte-fichier .moins{color:var(--red);font-family:var(--mono)}
+.carte-fichier.annule{opacity:.5;text-decoration:line-through}
+.editeur textarea.ecrit-par-ia{caret-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+
+/* ---------- couleurs du code (theme noir/orange) */
+.tk-k{color:#FF7A1A}                /* mots-cles */
+.tk-s{color:#A5E075}                /* chaines */
+.tk-c{color:#7A7A7A;font-style:italic} /* commentaires */
+.tk-n{color:#FFB86B}                /* nombres */
+.tk-f{color:#6CD4FF}                /* fonctions */
+.tk-t{color:#E0A3FF}                /* classes, types */
+.tk-a{color:#FFD580}                /* attributs, options */
+.tk-d{color:#FF9A4D}                /* decorateurs */
+.tk-p{color:#9A9A9A}
+/* ---------- sortie du Codex au centre */
+.sortie-codex{display:flex;flex-direction:column;height:34%;min-height:150px;border-top:2px solid var(--accent-border);background:#060606}
+.sortie-codex[hidden]{display:none}
+.sortie-codex.reduite{height:auto;min-height:0}
+.sortie-codex.reduite .sc-corps{display:none}
+.sc-tete{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--panel)}
+.sc-tete b{color:var(--accent)}
+.sc-corps{flex:1;overflow:auto;padding:12px 16px;line-height:1.6;font-size:14.5px}
+.sc-corps .bloc-code pre{font-size:13.5px;line-height:1.6}
+.msg.assistant .renvoi{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+
+/* ---------- changement de fichier par le Codex */
+.zone-edit{position:relative}
+.zone-edit.change-fichier .zone-code{animation:glisse .55s cubic-bezier(.2,.8,.2,1)}
+.zone-edit.change-fichier .onglet .nom{animation:nomFichier .55s cubic-bezier(.2,.8,.2,1)}
+@keyframes glisse{0%{opacity:0;transform:translateX(28px)}100%{opacity:1;transform:none}}
+@keyframes nomFichier{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:none}}
+.badge-fichier{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;
+  padding:8px 14px;border-radius:999px;background:var(--accent-bg);border:1px solid var(--accent);color:var(--text);font-size:13px;
+  box-shadow:0 8px 30px rgba(0,0,0,.6);animation:badge 2s ease both;pointer-events:none}
+.badge-fichier svg{color:var(--accent);width:16px;height:16px}
+.badge-fichier code{color:var(--accent);font-family:var(--mono)}
+@keyframes badge{0%{opacity:0;transform:translate(-50%,-10px) scale(.95)}12%{opacity:1;transform:translate(-50%,0) scale(1)}80%{opacity:1}100%{opacity:0}}
+.noeud.pulse{animation:pulse 1.6s ease}
+@keyframes pulse{0%,100%{background:transparent}25%,60%{background:var(--accent-bg);color:var(--accent)}}
+/* ---------- schemas */
+.schema-carte{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:.6em 0;background:#000}
+.schema-tete{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;background:#101010;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.schema-tete b{color:var(--accent);font-size:13px}
+.schema-tete .espace{flex:1}
+.schema-dessin{padding:16px;overflow:auto;display:flex;justify-content:center}
+.schema-dessin svg{max-width:100%;height:auto}

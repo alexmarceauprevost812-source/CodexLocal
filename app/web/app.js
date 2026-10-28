@@ -92,7 +92,7 @@ function rendreMarkdown(texte, avecActions = true) {
     const actions = avecActions
       ? `<button class="btn petit" data-act="copier">Copier</button><button class="btn petit" data-act="inserer">Mettre dans l'éditeur</button>`
       : "";
-    return `<div class="bloc-code"><div class="bc-tete">${esc(b.lang || "code")}<span class="espace"></span>${actions}</div><pre><code>${esc(b.code.replace(/\n$/, ""))}</code></pre></div>`;
+    return `<div class="bloc-code" data-lang="${esc((b.lang || "").toLowerCase())}"><div class="bc-tete">${esc(b.lang || "code")}<span class="espace"></span>${actions}</div><pre><code>${window.TiCouleurs ? TiCouleurs.colorer(b.code.replace(/\n$/, ""), TiCouleurs.langueDe(b.lang)) : esc(b.code.replace(/\n$/, ""))}</code></pre></div>`;
   });
 }
 
@@ -177,8 +177,14 @@ function creerChat(conteneur, mode) {
   conteneur.innerHTML = `
     <div class="options">
       <select class="champ" aria-label="Modèle d'IA"></select>
-      <label class="interrupteur" title="L'IA propose un plan avant de coder"><input type="checkbox" data-o="plan"><span class="rail"></span>${ic("plan")}Plan d'abord</label>
+      <select class="champ" data-s="plan" aria-label="Façon de travailler" title="Plan : l'IA réfléchit d'abord à un plan" style="width:auto">
+        <option value="direct">Direct</option>
+        <option value="auto">Plan puis code (sans attendre)</option>
+        <option value="valider">Plan à valider</option>
+      </select>
+      ${mode === "codex" ? `<label class="interrupteur" title="Le Codex crée et modifie les fichiers du projet ouvert"><input type="checkbox" data-o="ecriture"><span class="rail"></span>${ic("dossier")}Écrire les fichiers</label>` : ""}
       <label class="interrupteur" title="L'IA peut chercher sur Internet si elle en a besoin"><input type="checkbox" data-o="internet"><span class="rail"></span>${ic("globe")}Internet</label>
+      <label class="interrupteur" title="L'IA répond avec un schéma animé (exportable en vidéo)"><input type="checkbox" data-o="schema"><span class="rail"></span>${ic("studio")}Schéma</label>
       <label class="interrupteur" title="Utiliser la mémoire de la clé"><input type="checkbox" data-o="memoire"><span class="rail"></span>${ic("memoire")}Mémoire</label>
       <span class="espace"></span>
       <button class="btn petit" data-o="vider">Nouvelle jasette</button>
@@ -197,18 +203,26 @@ function creerChat(conteneur, mode) {
   const apercus = $(".apercus", conteneur), entreeImg = $(`#${id}-img`, conteneur);
   const btEnvoyer = $('[data-o="envoyer"]', conteneur);
   const cases = Object.fromEntries($$("input[data-o]", conteneur).map((c) => [c.dataset.o, c]));
+  const choixPlan = $('[data-s="plan"]', conteneur);
   const cleStock = "tilabo-" + mode;
   let hist = [], images = [], controleur = null;
 
+  cases.internet.checked = true;
+  if (cases.ecriture) cases.ecriture.checked = true;
   try {
-    const s = JSON.parse(localStorage.getItem(cleStock + "-opts") || "{}");
-    cases.plan.checked = s.plan ?? mode === "codex";
+    const s = JSON.parse(localStorage.getItem(cleStock + "-opts2") || "{}");
+    choixPlan.value = ["direct", "auto", "valider"].includes(s.plan) ? s.plan : "direct";
     cases.internet.checked = s.internet ?? true;
     cases.memoire.checked = !!s.memoire;
-  } catch { cases.plan.checked = mode === "codex"; cases.internet.checked = true; }
-  Object.values(cases).forEach((c) => c.addEventListener("change", () => {
-    try { localStorage.setItem(cleStock + "-opts", JSON.stringify({ plan: cases.plan.checked, internet: cases.internet.checked, memoire: cases.memoire.checked })); } catch {}
-  }));
+    if (cases.ecriture) cases.ecriture.checked = s.ecriture ?? true;
+  } catch { /* stockage indisponible : valeurs par defaut */ }
+  const garderOptions = () => {
+    try {
+      localStorage.setItem(cleStock + "-opts2", JSON.stringify({ plan: choixPlan.value, internet: cases.internet.checked,
+        memoire: cases.memoire.checked, ecriture: cases.ecriture?.checked }));
+    } catch {}
+  };
+  [...Object.values(cases), choixPlan].forEach((c) => c.addEventListener("change", garderOptions));
 
   function majModeles() {
     const cle = mode === "codex" ? "modele_codex" : "modele_jasette";
@@ -260,7 +274,7 @@ function creerChat(conteneur, mode) {
 
   function accueil() {
     fil.innerHTML = `<div class="vide">${mode === "codex"
-      ? "Le Codex voit le fichier ouvert dans l'éditeur.<br>Avec « Plan d'abord », il te propose un plan avant d'écrire du code."
+      ? "Le Codex travaille dans le projet ouvert : il lit, crée et modifie les fichiers lui-même.<br>Chaque changement peut être annulé. Choisis « Plan à valider » si tu veux approuver avant."
       : "Jase avec ton IA locale. Joins une image pour qu'elle la regarde (modèle « vision »)."}</div>`;
   }
   accueil();
@@ -281,18 +295,25 @@ function creerChat(conteneur, mode) {
     bulleUser(texte || "(image)", imgs);
     hist.push({ role: "user", content: texte || "Regarde cette image.", images: imgs });
     if (!texteForce) { zone.value = ""; zone.style.height = "auto"; images = []; majApercus(); }
-    const plan = planForce ?? (cases.plan.checked ? "planifier" : null);
+    const facon = choixPlan.value;
+    const plan = planForce ?? (facon === "direct" ? null : "planifier");
+    if (mode === "codex" && cases.ecriture?.checked && !etat.projet && !texteForce)
+      toast("Ouvre un projet dans « Mes projets » pour que le Codex puisse écrire dans tes fichiers.");
 
     const d = document.createElement("div");
     d.className = "msg assistant";
-    d.innerHTML = `<div class="qui">${esc(sel.value)}${plan === "planifier" ? ' <span class="tag or">plan</span>' : ""}</div><div class="etapes"></div><div class="contenu curseur"></div>`;
+    const auCentre = mode === "codex";
+    d.innerHTML = `<div class="qui">${esc(sel.value)}${plan === "planifier" ? ' <span class="tag or">plan</span>' : ""}</div><div class="etapes"></div>` +
+      (auCentre ? `<div class="renvoi">${ic("bureau")}Réponse écrite au centre</div>` : `<div class="contenu curseur"></div>`);
     fil.appendChild(d);
-    const contenu = $(".contenu", d), etapes = $(".etapes", d);
+    const contenu = auCentre ? ouvrirSortieCentre(sel.value, plan) : $(".contenu", d), etapes = $(".etapes", d);
     let reponse = "";
-    const ecrivain = machineAEcrire(contenu, () => { if (pres) fil.scrollTop = fil.scrollHeight; });
+    const modifies = new Set();
+    const zoneDefile = auCentre ? $("#sc-corps") : fil;
+    const ecrivain = machineAEcrire(contenu, () => { if (pres) zoneDefile.scrollTop = zoneDefile.scrollHeight; });
     let pres = true;
-    const surDefilement = () => { pres = fil.scrollHeight - fil.scrollTop - fil.clientHeight < 80; };
-    fil.addEventListener("scroll", surDefilement);
+    const surDefilement = () => { pres = zoneDefile.scrollHeight - zoneDefile.scrollTop - zoneDefile.clientHeight < 80; };
+    zoneDefile.addEventListener("scroll", surDefilement);
     controleur = new AbortController();
     btEnvoyer.innerHTML = ic("stop");
     btEnvoyer.setAttribute("aria-label", "Arrêter");
@@ -300,12 +321,14 @@ function creerChat(conteneur, mode) {
     try {
       const r = await api("jasette", {
         mode, modele: sel.value, messages: hist, plan,
-        internet: cases.internet.checked, memoire: cases.memoire.checked,
+        internet: cases.internet.checked, memoire: cases.memoire.checked, schema: cases.schema.checked,
         fichier: mode === "codex" ? etat.fichier : null, projet: etat.projet,
+        ecriture: mode === "codex" && !!cases.ecriture?.checked,
       }, { flux: true, signal: controleur.signal });
       await lireFlux(r, (o) => {
         if (o.texte) { reponse += o.texte; ecrivain.ajouter(o.texte); }
-        if (o.outil) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic("globe")}${esc(o.outil)}</div>`);
+        if (o.outil) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic(/^(Lit|Regarde|Ecrit|Modifie)/.test(o.outil) ? "dossier" : "globe")}${esc(o.outil)}</div>`);
+        if (o.fichier) { carteFichier(etapes, o.fichier); modifies.add(o.fichier.chemin); montrerAuCentre(o.fichier); }
         if (o.liens) etapes.insertAdjacentHTML("beforeend", o.liens.slice(0, 3).map((u) => `<div class="etape" style="padding-left:24px"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></div>`).join(""));
         if (o.sources) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic("memoire")}Mémoire : ${esc(o.sources.join(", "))}</div>`);
         if (o.erreur) ecrivain.erreur(o.erreur);
@@ -316,13 +339,21 @@ function creerChat(conteneur, mode) {
       if (e.name !== "AbortError") { await ecrivain.terminer(); contenu.insertAdjacentHTML("beforeend", `<p style="color:var(--red)">${esc(e.message)}</p>`); }
     } finally {
       await ecrivain.terminer();
-      fil.removeEventListener("scroll", surDefilement);
+      if (window.TiSchemas) TiSchemas.activer(contenu).catch(() => {});
+      zoneDefile.removeEventListener("scroll", surDefilement);
       contenu.classList.remove("curseur");
+      if (auCentre) $("#sc-etat").textContent = "";
       controleur = null;
       btEnvoyer.innerHTML = ic("envoyer");
       btEnvoyer.setAttribute("aria-label", "Envoyer");
     }
     if (reponse) hist.push({ role: "assistant", content: reponse });
+    if (modifies.size) apresModifs(modifies);
+    if (reponse && plan === "planifier" && facon === "auto" && !planForce) {
+      // Plan puis code, sans attendre de validation
+      coller();
+      return envoyer("Parfait, vas-y : réalise ce plan maintenant.", "executer");
+    }
     if (reponse && plan === "planifier") {
       const a = document.createElement("div");
       a.className = "plan-actions";
@@ -336,6 +367,146 @@ function creerChat(conteneur, mode) {
   }
 
   return { majModeles, envoyer: (t) => envoyer(t), zone };
+}
+
+/* ------------------------------------------------------------ sortie du Codex au centre */
+function ouvrirSortieCentre(modele, plan) {
+  if (!$("#v-projets").classList.contains("actif")) {
+    $$(".vue").forEach((v) => v.classList.toggle("actif", v.id === "v-projets"));
+    $$(".nav").forEach((n) => n.classList.toggle("actif", n.dataset.vue === "projets"));
+    chargerProjets();
+  }
+  const s = $("#sortie-codex");
+  s.hidden = false;
+  s.classList.remove("reduite");
+  $("#sc-reduire").textContent = "Réduire";
+  $("#sc-reduire").setAttribute("aria-expanded", "true");
+  $("#sc-modele").textContent = "· " + modele + (plan === "planifier" ? " · plan" : "");
+  $("#sc-etat").textContent = "écrit…";
+  const corps = $("#sc-corps");
+  corps.innerHTML = "";
+  const c = document.createElement("div");
+  c.className = "msg assistant contenu curseur";
+  corps.appendChild(c);
+  return c;
+}
+$("#sc-reduire").onclick = () => {
+  const r = $("#sortie-codex").classList.toggle("reduite");
+  $("#sc-reduire").textContent = r ? "Agrandir" : "Réduire";
+  $("#sc-reduire").setAttribute("aria-expanded", String(!r));
+};
+
+/* ------------------------------------------------------------ changements de fichiers du Codex */
+function carteFichier(zone, f) {
+  const el = document.createElement("div");
+  el.className = "carte-fichier";
+  const verbe = f.action === "cree" ? "Créé" : "Modifié";
+  el.innerHTML = `${ic("dossier")}<span><b>${verbe}</b> <code>${esc(f.chemin)}</code> <span class="plus">+${f.plus}</span> <span class="moins">−${f.moins}</span></span>
+    <span class="espace" style="flex:1"></span>
+    <button class="btn petit" data-f-ouvrir>Ouvrir</button><button class="btn petit danger" data-f-annuler>Annuler</button>`;
+  $("[data-f-ouvrir]", el).onclick = async () => {
+    allerA("projets");
+    const projet = f.chemin.split("/")[0];
+    if (etat.projet !== projet) await choisirProjet(projet);
+    ouvrirFichier(f.chemin);
+  };
+  $("[data-f-annuler]", el).onclick = async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    try {
+      await api("fichier/annuler", { sauvegarde: f.sauvegarde });
+      el.classList.add("annule");
+      b.textContent = "Annulé";
+      apresModifs(new Set([f.chemin]));
+    } catch (err) { toast(err.message); b.disabled = false; }
+  };
+  zone.appendChild(el);
+}
+// Petite animation quand le Codex passe a un autre fichier
+async function animerChangement(f) {
+  const zone = $(".zone-edit");
+  const badge = document.createElement("div");
+  badge.className = "badge-fichier";
+  badge.innerHTML = `${ic(f.action === "cree" ? "plus" : "dossier")}<span>${f.action === "cree" ? "Nouveau fichier" : "Le Codex passe à"}</span><code>${esc(f.chemin.split("/").slice(1).join("/"))}</code>`;
+  zone.appendChild(badge);
+  zone.classList.remove("change-fichier");
+  void zone.offsetWidth; // relance l'animation
+  zone.classList.add("change-fichier");
+  const noeud = $$("#arbre [data-f]").find((b) => b.dataset.f === f.chemin);
+  if (noeud) { noeud.scrollIntoView({ block: "nearest" }); noeud.classList.add("pulse"); setTimeout(() => noeud.classList.remove("pulse"), 1600); }
+  await new Promise((ok) => setTimeout(ok, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 650));
+  setTimeout(() => badge.remove(), 1400);
+}
+
+// Le code s'ecrit au centre, dans l'editeur, sous les yeux de l'utilisateur
+let fileCentre = Promise.resolve();
+function montrerAuCentre(f) {
+  fileCentre = fileCentre.then(() => ecrireAuCentre(f)).catch(() => {});
+}
+async function ecrireAuCentre(f) {
+  if (etat.modifie) return; // ne jamais ecraser du travail non enregistre
+  const projet = f.chemin.split("/")[0];
+  if (!$("#v-projets").classList.contains("actif")) {
+    $$(".vue").forEach((v) => v.classList.toggle("actif", v.id === "v-projets"));
+    $$(".nav").forEach((n) => n.classList.toggle("actif", n.dataset.vue === "projets"));
+    await chargerProjets();
+  }
+  if (etat.projet !== projet) await choisirProjet(projet);
+  else await choisirProjetSilencieux().catch(() => {});
+  const changeDeFichier = etat.fichier !== f.chemin;
+  const ancien = changeDeFichier ? "" : ed.value;
+  const r = await api("fichier?chemin=" + encodeURIComponent(f.chemin));
+  if (changeDeFichier) await animerChangement(f);
+  etat.fichier = f.chemin;
+  $("#nom-fichier").textContent = f.chemin;
+  $("#codex-contexte").textContent = "Projet : " + projet + " · fichier ouvert : " + f.chemin.split("/").slice(1).join("/");
+  ["#bt-expliquer", "#bt-dossier", "#bt-sauver"].forEach((x) => ($(x).disabled = false));
+  $$("#arbre [data-f]").forEach((b) => b.classList.toggle("actif", b.dataset.f === f.chemin));
+  const nouveau = r.contenu;
+  // premiere ligne qui change : on ecrit a partir de la, comme si l'IA tapait
+  let debut = 0;
+  const lim = Math.min(ancien.length, nouveau.length);
+  while (debut < lim && ancien[debut] === nouveau[debut]) debut++;
+  debut = nouveau.lastIndexOf("\n", debut - 1) + 1;
+  const reste = nouveau.length - debut;
+  const pasParImage = Math.max(3, Math.ceil(reste / 90)); // environ 1,5 s, meme pour un gros fichier
+  ed.readOnly = true;
+  ed.classList.add("ecrit-par-ia");
+  let i = debut;
+  await new Promise((ok) => {
+    function tape() {
+      i = Math.min(nouveau.length, i + pasParImage);
+      ed.value = nouveau.slice(0, i);
+      majNumeros();
+      ed.scrollTop = ed.scrollHeight;
+      synchroDefilement();
+      if (i < nouveau.length && !document.hidden) requestAnimationFrame(tape);
+      else { ed.value = nouveau; majNumeros(); ok(); }
+    }
+    tape();
+  });
+  ed.readOnly = false;
+  ed.classList.remove("ecrit-par-ia");
+  marquerModifie(false);
+  // place le curseur au debut du changement
+  ed.focus({ preventScroll: true });
+  ed.setSelectionRange(debut, debut);
+  const ligne = nouveau.slice(0, debut).split("\n").length - 1;
+  ed.scrollTop = Math.max(0, ligne * 21.6 - 80);
+  synchroDefilement();
+}
+
+async function apresModifs(chemins) {
+  await fileCentre;
+  if (etat.projet) await choisirProjetSilencieux().catch(() => {});
+  chargerListeProjets();
+  if (etat.fichier && chemins.has(etat.fichier)) {
+    if (etat.modifie) toast("Le Codex a changé " + etat.fichier + " — tes modifications non enregistrées sont gardées dans l'éditeur.");
+    else {
+      const r = await api("fichier?chemin=" + encodeURIComponent(etat.fichier)).catch(() => null);
+      if (r && r.contenu !== ed.value) { ed.value = r.contenu; majNumeros(); }
+    }
+  }
 }
 
 /* ------------------------------------------------------------ navigation */
@@ -470,7 +641,7 @@ async function ouvrirFichier(chemin) {
     etat.fichier = chemin;
     $("#editeur").value = f.contenu;
     $("#nom-fichier").textContent = chemin;
-    $("#codex-contexte").textContent = "Contexte : " + chemin;
+    $("#codex-contexte").textContent = "Projet : " + chemin.split("/")[0] + " · fichier ouvert : " + chemin.split("/").slice(1).join("/");
     ["#bt-expliquer", "#bt-dossier", "#bt-sauver"].forEach((s) => ($(s).disabled = false));
     $$("#arbre [data-f]").forEach((b) => b.classList.toggle("actif", b.dataset.f === chemin));
     marquerModifie(false);
@@ -482,16 +653,37 @@ function marquerModifie(v) { etat.modifie = v; $("#etat-fichier").hidden = !v; }
 function majNumeros() {
   const n = $("#editeur").value.split("\n").length;
   $("#numeros").textContent = Array.from({ length: n }, (_, i) => i + 1).join("\n");
+  colorerEditeur();
+}
+let colorationEnAttente = false;
+function colorerEditeur() {
+  if (colorationEnAttente) return;
+  colorationEnAttente = true;
+  requestAnimationFrame(() => {
+    colorationEnAttente = false;
+    const t = $("#editeur").value;
+    const lang = TiCouleurs.langueDe(etat.fichier || "");
+    // au-dela de ~400 Ko, on garde le texte simple pour rester rapide
+    $("#coloration-code").innerHTML = (t.length > 400000 ? t.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])) : TiCouleurs.colorer(t, lang)) + "\n";
+    synchroDefilement();
+  });
+}
+function synchroDefilement() {
+  const t = $("#editeur"), pre = $("#coloration");
+  pre.scrollTop = t.scrollTop;
+  pre.scrollLeft = t.scrollLeft;
+  $("#numeros").scrollTop = t.scrollTop;
 }
 const ed = $("#editeur");
 ed.addEventListener("input", () => { marquerModifie(true); majNumeros(); });
-ed.addEventListener("scroll", () => ($("#numeros").scrollTop = ed.scrollTop));
+ed.addEventListener("scroll", synchroDefilement);
 ed.addEventListener("keydown", (e) => {
   if (e.key === "Tab") {
     e.preventDefault();
     const s = ed.selectionStart;
     ed.setRangeText("    ", s, ed.selectionEnd, "end");
     marquerModifie(true);
+    majNumeros();
   }
 });
 async function sauver() {
