@@ -57,7 +57,7 @@ Attention : dans ce cas, désinstaller Termux efface ce dossier de la clé.
 
 Formate la clé en exFAT : FAT32 refuse les fichiers de plus de 4 Go.
 
-L'APPLI TI-LABO (apk/Ti-Labo.apk) — version 2
+L'APPLI TI-LABO (Ti-Labo.apk, dans les Releases GitHub) — version 2
 ----------------------------------------------
 Une vraie appli, avec son icône. Elle a son PROPRE moteur d'IA (llama.cpp,
 le même que CodexLocal) : elle lit tes .gguf directement, sans llama-server.
