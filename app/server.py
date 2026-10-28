@@ -961,10 +961,14 @@ class Gestion(BaseHTTPRequestHandler):
         if sources:
             self.ligne({"sources": sources})
         if internet:
+            # Ecriture en direct meme avec les outils : on lit le flux, on affiche le texte
+            # au fur et a mesure et on ramasse les appels d'outils au passage.
             for _ in range(6):
+                req = urllib.request.Request(ollama_url("/api/chat"), headers={"Content-Type": "application/json"},
+                                             data=json.dumps({"model": modele, "messages": messages,
+                                                              "tools": OUTILS_IA, "stream": True}).encode())
                 try:
-                    r = http_json(ollama_url("/api/chat"), {"model": modele, "messages": messages,
-                                                             "tools": OUTILS_IA, "stream": False}, delai=1800)
+                    r = urllib.request.urlopen(req, timeout=3600)
                 except urllib.error.HTTPError as e:
                     corps = e.read().decode("utf-8", "ignore")
                     if "does not support tools" in corps:
@@ -972,16 +976,29 @@ class Gestion(BaseHTTPRequestHandler):
                         break
                     self.ligne({"erreur": corps or str(e)})
                     return
-                msg = r.get("message", {})
-                appels = msg.get("tool_calls") or []
+                texte, appels, stats = "", [], {}
+                with r:
+                    for l in r:
+                        if not l.strip():
+                            continue
+                        try:
+                            o = json.loads(l)
+                        except ValueError:
+                            continue
+                        if o.get("error"):
+                            self.ligne({"erreur": o["error"]})
+                            return
+                        m = o.get("message", {})
+                        if m.get("content"):
+                            texte += m["content"]
+                            self.ligne({"texte": m["content"]})
+                        appels += m.get("tool_calls") or []
+                        if o.get("done"):
+                            stats = o
                 if not appels:
-                    # Reponse finale deja calculee : on l'envoie en petits morceaux
-                    texte = msg.get("content", "")
-                    for i in range(0, len(texte), 40):
-                        self.ligne({"texte": texte[i:i + 40]})
-                    self.ligne({"fini": True})
+                    self.ligne({"fini": True, "jetons_s": round(stats.get("eval_count", 0) / max(stats.get("eval_duration", 1) / 1e9, 0.001), 1)})
                     return
-                messages.append({"role": "assistant", "content": msg.get("content", ""), "tool_calls": appels})
+                messages.append({"role": "assistant", "content": texte, "tool_calls": appels})
                 for a in appels:
                     f = a.get("function", {})
                     args = f.get("arguments") or {}
@@ -996,6 +1013,8 @@ class Gestion(BaseHTTPRequestHandler):
                         self.ligne({"liens": [x.get("url") for x in res[:5] if x.get("url")]})
                     messages.append({"role": "tool", "content": json.dumps(res, ensure_ascii=False)[:14000],
                                      "tool_name": f.get("name")})
+                if texte:
+                    self.ligne({"texte": "\n\n"})
         req = urllib.request.Request(ollama_url("/api/chat"),
                                      data=json.dumps({"model": modele, "messages": messages, "stream": True}).encode(),
                                      headers={"Content-Type": "application/json"})
