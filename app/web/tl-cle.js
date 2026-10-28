@@ -6,7 +6,8 @@
   // on passe par le bureau, qui demande le mot de passe, puis on ouvre l'appli dans une fenetre.
   if (!window.TILABO_JETON) {
     const appli = location.pathname.replace(/^\//, "");
-    location.replace("/" + (appli ? "?ouvrir=" + encodeURIComponent(appli) : ""));
+    // « /bureau » explicitement : c'est lui qui lit ?ouvrir=, meme si l'interface classique est choisie
+    location.replace("/bureau" + (appli ? "?ouvrir=" + encodeURIComponent(appli) : ""));
     return;
   }
   const echap = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));

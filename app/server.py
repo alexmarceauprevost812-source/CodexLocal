@@ -851,7 +851,16 @@ def ville_dans(texte):
     """« meteo a Normandin », « temps qu'il fait au Lac-Saint-Jean » -> la ville, sinon None."""
     m = re.search(r"(?:^|\s)(?:à|a|au|aux|en|pour|sur|de|du|in)\s+((?:la |le |les |l')?[A-ZÉÈÀÂÎÔÛ][\w'’\-éèêëàâîïôöûüç]+"
                   r"(?:[\s-](?:de |du |des |la |le |sur |en )?[A-ZÉÈÀÂÎÔÛ][\w'’\-éèêëàâîïôöûüç]+)*)", texte)
-    return re.sub(r"^(la |le |les |l')", "", m.group(1), flags=re.I) if m else None
+    if m:
+        return re.sub(r"^(la |le |les |l')", "", m.group(1), flags=re.I)
+    # villes ecrites en minuscules : « meteo a paris », « weather in london »
+    m = re.search(r"(?:m[ée]t[ée]o|temps|temp[ée]rature|weather|pr[ée]visions?|il fait\w*|pleu\w*|neig\w*)\b.*?"
+                  r"\b(?:à|a|au|aux|pour|sur|in)\s+([^\W\d][\w'’\-]*(?:[\s-][^\W\d][\w'’\-]*){0,3}?)"
+                  r"\s*(?:demain|aujourd'hui|ce soir|cette semaine|maintenant|en ce moment|cet après-midi|[?!.,;]|$)", texte, re.I)
+    if not m:
+        return None
+    v = re.sub(r"^(la |le |les |l')", "", m.group(1).strip(), flags=re.I)
+    return None if v.lower() in ("demain", "aujourd'hui", "maintenant", "semaine", "matin", "soir") else v
 
 
 def meteo_web(ville):
