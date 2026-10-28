@@ -10,9 +10,18 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <!-- Retirer une appli fabriquee par le Studio (par exemple apres un changement de cle) -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Ti-Labo : moteur en arriere-plan pour Termux, rappels de l'agenda, meteo, demarrage du Ti-Labo complet -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
     <!-- Voir (et ouvrir) les applis fabriquees par le Studio, qui ont un icone de lanceur -->
     <queries>
+        <package android:name="com.termux" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -95,6 +104,32 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
             android:exported="false"
             android:label="@string/studio_titre" />
+
+        <!-- Ti-Labo : Bureau, Jasette, Codex, Agenda, Cle USB-C, GitHub (meme moteur que CodexLocal) -->
+        <activity
+            android:name=".tilabo.TiLaboActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|uiMode|density|fontScale"
+            android:exported="false"
+            android:label="Ti-Labo"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+
+        <service
+            android:name=".tilabo.TiLaboService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Moteur d'IA local (llama.cpp) qui repond au Ti-Labo sur 127.0.0.1" />
+        </service>
+
+        <receiver android:name=".tilabo.RappelRecepteur" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Permet de passer l'APK telecharge au gestionnaire de paquets Android -->
         <provider

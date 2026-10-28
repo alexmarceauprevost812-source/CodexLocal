@@ -83,6 +83,8 @@ object LocalEngine {
     ) {
         val e = engine(context)
         awaitReady(e)
+        // Le Ti-Labo (meme appli, meme moteur) libere son modele : un seul en memoire a la fois
+        if (com.codexlocal.tilabo.Moteur.chemin != null) com.codexlocal.tilabo.Moteur.liberer()
         val systeme = ProfilsModeles.consigne(modelPath, cfg.systemPrompt)
         if (isLoadedFor(modelPath)) {
             // Un changement de mode ou de role doit aussi modifier le prompt du moteur local.

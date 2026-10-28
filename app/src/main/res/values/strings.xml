@@ -274,6 +274,11 @@
     <string name="bureau_reglages_sous">Modèle, fond, mises à jour</string>
     <string name="bureau_maj">Mises à jour</string>
     <string name="bureau_maj_sous">Chercher une nouvelle version</string>
+    <string name="bureau_tilabo">Ti-Labo</string>
+    <string name="bureau_tilabo_sous">Jasette, Codex, clé USB-C, GitHub, météo</string>
+    <string name="bureau_agenda">Agenda</string>
+    <string name="bureau_agenda_sous">Le même agenda que ta clé USB-C</string>
+    <string name="drawer_tilabo">🔥 Ti-Labo — clé USB-C, agenda, Internet</string>
     <string name="bureau_partager">Partager mes IA</string>
     <string name="bureau_partager_sous">Réutiliser les modèles dans LexOS</string>
 

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo — Clé USB-C</title>
+<style>
+:root{--orange:#FF7A1A;--bord:#262626;--doux:#B3B3B3;--vert:#4ade80;--bleu:#7CC4FF}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--bord)}
+header b{flex:1;color:var(--orange);font-size:17px}
+button{font:inherit;border-radius:10px;min-height:40px;padding:0 12px;background:#161616;color:var(--orange);border:1px solid var(--bord)}
+button.plein{background:var(--orange);color:#000;font-weight:700;border:0}
+button.vert{background:#0b1f12;color:var(--vert);border-color:#1f5131}
+button.bleu{background:#08131d;color:var(--bleu);border-color:#16314a}
+button:disabled{opacity:.4}
+main{max-width:620px;margin:0 auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom))}
+h2{font-size:16px;color:var(--orange);margin:20px 0 8px}
+.carte{background:#0d0d0d;border:1px solid var(--bord);border-radius:14px;padding:12px;margin-bottom:10px}
+.carte .t{display:flex;align-items:center;gap:8px}
+.carte .t b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carte small{color:var(--doux)}
+.boutons{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.boutons button{flex:1;min-width:140px}
+.etat{margin-top:8px;font-size:13px;line-height:1.6;color:#E5E5E5}
+.etat ul{margin:2px 0 6px;padding-left:18px;font:12px ui-monospace,monospace;color:var(--doux);max-height:140px;overflow:auto}
+.pastille{font-size:11px;border-radius:20px;padding:2px 8px;border:1px solid}
+.on{color:var(--vert);border-color:#1f5131}.off{color:var(--doux);border-color:var(--bord)}
+.note{color:var(--doux);font-size:13px;line-height:1.5}
+.etapes{counter-reset:e;list-style:none;padding:0;margin:0}
+.etapes li{counter-increment:e;display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-size:14px;line-height:1.45}
+.etapes li::before{content:counter(e);flex:0 0 24px;height:24px;border-radius:50%;background:var(--orange);color:#000;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px}
+</style>
+</head>
+<body>
+<header><b>🔌 Clé USB-C</b><button id="bMaj">↻</button></header>
+<main>
+  <div class="carte">
+    <ol class="etapes">
+      <li>Branche ta clé, puis « 📲 Copier sur le téléphone » sur un projet.</li>
+      <li>Débranche la clé et code tranquille avec le Codex 🧑‍💻.</li>
+      <li>Rebranche la clé et touche « ⬆️ Renvoyer sur la clé ».</li>
+      <li>Sur le PC, le Ti-Labo de la clé continue où tu étais rendu 💻.</li>
+    </ol>
+  </div>
+
+  <h2>📱 Projets copiés sur le téléphone</h2>
+  <div id="lies"><p class="note">…</p></div>
+
+  <h2>💾 Projets sur la clé</h2>
+  <div id="cle"><p class="note">…</p></div>
+  <p class="note">Le Ti-Labo cherche le dossier <b>TiLabo/projets</b> sur la clé (le même que sur le PC). Si rien n'apparaît : vérifie que la clé est branchée et que le Ti-Labo a l'accès « Tous les fichiers ».</p>
+</main>
+<script src="/menu.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const echap = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+async function api(c, corps){
+  const r = await fetch(c, {method: "POST", body: JSON.stringify(corps || {})});
+  const j = await r.json(); if (!r.ok) throw new Error(j.error ? j.error.message : r.status); return j;
+}
+function liste(titre, l, max){ return l.length ? titre + " (" + l.length + ")<ul>" + l.slice(0, max || 30).map(x => "<li>" + echap(x) + "</li>").join("") + (l.length > (max || 30) ? "<li>…</li>" : "") + "</ul>" : ""; }
+
+async function etatProjet(p, zone, boutons){
+  if (!p.branchee) { zone.innerHTML = "🔌 Branche la clé <b>" + echap(p.cle) + "</b> pour synchroniser."; boutons.forEach(b => b.disabled = true); return; }
+  zone.textContent = "Comparaison…";
+  try {
+    const e = await api("/tilabo/sync/etat", {projet: p.chemin});
+    const rien = !e.a_renvoyer.length && !e.a_recuperer.length && !e.conflits.length;
+    zone.innerHTML = rien ? "✅ Le téléphone et la clé sont pareils." :
+      liste("⬆️ Changé sur le téléphone", e.a_renvoyer) + liste("⬇️ Changé sur la clé (PC)", e.a_recuperer) +
+      liste("⚠️ Changé des deux côtés (les deux versions seront gardées)", e.conflits) +
+      liste("🗑️ Effacé sur le téléphone (pas effacé sur la clé)", e.effaces_tel, 10);
+    boutons[0].disabled = !e.a_renvoyer.length && !e.conflits.length;
+    boutons[1].disabled = !e.a_recuperer.length && !e.conflits.length;
+  } catch (err) { zone.textContent = "⚠ " + err.message; boutons.forEach(b => b.disabled = true); }
+}
+
+async function synchro(p, vers, zone, bouton){
+  bouton.disabled = true; const avant = bouton.textContent; bouton.textContent = "…";
+  try {
+    const r = await api("/tilabo/sync/synchroniser", {projet: p.chemin, vers});
+    let msg = "✅ " + r.copies + " fichier(s) " + (vers === "cle" ? "renvoyé(s) sur la clé" : "récupéré(s) de la clé") + ".";
+    if (r.versions_gardees.length) msg += "\n⚠️ Versions gardées à côté : " + r.versions_gardees.join(", ");
+    alert(msg);
+  } catch (e) { alert("⚠ " + e.message); }
+  bouton.textContent = avant; charger();
+}
+
+async function charger(){
+  try {
+    const lies = (await api("/tilabo/sync/lies")).projets;
+    const L = $("#lies"); L.innerHTML = lies.length ? "" : "<p class='note'>Aucun projet copié pour l'instant.</p>";
+    lies.forEach(p => {
+      const d = document.createElement("div"); d.className = "carte";
+      d.innerHTML = "<div class='t'><b>📁 " + echap(p.nom) + "</b><span class='pastille " + (p.branchee ? "on" : "off") + "'>" +
+        (p.branchee ? "clé branchée" : "clé débranchée") + "</span></div><small>Dernière synchro : " + echap(p.derniere || "?") + "</small>" +
+        "<div class='etat'></div><div class='boutons'><button class='plein'>⬆️ Renvoyer sur la clé</button><button class='bleu'>⬇️ Récupérer de la clé</button>" +
+        "<button class='vert'>🧑‍💻 Ouvrir dans le Codex</button></div>";
+      const [b1, b2, b3] = d.querySelectorAll("button"), zone = d.querySelector(".etat");
+      b1.onclick = () => synchro(p, "cle", zone, b1);
+      b2.onclick = () => synchro(p, "tel", zone, b2);
+      b3.onclick = () => { localStorage.setItem("tilabo-projet", JSON.stringify({nom: p.nom, chemin: p.chemin, ou: "Téléphone"})); location.href = "/codex"; };
+      L.appendChild(d);
+      etatProjet(p, zone, [b1, b2]);
+    });
+  } catch (e) { $("#lies").innerHTML = "<p class='note'>⚠ " + echap(e.message) + "</p>"; }
+  try {
+    const cle = (await api("/tilabo/sync/cle")).projets;
+    const C = $("#cle"); C.innerHTML = cle.length ? "" : "<p class='note'>🔌 Aucune clé avec un dossier TiLabo/projets n'est branchée.</p>";
+    cle.forEach(p => {
+      const d = document.createElement("div"); d.className = "carte";
+      d.innerHTML = "<div class='t'><b>💾 " + echap(p.nom) + "</b><small>" + echap(p.ou) + "</small></div><div class='boutons'></div>";
+      const b = document.createElement("button");
+      b.className = p.copie ? "" : "plein"; b.textContent = p.copie ? "✔ Déjà sur le téléphone" : "📲 Copier sur le téléphone"; b.disabled = p.copie;
+      b.onclick = async () => {
+        b.disabled = true; b.textContent = "Copie…";
+        try { const r = await api("/tilabo/sync/cloner", {projet: p.chemin}); alert("✅ " + r.fichiers + " fichiers copiés. Tu peux débrancher la clé."); }
+        catch (e) { alert("⚠ " + e.message); }
+        charger();
+      };
+      d.querySelector(".boutons").appendChild(b);
+      C.appendChild(d);
+    });
+  } catch (e) { $("#cle").innerHTML = "<p class='note'>⚠ " + echap(e.message) + "</p>"; }
+}
+$("#bMaj").onclick = charger;
+charger();
+</script>
+</body>
+</html>

@@ -13,6 +13,8 @@ enum class ActionBureau(
     @StringRes val titre: Int,
     @StringRes val sous: Int
 ) {
+    TILABO("tilabo", "🔥", R.string.bureau_tilabo, R.string.bureau_tilabo_sous),
+    AGENDA("agenda", "🗓️", R.string.bureau_agenda, R.string.bureau_agenda_sous),
     CODEX("codex", "💻", R.string.bureau_codex, R.string.bureau_codex_sous),
     CHAT("chat", "💬", R.string.bureau_chat, R.string.bureau_chat_sous),
     EQUIPE("equipe", "⛑️", R.string.bureau_equipe, R.string.bureau_equipe_sous),

@@ -241,6 +241,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
 
+    /** Le Ti-Labo (meme moteur, memes IA) : Bureau, Jasette, Codex, Agenda, Cle USB-C, GitHub… */
+    private fun ouvrirTiLabo(page: String) {
+        binding.drawerLayout.closeDrawer(binding.tiroir)
+        startActivity(Intent(this, com.codexlocal.tilabo.TiLaboActivity::class.java).putExtra("page", page))
+    }
+
     private fun configurerRea() {
         if (isGenerating) return
         val panneau = android.widget.LinearLayout(this).apply {
@@ -869,6 +875,8 @@ class MainActivity : AppCompatActivity() {
     /** Execute le choix fait dans le Bureau (memes actions que le menu « ⋮ » et le tiroir). */
     private fun executerBureau(action: ActionBureau) {
         when (action) {
+            ActionBureau.TILABO -> ouvrirTiLabo("")
+            ActionBureau.AGENDA -> ouvrirTiLabo("agenda")
             ActionBureau.CODEX -> changeMode(AssistantMode.CODEX)
             ActionBureau.CHAT -> changeMode(AssistantMode.CHAT)
             ActionBureau.EQUIPE -> changeMode(AssistantMode.EQUIPE)
@@ -974,6 +982,7 @@ class MainActivity : AppCompatActivity() {
     private fun rafraichirTiroir() {
         val nouveaux = mutableListOf<DrawerItem>()
 
+        nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_tilabo), CLE_TILABO))
         nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_studio), CLE_STUDIO))
         nouveaux.add(
             DrawerItem.Section(
@@ -1094,6 +1103,7 @@ class MainActivity : AppCompatActivity() {
             cle == CLE_NOUVEAU_FICHIER -> dialogNouveauFichier()
             cle == CLE_NOUVEAU_DOSSIER -> dialogNouveauDossier()
             cle == CLE_STUDIO -> ouvrirStudio()
+            cle == CLE_TILABO -> ouvrirTiLabo("")
             cle == CLE_OUVRIR_DOSSIER -> choisirDossier.launch(null)
             cle == CLE_SUPPRIMER_SESSIONS -> choisirSessionsASupprimer()
             cle == CLE_SUPPRIMER_PROJETS -> choisirProjetsASupprimer()
@@ -1676,6 +1686,7 @@ class MainActivity : AppCompatActivity() {
         private const val CLE_NOUVEAU_FICHIER = "nouveau_fichier"
         private const val CLE_NOUVEAU_DOSSIER = "nouveau_dossier"
         private const val CLE_STUDIO = "studio"
+        private const val CLE_TILABO = "tilabo"
         private const val CLE_OUVRIR_DOSSIER = "ouvrir_dossier"
         private const val CLE_SUPPRIMER_SESSIONS = "supprimer_sessions"
         private const val CLE_SUPPRIMER_PROJETS = "supprimer_projets"

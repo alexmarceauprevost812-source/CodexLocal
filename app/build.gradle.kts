@@ -117,6 +117,8 @@ dependencies {
     implementation(libs.bouncycastle.pkix)
 
     implementation(project(":lib"))
+    // Ti-Labo : code QR du lien « Ouvrir le bureau sur mon PC »
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.16.1")

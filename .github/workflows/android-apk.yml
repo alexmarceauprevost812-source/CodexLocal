@@ -3,7 +3,7 @@ name: CodexLocal Android APK + PC checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, tilabo-dans-codexlocal]
     paths:
       - "app/**"
       - "lib/**"
@@ -196,7 +196,7 @@ jobs:
       # Sur une PR, le telechargement de test reste pratique mais facultatif :
       # un quota d'artefacts plein ne doit pas masquer le resultat des tests.
       - name: Publier APK de test (si le quota le permet)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/tilabo-dans-codexlocal'
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
