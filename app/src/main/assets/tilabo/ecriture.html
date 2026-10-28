@@ -226,7 +226,13 @@ async function pouvoir(nom){
   // Texte trop long pour l'IA : on travaille sur les 6000 premiers caracteres seulement,
   // et « Remplacer » ne touche qu'a ce morceau (la suite du texte reste intacte).
   const coupe = !P.ajout && c.t.length > MAX_IA;
-  if (coupe) c = {...c, b: c.a + MAX_IA, t: c.t.slice(0, MAX_IA)};
+  if (coupe) {
+    // ne pas couper un emoji en deux (paire UTF-16) : on recule d'un cran si besoin
+    let n = MAX_IA;
+    const k = c.t.charCodeAt(n - 1);
+    if (k >= 0xD800 && k <= 0xDBFF) n -= 1;
+    c = {...c, b: c.a + n, t: c.t.slice(0, n)};
+  }
   if (!c.t.trim()) { $("#etat").textContent = "Écris quelque chose d'abord ✍️"; T.focus(); return; }
   let option = null;
   if (P.choix) { option = await demanderChoix(P.t, P.choix); if (!option) return; }
