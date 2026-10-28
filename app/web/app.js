@@ -508,6 +508,14 @@ function creerChat(conteneur, mode) {
 
   zone.addEventListener("input", () => { zone.style.height = "auto"; zone.style.height = Math.min(zone.scrollHeight, 200) + "px"; });
   zone.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); envoyer(); } });
+  // Le visage de l'IA (Jasette) : petit dans la barre d'options, il regarde ce que tu ecris
+  const yeux = mode === "jasette" && !!window.TiYeux;
+  if (yeux) {
+    const o = $(".options", conteneur), place = document.createElement("span");
+    if (o) { o.prepend(place); TiYeux.remplacer(place, false); }
+    zone.addEventListener("input", () => { if (!controleur) TiYeux.etat(zone.value.trim() ? "ecoute" : "repos"); });
+    zone.addEventListener("blur", () => { if (!controleur && TiYeux.actuel === "ecoute") TiYeux.etat("repos"); });
+  }
   btEnvoyer.onclick = () => (controleur ? controleur.abort() : envoyer());
   $('[data-o="vider"]', conteneur).onclick = () => { if (controleur) controleur.abort(); hist = []; sessionId = null; fil.innerHTML = ""; accueil(); };
 
@@ -515,6 +523,11 @@ function creerChat(conteneur, mode) {
     fil.innerHTML = `<div class="vide">${mode === "codex"
       ? "Choisis un projet en haut. Le Codex écrit le code directement dans tes fichiers et te le montre ici.<br>Chaque changement peut être annulé. Pour les plans et les schémas, va dans la Jasette."
       : "Jase avec ton IA locale : idées, plans et schémas animés (exportables en vidéo).<br>Joins une image pour qu'elle la regarde (modèle « vision »)."}</div>`;
+    // Le visage de l'IA (grand) quand la Jasette est vide
+    if (mode === "jasette" && window.TiYeux) {
+      const v = $(".vide", fil), place = document.createElement("span");
+      if (v) { v.prepend(place, document.createElement("br")); TiYeux.remplacer(place, true); }
+    }
   }
   accueil();
 
@@ -556,6 +569,7 @@ function creerChat(conteneur, mode) {
     const surDefilement = () => { pres = zoneDefile.scrollHeight - zoneDefile.scrollTop - zoneDefile.clientHeight < 80; };
     zoneDefile.addEventListener("scroll", surDefilement);
     controleur = new AbortController();
+    if (yeux) TiYeux.etat("pense");
     // Si l'IA ne dit rien après 25 s, on explique pourquoi au lieu de laisser attendre sans rien dire
     const minuterieLente = setTimeout(() => {
       if (reponse) return;
@@ -580,7 +594,7 @@ function creerChat(conteneur, mode) {
         turbo: mode === "codex" && !!cases.turbo?.checked,
       }, { flux: true, signal: controleur.signal });
       await lireFlux(r, (o) => {
-        if (o.texte) { reponse += o.texte; ecrivain.ajouter(o.texte); }
+        if (o.texte) { reponse += o.texte; ecrivain.ajouter(o.texte); if (yeux && TiYeux.actuel !== "parle") TiYeux.etat("parle"); }
         if (o.outil) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic(/^(Lit|Regarde|Ecrit|Modifie)/.test(o.outil) ? "dossier" : "globe")}${esc(o.outil)}</div>`);
         if (o.fichier) { carteFichier(etapes, o.fichier); modifies.add(o.fichier.chemin); montrerAuCentre(o.fichier); }
         if (o.autorisation) carteAutorisation(etapes, o.autorisation, toujours);
@@ -593,7 +607,7 @@ function creerChat(conteneur, mode) {
           sources.push(lien);
         });
         if (o.sources) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic("memoire")}Mémoire : ${esc(o.sources.join(", "))}</div>`);
-        if (o.erreur) ecrivain.erreur(o.erreur);
+        if (o.erreur) { ecrivain.erreur(o.erreur); if (yeux) TiYeux.etat("oups"); }
         if (o.jetons_s) $(".qui", d).insertAdjacentHTML("beforeend", `<span>· ${o.jetons_s} jetons/s</span>`);
         coller();
       });
@@ -602,6 +616,7 @@ function creerChat(conteneur, mode) {
     } finally {
       clearTimeout(minuterieLente);
       await ecrivain.terminer();
+      if (yeux) setTimeout(() => TiYeux.etat("repos"), TiYeux.actuel === "oups" ? 2500 : 900);
       if (window.TiSchemas && mode !== "codex") TiSchemas.activer(contenu).catch(() => {});
       // Petits logos (crypto, langages, marques) ou image du sujet, comme des emojis
       if (window.TiLogos && mode !== "codex" && reponse) {
