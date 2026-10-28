@@ -238,7 +238,12 @@ async function envoyer(texte){
   const ret = texte.match(/^\s*(?:retiens|souviens[- ]toi|rappelle[- ]toi|n'oublie pas|note)\s+(?:que\s+|bien\s+que\s+|ça\s*:?\s*)?(.+)/i);
   if (ret) {
     bulle("moi", echap(texte));
-    try { await fetch("/tilabo/memoire/ajouter", {method: "POST", body: JSON.stringify({texte: ret[1]})}); bulle("ia", "🧠 C'est noté ! Je m'en souviendrai. <span class='pense'>(Menu › Mémoire pour voir tout ce que je retiens)</span>"); }
+    try {
+      const r = await fetch("/tilabo/memoire/ajouter", {method: "POST", body: JSON.stringify({texte: ret[1]})});
+      // fetch ne lance pas d'erreur sur un refus (texte trop long, ecriture impossible) : on verifie avant de confirmer
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error ? j.error.message : "Mémoire indisponible (" + r.status + ")"); }
+      bulle("ia", "🧠 C'est noté ! Je m'en souviendrai. <span class='pense'>(Menu › Mémoire pour voir tout ce que je retiens)</span>");
+    }
     catch (e) { bulle("ia", "⚠ " + echap(e.message)); }
     return;
   }
