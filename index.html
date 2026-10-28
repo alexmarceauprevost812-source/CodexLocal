@@ -403,13 +403,13 @@ details[open] .fl{transform:rotate(45deg)}
     <div style="flex: 1 1 380px; min-width: 0">
       <p style="margin: 0 0 8px; color: #FF7A1A; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.6px">🎁 Concours de lancement</p>
       <h2 style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(28px, 3.8vw, 44px); line-height: 1.08; letter-spacing: -0.8px; margin: 0 0 14px">Gagne ton ti-lex, remboursé au complet</h2>
-      <p style="color: #D9CBBE; font-size: 17px; margin: 0 0 18px">Inscris-toi avec ton courriel. Le 21 décembre, juste avant Noël, on tire un gagnant au hasard :</p>
+      <p style="color: #D9CBBE; font-size: 17px; margin: 0 0 18px">Dis-nous en quelques mots <b style="color: #F5EDE6">pourquoi tu encourages un produit d'ici</b>. Juste avant Noël, Alex lit tous les messages et choisit son coup de cœur :</p>
       <ul style="margin: 0 0 18px; padding-left: 20px; color: #F5EDE6; display: flex; flex-direction: column; gap: 8px">
         <li>tu as acheté ti-lex Complet ? <b>On te rembourse les 49,99 $</b>, et tu le gardes ;</li>
         <li>tu ne l'as pas acheté ? <b>Tu le reçois gratuitement</b> ;</li>
         <li>et dans les deux cas : <b>la future version Pro gratuite</b>, avec ses mises à jour pendant un an.</li>
       </ul>
-      <p style="color: #B8A99C; font-size: 14px; margin: 0">Aucun achat requis : acheter n'augmente pas tes chances. Une inscription par personne. Résidents du Canada, majeurs. Fin le 20 décembre 2026 à 23 h 59. Le gagnant devra répondre à une question d'habileté mathématique. <a href="reglement.html">Lire le règlement</a>.</p>
+      <p style="color: #B8A99C; font-size: 14px; margin: 0">Concours d'habileté, aucun achat requis : acheter ne donne aucun avantage, c'est ton message qui compte. Une participation par personne. Résidents du Canada, majeurs. Fin le 20 décembre 2026 à 23 h 59. <a href="reglement.html">Lire le règlement</a>.</p>
     </div>
     <form id="formConcours" novalidate style="flex: 1 1 340px; min-width: 0; background: #0A0705; border: 1px solid #3A2A1E; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 14px">
       <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 15px">Ton prénom
@@ -420,6 +420,8 @@ details[open] .fl{transform:rotate(45deg)}
         <select name="province" required style="font: inherit; font-weight: 400; color: #F5EDE6; background: #15100C; border: 1px solid #3A2A1E; border-radius: 10px; padding: 12px 14px; min-height: 44px">
           <option value="QC" selected>Québec</option><option value="ON">Ontario</option><option value="NB">Nouveau-Brunswick</option><option value="NS">Nouvelle-Écosse</option><option value="PE">Île-du-Prince-Édouard</option><option value="NL">Terre-Neuve-et-Labrador</option><option value="MB">Manitoba</option><option value="SK">Saskatchewan</option><option value="AB">Alberta</option><option value="BC">Colombie-Britannique</option><option value="YT">Yukon</option><option value="NT">Territoires du Nord-Ouest</option><option value="NU">Nunavut</option>
         </select></label>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 15px">Pourquoi tu encourages un produit d'ici ?
+        <textarea name="message" required minlength="20" maxlength="600" rows="4" placeholder="Ex. : parce que l'argent reste chez nous, et que…" style="font: inherit; font-weight: 400; color: #F5EDE6; background: #15100C; border: 1px solid #3A2A1E; border-radius: 10px; padding: 12px 14px; resize: vertical"></textarea></label>
       <input name="site" tabindex="-1" autocomplete="off" aria-hidden="true" style="position: absolute; left: -9999px; width: 1px; height: 1px">
       <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; color: #D9CBBE"><input type="checkbox" name="majeur" required style="width: 20px; height: 20px; margin-top: 2px; accent-color: #FF7A1A; flex: none"> J'ai l'âge de la majorité dans ma province.</label>
       <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; color: #D9CBBE"><input type="checkbox" name="reglement" required style="width: 20px; height: 20px; margin-top: 2px; accent-color: #FF7A1A; flex: none"> <span>J'accepte le <a href="reglement.html" target="_blank">règlement du concours</a>.</span></label>
@@ -476,9 +478,10 @@ details[open] .fl{transform:rotate(45deg)}
   f.addEventListener("submit", function (e) {
     e.preventDefault();
     var d = new FormData(f), b = f.querySelector("button");
-    var o = { prenom: d.get("prenom"), courriel: d.get("courriel"), province: d.get("province"), site: d.get("site"),
+    var o = { message: d.get("message"), prenom: d.get("prenom"), courriel: d.get("courriel"), province: d.get("province"), site: d.get("site"),
               majeur: !!d.get("majeur"), reglement: !!d.get("reglement"), nouvelles: !!d.get("nouvelles") };
     if (!o.prenom || !o.courriel) { m.textContent = "Écris ton prénom et ton courriel."; return; }
+    if (!o.message || o.message.trim().length < 20) { m.textContent = "Écris un message d'au moins 20 caractères."; return; }
     if (!o.majeur || !o.reglement) { m.textContent = "Coche les deux premières cases pour participer."; return; }
     b.disabled = true; b.style.opacity = ".6"; m.style.color = "#FFB880"; m.textContent = "Inscription en cours…";
     fetch("/api/inscription", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) })

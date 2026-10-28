@@ -1,4 +1,4 @@
-// POST /api/inscription : inscription gratuite au concours (aucun achat requis).
+// POST /api/inscription : participation gratuite au concours d'habileté (aucun achat requis).
 import { put, head } from "@vercel/blob";
 import { DOSSIER, FIN_CONCOURS, empreinte, json, lireCorps, stockagePret } from "./_commun.js";
 
@@ -18,7 +18,9 @@ export default async function handler(req, res) {
   const prenom = String(d.prenom || "").trim().slice(0, 60);
   const courriel = String(d.courriel || "").trim().toLowerCase().slice(0, 254);
   const province = String(d.province || "").trim().toUpperCase();
+  const message = String(d.message || "").trim().slice(0, 600);
   if (!prenom) return json(res, 400, { erreur: "Écris ton prénom." });
+  if (message.length < 20) return json(res, 400, { erreur: "Écris un message d'au moins 20 caractères." });
   if (!COURRIEL.test(courriel)) return json(res, 400, { erreur: "Ton adresse courriel ne semble pas valide." });
   if (!PROVINCES.includes(province)) return json(res, 400, { erreur: "Le concours est ouvert aux résidents du Canada seulement." });
   if (d.majeur !== true && d.majeur !== "on") return json(res, 400, { erreur: "Il faut avoir l'âge de la majorité pour participer." });
@@ -30,14 +32,14 @@ export default async function handler(req, res) {
       return json(res, 200, { ok: true, deja: true, message: `Tu es déjà inscrit, ${prenom} ! Une seule participation par personne. Bonne chance 🍀` });
     }
     const fiche = {
-      prenom, courriel, province,
+      prenom, courriel, province, message,
       nouvelles: d.nouvelles === true || d.nouvelles === "on",
       inscrit_le: new Date().toISOString(),
     };
     await put(chemin, JSON.stringify(fiche), {
       access: "private", addRandomSuffix: false, allowOverwrite: false, contentType: "application/json",
     });
-    return json(res, 200, { ok: true, message: `C'est fait, ${prenom} ! Tu es inscrit au tirage du 21 décembre. Bonne chance 🍀` });
+    return json(res, 200, { ok: true, message: `C'est fait, ${prenom} ! Ton message est reçu. Le gagnant sera choisi juste avant Noël. Bonne chance 🍀` });
   } catch (e) {
     if (String(e && e.message).match(/exist|precondition/i)) {
       return json(res, 200, { ok: true, deja: true, message: "Tu es déjà inscrit ! Une seule participation par personne. Bonne chance 🍀" });
