@@ -287,13 +287,14 @@ $("#bureau").addEventListener("contextmenu", e => {
   if (e.target.closest(".ico")) return;
   e.preventDefault();
   const m = $("#ctx");
-  m.innerHTML = "<div data-c='rafr'>🔄 Actualiser</div><div data-c='fond'>🖼️ Changer le fond d'écran</div><div data-c='nouveau'>📁 Nouveau projet</div><div data-c='param'>⚙️ Paramètres</div>";
+  m.innerHTML = "<div data-c='rafr'>🔄 Actualiser</div><div data-c='fond'>🖼️ Changer le fond d'écran</div><div data-c='nouveau'>📁 Nouveau projet</div><div data-c='param'>⚙️ Paramètres</div>" + (window.TiNoel ? "<div data-c='noel'>🎄 Thème de Noël : " + (TiNoel.actif() ? "désactiver" : "activer") + "</div>" : "");
   m.style.left = Math.min(e.clientX, innerWidth - 210) + "px"; m.style.top = Math.min(e.clientY, innerHeight - 200) + "px"; m.style.display = "block";
   m.onclick = async ev => {
     const c = ev.target.dataset.c; m.style.display = "none";
     if (c === "rafr") chargerProjets();
     if (c === "fond") changerFond();
     if (c === "param") ouvrir(APPS.find(a => a.id === "parametres"));
+    if (c === "noel" && window.TiNoel) TiNoel.basculer();
     if (c === "nouveau") {
       const nom = prompt("Nom du nouveau projet :"); if (!nom) return;
       const r = await fetch("/tilabo/projets/creer", {method: "POST", body: JSON.stringify({nom})}); const j = await r.json();
@@ -350,6 +351,7 @@ document.addEventListener("tl-reglages", () => { dessinerBureau(); gadgets(); })
 appliquerFond(); horloge(); setInterval(horloge, 15000);
 dessinerTaches(); chargerProjets(); setTimeout(gadgets, 300); setInterval(gadgets, 60000);
 </script>
+<script src="/noel.js" data-barre="56px"></script>
 <script src="/agenda.js"></script>
 </body>
 </html>
