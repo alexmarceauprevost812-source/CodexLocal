@@ -42,6 +42,7 @@ details[open] .fl{transform:rotate(45deg)}
       <a href="#pc" style="color: #D9CBBE; text-decoration: none">Version PC</a>
       <a href="#installer" style="color: #D9CBBE; text-decoration: none">Installer</a>
       <a href="#prix" style="color: #D9CBBE; text-decoration: none">Prix</a>
+      <a href="#concours" style="color: #FFB880; text-decoration: none; font-weight: 600">🎁 Concours</a>
       <a href="#quebec" style="color: #D9CBBE; text-decoration: none">Fait au Québec</a>
       <a href="#faq" style="color: #D9CBBE; text-decoration: none">FAQ</a>
     </nav>
@@ -56,6 +57,7 @@ details[open] .fl{transform:rotate(45deg)}
       <span style="border: 1px solid #5A3416; color: #FFB880; padding: 5px 12px; border-radius: 999px">Conçu au Québec · Normandin</span>
       <span style="border: 1px solid #5A3416; color: #FFB880; padding: 5px 12px; border-radius: 999px">IA 100 % locale</span>
       <span style="border: 1px solid #5A3416; color: #FFB880; padding: 5px 12px; border-radius: 999px">Marche en mode avion</span>
+      <a href="#concours" style="background: #FF7A1A; color: #160A02; padding: 5px 12px; border-radius: 999px; text-decoration: none">🎁 Concours : gagne ton ti-lex</a>
     </p>
     <h1 style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(38px, 6vw, 68px); line-height: 1.02; letter-spacing: -1.5px; margin: 0 0 22px">Ton IA à toi.<br>Sur ton téléphone, ton PC et ta clé USB-C.<br><span style="color: #FF7A1A">Sans Internet.</span></h1>
     <p style="font-size: 19px; color: #D9CBBE; max-width: 620px; margin: 0 0 30px">ti-lex fait rouler l'intelligence artificielle directement sur tes appareils. Tu jases, tu écris, tu codes des applis, tu gères ton agenda — et rien de ce que tu écris ne quitte ton téléphone ou ton ordinateur.</p>
@@ -331,6 +333,40 @@ details[open] .fl{transform:rotate(45deg)}
   </div>
 </section>
 
+<!-- ============ concours ============ -->
+<section id="concours" style="max-width: 1180px; margin: 0 auto; padding: 72px 20px 40px">
+  <div style="background: linear-gradient(135deg, #2A1406, #110B07 60%); border: 2px solid #FF7A1A; border-radius: 24px; padding: clamp(24px, 4vw, 44px); display: flex; flex-wrap: wrap; gap: 36px">
+    <div style="flex: 1 1 380px; min-width: 0">
+      <p style="margin: 0 0 8px; color: #FF7A1A; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.6px">🎁 Concours de lancement</p>
+      <h2 style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(28px, 3.8vw, 44px); line-height: 1.08; letter-spacing: -0.8px; margin: 0 0 14px">Gagne ton ti-lex, remboursé au complet</h2>
+      <p style="color: #D9CBBE; font-size: 17px; margin: 0 0 18px">Inscris-toi avec ton courriel. Le 21 décembre, juste avant Noël, on tire un gagnant au hasard :</p>
+      <ul style="margin: 0 0 18px; padding-left: 20px; color: #F5EDE6; display: flex; flex-direction: column; gap: 8px">
+        <li>tu as acheté ti-lex Complet ? <b>On te rembourse les 49,99 $</b>, et tu le gardes ;</li>
+        <li>tu ne l'as pas acheté ? <b>Tu le reçois gratuitement</b> ;</li>
+        <li>et dans les deux cas : <b>la future version Pro gratuite</b>, avec ses mises à jour pendant un an.</li>
+      </ul>
+      <p style="color: #B8A99C; font-size: 14px; margin: 0">Aucun achat requis : acheter n'augmente pas tes chances. Une inscription par personne. Résidents du Canada, majeurs. Fin le 20 décembre 2026 à 23 h 59. Le gagnant devra répondre à une question d'habileté mathématique. <a href="reglement.html">Lire le règlement</a>.</p>
+    </div>
+    <form id="formConcours" novalidate style="flex: 1 1 340px; min-width: 0; background: #0A0705; border: 1px solid #3A2A1E; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+      <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 15px">Ton prénom
+        <input name="prenom" required maxlength="60" autocomplete="given-name" style="font: inherit; font-weight: 400; color: #F5EDE6; background: #15100C; border: 1px solid #3A2A1E; border-radius: 10px; padding: 12px 14px; min-height: 44px; box-sizing: border-box"></label>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 15px">Ton courriel
+        <input name="courriel" type="email" required maxlength="254" autocomplete="email" inputmode="email" placeholder="toi@gmail.com" style="font: inherit; font-weight: 400; color: #F5EDE6; background: #15100C; border: 1px solid #3A2A1E; border-radius: 10px; padding: 12px 14px; min-height: 44px; box-sizing: border-box"></label>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 15px">Ta province
+        <select name="province" required style="font: inherit; font-weight: 400; color: #F5EDE6; background: #15100C; border: 1px solid #3A2A1E; border-radius: 10px; padding: 12px 14px; min-height: 44px">
+          <option value="QC" selected>Québec</option><option value="ON">Ontario</option><option value="NB">Nouveau-Brunswick</option><option value="NS">Nouvelle-Écosse</option><option value="PE">Île-du-Prince-Édouard</option><option value="NL">Terre-Neuve-et-Labrador</option><option value="MB">Manitoba</option><option value="SK">Saskatchewan</option><option value="AB">Alberta</option><option value="BC">Colombie-Britannique</option><option value="YT">Yukon</option><option value="NT">Territoires du Nord-Ouest</option><option value="NU">Nunavut</option>
+        </select></label>
+      <input name="site" tabindex="-1" autocomplete="off" aria-hidden="true" style="position: absolute; left: -9999px; width: 1px; height: 1px">
+      <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; color: #D9CBBE"><input type="checkbox" name="majeur" required style="width: 20px; height: 20px; margin-top: 2px; accent-color: #FF7A1A; flex: none"> J'ai l'âge de la majorité dans ma province.</label>
+      <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; color: #D9CBBE"><input type="checkbox" name="reglement" required style="width: 20px; height: 20px; margin-top: 2px; accent-color: #FF7A1A; flex: none"> <span>J'accepte le <a href="reglement.html" target="_blank">règlement du concours</a>.</span></label>
+      <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; color: #D9CBBE"><input type="checkbox" name="nouvelles" style="width: 20px; height: 20px; margin-top: 2px; accent-color: #FF7A1A; flex: none"> Envoie-moi aussi les nouvelles de ti-lex (facultatif).</label>
+      <button type="submit" style="font: inherit; font-weight: 700; font-size: 17px; background: #FF7A1A; color: #160A02; border: 0; border-radius: 12px; padding: 14px; min-height: 48px; cursor: pointer">Je participe 🍀</button>
+      <p id="messageConcours" role="status" aria-live="polite" style="margin: 0; min-height: 1.4em; font-size: 15px; color: #FFB880"></p>
+      <p style="margin: 0; color: #8C7B6E; font-size: 12.5px">Ton courriel sert seulement au concours (et aux nouvelles si tu les demandes). Jamais vendu.</p>
+    </form>
+  </div>
+</section>
+
 <!-- ============ configuration ============ -->
 <section style="max-width: 1180px; margin: 0 auto; padding: 72px 20px 40px">
   <h2 style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(26px, 3.4vw, 38px); letter-spacing: -0.6px; margin: 0 0 24px">Ce qu'il te faut</h2>
@@ -357,7 +393,7 @@ details[open] .fl{transform:rotate(45deg)}
   <div style="background: #1D120A; border: 1px solid #5A3416; border-radius: 24px; padding: 48px 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 28px">
     <div style="flex: 999 1 480px; min-width: 0">
       <h2 style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(28px, 3.6vw, 42px); line-height: 1.1; letter-spacing: -0.6px; margin: 0 0 10px">Prêt à avoir ton IA à toi ?</h2>
-      <p style="margin: 0; color: #D9CBBE; font-size: 17px">Commence gratuitement sur ton téléphone.</p>
+      <p style="margin: 0; color: #D9CBBE; font-size: 17px">Commence gratuitement sur ton téléphone. Une question, une clé à commander ? Écris-nous : <a href="mailto:alexmarceauprevost812@gmail.com">alexmarceauprevost812@gmail.com</a></p>
     </div>
     <a href="#prix" style="background: #FF7A1A; color: #160A02; text-decoration: none; font-weight: 700; padding: 16px 28px; border-radius: 12px; font-size: 17px">Télécharger gratuitement</a>
   </div>
@@ -369,5 +405,28 @@ details[open] .fl{transform:rotate(45deg)}
   </div>
 </footer>
 </div>
+<script>
+(function () {
+  var f = document.getElementById("formConcours"), m = document.getElementById("messageConcours");
+  if (!f) return;
+  f.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var d = new FormData(f), b = f.querySelector("button");
+    var o = { prenom: d.get("prenom"), courriel: d.get("courriel"), province: d.get("province"), site: d.get("site"),
+              majeur: !!d.get("majeur"), reglement: !!d.get("reglement"), nouvelles: !!d.get("nouvelles") };
+    if (!o.prenom || !o.courriel) { m.textContent = "Écris ton prénom et ton courriel."; return; }
+    if (!o.majeur || !o.reglement) { m.textContent = "Coche les deux premières cases pour participer."; return; }
+    b.disabled = true; b.style.opacity = ".6"; m.style.color = "#FFB880"; m.textContent = "Inscription en cours…";
+    fetch("/api/inscription", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) })
+      .then(function (r) { return r.json().catch(function () { return { erreur: "Réessaie dans une minute." }; }); })
+      .then(function (r) {
+        if (r.ok) { m.style.color = "#4ADE80"; m.textContent = r.message || "C'est fait ! Bonne chance 🍀"; f.reset(); }
+        else { m.style.color = "#FCA5A5"; m.textContent = r.erreur || "Ça n'a pas marché. Réessaie."; }
+      })
+      .catch(function () { m.style.color = "#FCA5A5"; m.textContent = "Pas de connexion. Réessaie dans une minute."; })
+      .finally(function () { b.disabled = false; b.style.opacity = ""; });
+  });
+})();
+</script>
 </body>
 </html>
