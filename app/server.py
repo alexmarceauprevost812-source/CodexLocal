@@ -649,6 +649,8 @@ def etiquette_outil(nom, args):
 
 
 # ---------------------------------------------------------------- Codex : lire, creer et ecrire les fichiers du projet
+SCHEMAS = os.path.join(DONNEES, "schemas")
+os.makedirs(SCHEMAS, exist_ok=True)
 SAUVEGARDES = os.path.join(DONNEES, "sauvegardes")
 os.makedirs(SAUVEGARDES, exist_ok=True)
 
@@ -1184,6 +1186,8 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, etat_stockage())
             if route == "polices":
                 return self.envoyer(200, polices_windows())
+            if route == "schemas":
+                return self.envoyer(200, sorted((f[:-4] for f in os.listdir(SCHEMAS) if f.endswith(".mmd")), key=str.lower))
             if route == "images":
                 return self.envoyer(200, {"moteur": bool(exe_sd()), "modeles": modeles_images(),
                                           "catalogue": CATALOGUE_IMAGES, "galerie": galerie()})
@@ -1305,6 +1309,15 @@ class Gestion(BaseHTTPRequestHandler):
             if route == "agent/autoriser":
                 repondre_autorisation(d.get("id"), d.get("ok"))
                 return self.envoyer(200, {"ok": True})
+            if route == "schemas/enregistrer":
+                nom = nom_valide(re.sub(r"[^A-Za-z0-9_.\- ]", "-", d.get("nom") or "")[:60].strip("-. ") or "schema")
+                with open(os.path.join(SCHEMAS, nom + ".mmd"), "w", encoding="utf-8") as f:
+                    f.write(d.get("code") or "")
+                return self.envoyer(200, {"nom": nom})
+            if route == "schemas/lire":
+                nom = nom_valide(d.get("nom") or "")
+                with open(os.path.join(SCHEMAS, nom + ".mmd"), "r", encoding="utf-8") as f:
+                    return self.envoyer(200, {"nom": nom, "code": f.read()})
             if route == "fichier/annuler":
                 return self.envoyer(200, {"chemin": annuler_changement(d.get("sauvegarde"))})
             if route == "ia/renommer":
@@ -1406,6 +1419,11 @@ class Gestion(BaseHTTPRequestHandler):
             d["plan"] = None if d.get("plan") != "executer" else "executer"
         else:
             systeme += INVITE_SCHEMA if d.get("schema") else INVITE_SCHEMA_TOUJOURS
+            if d.get("schema_actuel"):
+                systeme += ("\n\nSCHEMA OUVERT dans le panneau a droite :\n```mermaid\n%s\n```\nSi la demande concerne "
+                            "ce schema (ajouter, enlever, renommer, changer la disposition ou les couleurs), renvoie le "
+                            "schema COMPLET modifie dans un seul bloc ```mermaid, puis une phrase sur ce qui a change."
+                            % d["schema_actuel"][:8000])
         if d.get("plan") == "planifier":
             systeme += INVITE_PLAN
         elif d.get("plan") == "executer":

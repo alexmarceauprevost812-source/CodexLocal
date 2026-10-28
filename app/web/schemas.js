@@ -267,6 +267,17 @@
     for (const bloc of blocs) {
       bloc.dataset.fait = "1";
       const code = bloc.querySelector("code").textContent;
+      if (window.TiArtefact) {
+        // Mode artefact : le schema s'ouvre en grand a droite, une puce reste dans la conversation
+        const v = window.TiArtefact.ajouterVersion(code);
+        const puce = document.createElement("button");
+        puce.className = "puce-artefact";
+        puce.innerHTML = `<span class="pa-icone" aria-hidden="true">◇</span><span><b>Schéma</b><small>version ${v.numero} · cliquer pour ouvrir</small></span>`;
+        puce.onclick = () => window.TiArtefact.ouvrir(v.numero);
+        bloc.style.display = "none";
+        bloc.before(puce);
+        continue;
+      }
       const carte = document.createElement("div");
       carte.className = "schema-carte";
       carte.innerHTML = `<div class="schema-tete"><b>Schéma</b><span class="espace"></span>
@@ -299,5 +310,24 @@
     }
   }
 
-  window.TiSchemas = { activer, reparer };
+  // Dessine un schema dans n'importe quelle « carte » (element qui contient .schema-dessin)
+  async function dessiner(carte, code, animation = true) {
+    if (!initialiser()) throw new Error("Moteur de schémas absent");
+    let rendu;
+    try {
+      rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, code);
+    } catch (e1) {
+      document.querySelectorAll('[id^="dschema-"]').forEach((x) => x.remove());
+      rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, reparer(code));
+    }
+    carte.querySelector(".schema-dessin").innerHTML = rendu.svg;
+    carte._morceaux = null;
+    if (animation) requestAnimationFrame(() => animer(carte));
+    else {
+      const svg = carte.querySelector("svg");
+      if (svg) carte._morceaux = morceaux(svg).map((m) => ({ ...m, chemins: m.trait ? preparerTrait(m.el) : [] }));
+    }
+  }
+
+  window.TiSchemas = { activer, reparer, dessiner, animer, video, png };
 })();

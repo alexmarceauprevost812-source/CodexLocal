@@ -37,7 +37,7 @@
     <div class="points" aria-hidden="true"><span style="background:#FF5F3A"></span><span style="background:#FFB020"></span><span style="background:var(--green)"></span></div>
     <div class="logo">
       <svg class="ic" style="width:26px;height:26px;color:var(--accent)"><use href="#i-terminal"/></svg>
-      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v3.1</span><small>mon ti-univers · laboratoire de dev local</small>
+      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v3.2</span><small>mon ti-univers · laboratoire de dev local</small>
     </div>
     <div class="espace"></div>
     <span class="pastille" id="p-ia"><i class="pt"></i>IA : …</span>
@@ -130,7 +130,44 @@
       </section>
 
       <!-- Jasette -->
-      <section class="vue plein" id="v-jasette" aria-label="Jasette"><div class="chat" id="chat-jasette"></div></section>
+      <section class="vue plein" id="v-jasette" aria-label="Jasette">
+        <div class="jasette-split">
+          <div class="chat" id="chat-jasette"></div>
+          <aside class="artefact" id="artefact" hidden aria-label="Artefact : schéma">
+            <div class="af-tete">
+              <b>◇ Schéma</b>
+              <select class="champ" id="af-version" aria-label="Version du schéma" style="width:auto"></select>
+              <div class="af-onglets" role="tablist">
+                <button class="af-onglet actif" role="tab" aria-selected="true" data-af="apercu">Aperçu</button>
+                <button class="af-onglet" role="tab" aria-selected="false" data-af="code">Code</button>
+              </div>
+              <span class="espace" style="flex:1"></span>
+              <button class="btn-ic" id="af-fermer" aria-label="Fermer le schéma">✕</button>
+            </div>
+            <div class="af-outils">
+              <button class="btn petit" id="af-rejouer">Rejouer</button>
+              <button class="btn petit prim" id="af-video">Vidéo</button>
+              <button class="btn petit" id="af-png">Image</button>
+              <button class="btn petit" id="af-enregistrer">Enregistrer</button>
+              <select class="champ" id="af-mes" aria-label="Mes schémas enregistrés" style="width:auto;max-width:180px"><option value="">Mes schémas…</option></select>
+              <button class="btn petit" id="af-nouveau">Nouveau</button>
+              <span class="espace" style="flex:1"></span>
+              <button class="btn-ic petit" id="af-moins" aria-label="Dézoomer">−</button>
+              <button class="btn petit" id="af-ajuster">Ajuster</button>
+              <button class="btn-ic petit" id="af-plus" aria-label="Zoomer">+</button>
+              <button class="btn-ic petit" id="af-plein" aria-label="Plein écran">⛶</button>
+            </div>
+            <div class="af-corps">
+              <div class="af-apercu" id="af-apercu"><div class="af-toile" id="af-toile"><div class="schema-dessin" role="img" aria-label="Schéma"></div></div></div>
+              <div class="af-code" id="af-code" hidden>
+                <textarea id="af-texte" spellcheck="false" aria-label="Code du schéma (Mermaid)"></textarea>
+                <p class="af-erreur" id="af-erreur" role="status"></p>
+              </div>
+            </div>
+            <p class="af-astuce">Demande dans le chat : « ajoute une boîte… », « mets-le en horizontal… » — l'IA modifie ce schéma et crée une nouvelle version.</p>
+          </aside>
+        </div>
+      </section>
 
       <!-- Codex : meme interface que la Jasette -->
       <section class="vue plein" id="v-codex" aria-label="Codex">
@@ -281,6 +318,7 @@
 <script src="/web/lib/mermaid.min.js"></script>
 <script src="/web/couleurs.js"></script>
 <script src="/web/schemas.js"></script>
+<script src="/web/artefact.js"></script>
 <script src="/web/app.js"></script>
 </body>
 </html>

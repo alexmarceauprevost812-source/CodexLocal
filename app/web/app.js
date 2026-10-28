@@ -351,6 +351,7 @@ function creerChat(conteneur, mode) {
       const r = await api("jasette", {
         mode, modele: sel.value, messages: hist, plan,
         internet: cases.internet.checked, memoire: cases.memoire.checked, schema: !!cases.schema?.checked,
+        schema_actuel: mode === "jasette" && window.TiArtefact ? TiArtefact.actuel() : null,
         fichier: mode === "codex" ? etat.fichier : null, projet: etat.projet,
         ecriture: mode === "codex" && (!!cases.ecriture?.checked || !!cases.agent?.checked || !!cases.turbo?.checked),
         agent: mode === "codex" && (!!cases.agent?.checked || !!cases.turbo?.checked),

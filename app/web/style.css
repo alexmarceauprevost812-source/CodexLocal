@@ -280,3 +280,37 @@ label.lib{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 #v-codex.actif{gap:0}
 .options .moteur{border-color:var(--accent-border);color:var(--accent)}
 .interrupteur.turbo{color:var(--accent);font-weight:600}
+
+/* ---------- artefact de schemas (Jasette) */
+.jasette-split{display:flex;flex:1;min-height:0;width:100%}
+.jasette-split > .chat{flex:1;min-width:0}
+.jasette-split.avec-artefact > .chat{flex:0 0 40%;border-right:1px solid var(--border)}
+.artefact{flex:1;min-width:0;display:flex;flex-direction:column;background:#050505}
+.artefact[hidden]{display:none}
+.af-tete{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel);flex-wrap:wrap}
+.af-tete b{color:var(--accent);font-size:15px}
+.af-onglets{display:flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden}
+.af-onglet{background:none;border:none;padding:7px 14px;color:var(--muted)}
+.af-onglet.actif{background:var(--accent-bg);color:var(--accent)}
+.af-outils{display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.btn-ic.petit{width:30px;height:30px;font-size:16px}
+.af-corps{flex:1;min-height:0;position:relative;display:flex}
+.af-apercu{flex:1;overflow:auto;cursor:grab;background-image:radial-gradient(#161616 1px,transparent 1px);background-size:20px 20px}
+.af-apercu:active{cursor:grabbing}
+.af-toile{transform-origin:0 0;display:inline-block;padding:24px}
+.af-toile .schema-dessin{padding:0;display:block}
+.af-code{position:absolute;inset:0;display:flex;flex-direction:column;background:#050505}
+.af-code[hidden]{display:none}
+.af-code textarea{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text2);font:14px/1.6 var(--mono);padding:16px;tab-size:4}
+.af-erreur{margin:0;padding:6px 14px;color:var(--red);font-size:12px;min-height:1.6em;border-top:1px solid var(--border)}
+.af-apercu + .af-code .af-erreur:empty{border:none}
+.af-astuce{margin:0;padding:8px 14px;font-size:12px;color:var(--dim);border-top:1px solid var(--border)}
+.artefact:fullscreen{background:#000}
+.puce-artefact{display:flex;align-items:center;gap:12px;width:100%;max-width:420px;text-align:left;padding:10px 14px;margin:.5em 0;border:1px solid var(--accent-border);border-radius:12px;background:var(--accent-bg);color:var(--text)}
+.puce-artefact:hover{border-color:var(--accent)}
+.puce-artefact .pa-icone{font-size:22px;color:var(--accent)}
+.puce-artefact small{display:block;color:var(--muted);font-size:12px}
+@media (max-width:860px){
+  .jasette-split.avec-artefact{flex-direction:column}
+  .jasette-split.avec-artefact > .chat{flex:0 0 45%;border-right:none;border-bottom:1px solid var(--border)}
+}
