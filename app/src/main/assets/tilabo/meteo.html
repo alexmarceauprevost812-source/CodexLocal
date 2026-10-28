@@ -115,7 +115,11 @@ async function chercher(ville){
   } catch (e) {
     if (e.code === "position") {
       $("#res").innerHTML = "<div class='etat'>📍 Je n'ai pas ta position.<br>Écris le nom d'une ville en haut.</div>";
-      if (window.TiLaboApp && TiLaboApp.demanderPosition) TiLaboApp.demanderPosition();
+      if (window.TiLaboApp && TiLaboApp.demanderPosition) {
+        // une fois la permission accordee, on refait la recherche tout seul
+        window.addEventListener("tl-position", ev => { if (ev.detail) chercher(""); }, {once: true});
+        TiLaboApp.demanderPosition();
+      }
     } else {
       $("#res").innerHTML = "<div class='etat'>⚠️ " + echap(e.message) + "<br><br><button id='bRe'>Réessayer</button></div>";
       $("#bRe").onclick = () => chercher(ville);
