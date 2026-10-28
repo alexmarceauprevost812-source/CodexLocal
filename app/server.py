@@ -1447,6 +1447,97 @@ INVITE_APPROUVE = ("\n\nLe plan est approuve. Execute-le maintenant etape par et
                    "fichier dans des blocs ``` (indique le nom du fichier juste avant chaque bloc).")
 
 
+
+# ---------------------------------------------------------------- code ecrit dans la reponse -> fichiers
+_LANGUES = {"python", "py", "javascript", "js", "typescript", "ts", "html", "css", "json", "bash", "sh", "shell",
+            "powershell", "ps1", "bat", "cmd", "java", "kotlin", "c", "cpp", "c++", "csharp", "cs", "go", "rust",
+            "php", "ruby", "sql", "yaml", "yml", "toml", "xml", "markdown", "md", "text", "txt", "jsx", "tsx",
+            "vue", "svelte", "dart", "swift", "lua", "ini", "env", "console", "terminal", "plaintext", ""}
+_RE_NOM = r"(?:[\w\-]+/)*[\w\-.]*[\w\-]\.[A-Za-z0-9]{1,8}"
+_RE_ELLIPSE = re.compile(r"(?mi)^\s*(?:#|//|/\*|<!--|--|;)?\s*(?:\.\.\.|…)\s*(?:\(|reste|le reste|rest|existing|code existant|inchang|same|meme|même|$)")
+
+
+def _nom_fichier_valide(n):
+    n = (n or "").strip().strip("`*'\"():").replace("\\", "/").lstrip("./")
+    if not n or n.startswith(("http", "www.")) or ".." in n or len(n) > 160:
+        return None
+    if not re.fullmatch(_RE_NOM, n) or not est_texte(n):
+        return None
+    return n
+
+
+def blocs_fichiers(texte, fichier_ouvert=None):
+    """Trouve les blocs ``` d'une reponse et le fichier de chacun (nom avant le bloc, dans l'entete ou en commentaire)."""
+    res, sans_nom = [], []
+    for m in re.finditer(r"```([^\n`]*)\n(.*?)\n?```", texte, re.S):
+        info, code = m.group(1).strip(), m.group(2)
+        langue = info.split()[0].lower() if info.split() else ""
+        if langue in ("mermaid", "diff", "patch"):
+            continue
+        nom = None
+        for c in re.findall(_RE_NOM, info):
+            nom = nom or _nom_fichier_valide(c)
+        if not nom:
+            avant = [l for l in texte[:m.start()].rstrip().split("\n")[-2:] if l.strip()]
+            for l in reversed(avant):
+                trouves = [x for x in map(_nom_fichier_valide, re.findall(_RE_NOM, l)) if x]
+                if trouves:
+                    nom = trouves[-1]
+                    break
+        if not nom:
+            m1 = re.match(r"\s*(?:#|//|<!--|/\*|--|;)\s*(?:fichier|file)?\s*:?\s*(" + _RE_NOM + r")", code)
+            if m1:
+                nom = _nom_fichier_valide(m1.group(1))
+        if langue in ("bash", "sh", "shell", "console", "terminal", "powershell", "cmd") and not nom:
+            continue  # des commandes a taper, pas un fichier
+        if nom:
+            res.append((nom, code))
+        else:
+            sans_nom.append(code)
+    if not res and len(sans_nom) == 1 and fichier_ouvert:
+        res.append((fichier_ouvert, sans_nom[0]))
+    # le meme fichier plusieurs fois : la derniere version gagne
+    final = {}
+    for nom, code in res:
+        final[nom] = code
+    return list(final.items())
+
+
+def contenu_projet(projet, fichier_ouvert=None, max_total=60000):
+    """Les fichiers actuels du projet, pour une IA qui ne sait pas lire les fichiers elle-meme."""
+    liste = outil_fichier("lister_fichiers", {}, projet)
+    if not isinstance(liste, list):
+        return ""
+    liste = sorted(liste, key=lambda f: (f != fichier_ouvert, f.count("/"), f))
+    morceaux, total = [], 0
+    for rel in liste:
+        if not est_texte(rel):
+            continue
+        try:
+            p, _ = chemin_projet(projet, rel)
+            if os.path.getsize(p) > 40000:
+                morceaux.append("=== %s === (trop gros pour etre montre en entier)" % rel)
+                continue
+            with open(p, "r", encoding="utf-8", errors="replace") as f:
+                c = f.read()
+        except (OSError, ValueError):
+            continue
+        if total + len(c) > max_total:
+            morceaux.append("=== %s === (pas montre : limite atteinte)" % rel)
+            continue
+        total += len(c)
+        morceaux.append("=== %s ===\n```\n%s\n```" % (rel, c))
+    return "\n\n".join(morceaux)
+
+
+INVITE_SANS_OUTILS = (
+    "\n\nIMPORTANT : tu ne peux pas utiliser d'outils. Le Ti-Labo t'a mis ci-dessous le contenu ACTUEL des fichiers "
+    "du projet « %s ». NE RECOMMENCE PAS le projet a zero : pars de ces fichiers, garde tout ce qui marche et "
+    "change seulement ce qui est demande. Pour chaque fichier cree ou modifie, ecris son chemin seul sur une ligne "
+    "(ex. main.py), puis le fichier COMPLET dans un bloc ``` (jamais « ... » ni « reste du code inchange »). "
+    "Le Ti-Labo enregistre ces blocs tout seul dans le projet.\n\nFICHIERS ACTUELS :\n%s")
+
+
 # ---------------------------------------------------------------- serveur HTTP
 class Gestion(BaseHTTPRequestHandler):
     server_version = "TiLabo/1.0"
@@ -1479,10 +1570,49 @@ class Gestion(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
+        if getattr(self, "ligne_differee", None):
+            self.ligne(self.ligne_differee)
+            self.ligne_differee = None
 
     def ligne(self, obj):
+        if getattr(self, "_blocs_auto", False):
+            if obj.get("texte"):
+                self._texte_flux += obj["texte"]
+            if obj.get("fichier"):
+                self._ecrits.add(obj["fichier"].get("chemin"))
+            if obj.get("fini") and not self._blocs_faits:
+                self._blocs_faits = True
+                try:
+                    self.sauver_blocs()
+                except Exception as e:  # ne jamais casser la reponse pour ca
+                    self.ligne({"outil": "Enregistrement automatique impossible : %s" % e})
         self.wfile.write((json.dumps(obj, ensure_ascii=False) + "\n").encode("utf-8"))
         self.wfile.flush()
+
+    def sauver_blocs(self):
+        """Le code ecrit dans la reponse (blocs ```) est enregistre dans les bons fichiers du projet."""
+        projet = self._projet
+        for rel, code in blocs_fichiers(self._texte_flux, self._fichier_ouvert):
+            if projet + "/" + rel in self._ecrits:
+                continue  # deja ecrit par un outil pendant cette reponse
+            try:
+                p, rel = chemin_projet(projet, rel)
+            except ValueError as e:
+                self.ligne({"outil": "Pas enregistre (%s) : %s" % (rel, e)})
+                continue
+            if os.path.isfile(p) and _RE_ELLIPSE.search(code):
+                self.ligne({"outil": "Pas enregistre : %s est un extrait avec « … » — demande le fichier complet" % rel})
+                continue
+            if os.path.isfile(p):
+                with open(p, "r", encoding="utf-8", errors="replace") as f:
+                    if f.read().rstrip("\n") == code.rstrip("\n"):
+                        continue  # rien n'a change
+            res = outil_fichier("ecrire_fichier", {"chemin": rel, "contenu": code.rstrip("\n") + "\n"}, projet)
+            if isinstance(res, dict) and res.get("_evenement"):
+                self.ligne({"outil": "Enregistre %s (code de la reponse)" % rel})
+                self.ligne({"fichier": res.pop("_evenement")})
+            elif isinstance(res, dict) and res.get("erreur"):
+                self.ligne({"outil": "Pas enregistre : %s" % res["erreur"]})
 
     def corps_json(self):
         n = int(self.headers.get("Content-Length") or 0)
@@ -1974,6 +2104,16 @@ class Gestion(BaseHTTPRequestHandler):
                     "IMG1@{ img: \"%s\", label: \"texte court\", pos: \"b\", w: 140, h: 140, constraint: \"on\" }\n"
                     "puis relie-le avec des fleches comme une boite normale." % (", ".join(ids), ids[-1]))
 
+        # Le code ecrit dans la reponse sera enregistre dans le projet (meme si l'IA n'utilise pas ses outils)
+        self._blocs_auto = bool(projet) and mode == "codex" and d.get("plan") != "planifier"
+        self._texte_flux, self._ecrits, self._blocs_faits = "", set(), False
+        # Une IA qui ne sait pas utiliser les outils : on lui montre les fichiers actuels (sinon elle recommence a zero)
+        if projet and not modele.startswith("claude-") and p.get("moteur") != "openai":
+            cap = capacites_modele(modele)
+            if cap and "tools" not in cap:
+                outils = []
+                messages[0]["content"] += INVITE_SANS_OUTILS % (projet, contenu_projet(projet, self._fichier_ouvert))
+                self.ligne_differee = {"outil": "Cette IA ne sait pas lire les fichiers : le Ti-Labo lui montre le projet et enregistrera son code"}
         if modele.startswith("claude-"):
             return self.jasette_claude(modele, messages, sources, outils)
         if p["moteur"] == "openai":
@@ -2113,6 +2253,10 @@ class Gestion(BaseHTTPRequestHandler):
                     corps = e.read().decode("utf-8", "ignore")
                     if "does not support tools" in corps:
                         self.ligne({"outil": "Ce modele ne sait pas utiliser les outils (Internet, fichiers) — reponse simple"})
+                        if getattr(self, "_blocs_auto", False):
+                            messages[0]["content"] += INVITE_SANS_OUTILS % (
+                                self._projet, contenu_projet(self._projet, self._fichier_ouvert))
+                            self.ligne({"outil": "Le Ti-Labo lui montre le projet et enregistrera son code"})
                         break
                     self.ligne({"erreur": corps or str(e)})
                     return
