@@ -244,7 +244,10 @@ function creerChat(conteneur, mode) {
   [...Object.values(cases), choixPlan].forEach((c) => c.addEventListener("change", garderOptions));
 
   function majModeles() {
-    choixMoteur.value = etat.params.moteur || "ollama";
+    const tel = etat.plateforme === "android";
+    choixMoteur.querySelector('[value="ollama_pc"]').hidden = tel;
+    choixMoteur.querySelector('[value="ollama"]').textContent = tel ? "IA du téléphone" : "IA de la clé";
+    choixMoteur.value = tel && etat.params.moteur === "ollama_pc" ? "ollama" : (etat.params.moteur || "ollama");
     const cle = mode === "codex" ? "modele_codex" : "modele_jasette";
     const choisi = etat.params[cle];
     sel.innerHTML = etat.modeles.length
