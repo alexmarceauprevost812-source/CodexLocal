@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon assistante</title>
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script>try { if (localStorage.getItem("verrou")) document.documentElement.classList.add("verrouille"); } catch (e) {}</script>
+</head>
+<body>
+<!-- ========================= ÉCRAN VERROUILLÉ ========================= -->
+<div class="ecran-verrou" id="ecranVerrou" role="dialog" aria-modal="true" aria-label="Écran verrouillé">
+  <div class="verrou-heure" id="verrouHeure"></div>
+  <div class="verrou-date" id="verrouDate"></div>
+  <form class="verrou-boite" id="verrouForm" autocomplete="off">
+    <span class="verrou-avatar" id="verrouAvatar">M</span>
+    <div class="verrou-nom" id="verrouNom">Bienvenue</div>
+    <div class="verrou-salut" id="verrouSalut"></div>
+    <div class="verrou-saisie">
+      <input type="password" id="verrouMdp" placeholder="Mot de passe" aria-label="Mot de passe" autocomplete="current-password">
+      <button type="submit" class="verrou-ok" id="verrouOk" aria-label="Entrer">➜</button>
+    </div>
+    <div class="verrou-message" id="verrouMessage" aria-live="polite"></div>
+    <button type="button" class="verrou-oublie" id="verrouOublie">J'ai oublié mon mot de passe</button>
+  </form>
+  <div class="verrou-pied">🔒 Tout reste dans cet ordinateur</div>
+</div>
+
+<div class="ecran">
+
+<!-- =============================== BUREAU =============================== -->
+<section class="vue" id="vue-bureau" aria-label="Bureau">
+  <div class="bureau">
+    <div class="icones-bureau" id="tuiles" role="list" aria-label="Icônes du bureau"></div>
+    <div class="colonne-droite">
+    <div class="grosse-horloge" aria-live="off">
+      <div class="grosse-heure" id="grosseHeure"></div>
+      <div class="grosse-date" id="grosseDate"></div>
+    </div>
+    <aside class="widget">
+      <h1 class="bureau-salut" id="bureauSalut">Salut !</h1>
+      <div class="bureau-date cache" id="bureauDate"></div>
+      <div class="bureau-prive">🔒 Ton espace privé : tout reste dans cet ordinateur</div>
+      <button class="bouton plein fete-bouton cache" id="widgetFete">🎂 C'est ta fête ! Revoir ta surprise</button>
+      <div class="bureau-agenda" id="bureauAgendaBloc" role="button" tabindex="0" title="Ouvrir l'agenda">
+        <h2>📅 Aujourd'hui</h2>
+        <div id="bureauAgenda"></div>
+      </div>
+      <div class="bureau-recents">
+        <h2>Derniers fichiers créés</h2>
+        <div id="bureauRecents" class="recents"></div>
+      </div>
+      <button class="bouton principal plein" id="widgetAssistante">💬 Parler à l'assistante</button>
+      <button class="bouton plein cache" id="widgetRaccourci">🖥️ Mettre une icône sur le bureau de l'ordinateur</button>
+    </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= ASSISTANTE ============================= -->
+<section class="vue cache" id="vue-assistante" aria-label="Assistante">
+<div class="appli">
+  <!-- ======================= colonne de gauche ======================= -->
+  <aside class="cote" id="cote">
+    <div class="marque">
+      <img src="icone.svg" alt="" class="logo">
+      <div>
+        <div class="marque-nom" id="nomAssistante">Mon assistante</div>
+        <div class="marque-sous">🔒 Tout reste dans cet ordinateur</div>
+      </div>
+    </div>
+    <button class="bouton principal plein" id="nouvelle">＋ Nouvelle conversation</button>
+    <div class="onglets" role="tablist">
+      <button class="onglet actif" data-onglet="conversations" role="tab">Conversations</button>
+      <button class="onglet" data-onglet="documents" role="tab">Mes documents</button>
+    </div>
+    <nav class="liste" id="listeConversations" aria-label="Conversations"></nav>
+    <nav class="liste cache" id="listeDocuments" aria-label="Documents créés"></nav>
+    <div class="pied-cote">
+      <div class="dossier-etat" id="dossierEtat"></div>
+      <button class="bouton fantome plein" id="ouvrirReglages">⚙️ Réglages</button>
+    </div>
+  </aside>
+
+  <!-- ========================= zone principale ========================= -->
+  <main class="principal-zone">
+    <header class="barre">
+      <button class="bouton icone seul-mobile" id="menu" aria-label="Menu">☰</button>
+      <h1 class="barre-titre" id="titreConversation">Nouvelle conversation</h1>
+      <div class="barre-actions">
+        <button class="bouton icone" id="texteMoins" title="Texte plus petit" aria-label="Texte plus petit">A−</button>
+        <button class="bouton icone" id="textePlus" title="Texte plus gros" aria-label="Texte plus gros">A+</button>
+      </div>
+    </header>
+
+    <div class="bandeau cache" id="bandeau"></div>
+
+    <section class="fil" id="fil" aria-live="polite">
+      <div class="accueil" id="accueil">
+        <img src="icone.svg" alt="" class="accueil-logo">
+        <h2 id="salutation">Bonjour !</h2>
+        <p class="accueil-sous">Contente de te voir ! Je suis là pour t'aider au bureau pis à la maison. Écris-moi comme à une collègue.</p>
+        <div class="confiance">
+          <strong>🔒 Ton assistante privée</strong>
+          <span>Elle fonctionne sans internet. Rien de ce que tu écris ne quitte cet ordinateur : personne d'autre ne peut le lire.</span>
+        </div>
+        <div class="raccourcis" id="raccourcis"></div>
+      </div>
+    </section>
+
+    <footer class="saisie-zone">
+      <div class="apercus" id="apercus"></div>
+      <div class="saisie">
+        <button class="bouton icone" id="joindre" title="Ajouter une photo ou un document" aria-label="Ajouter une photo ou un document">📎</button>
+        <textarea id="message" rows="1" placeholder="Écris ta demande ici… (Entrée pour envoyer)"></textarea>
+        <button class="bouton principal" id="envoyer" aria-label="Envoyer">Envoyer</button>
+        <button class="bouton danger cache" id="arreter" aria-label="Arrêter">Arrêter</button>
+      </div>
+      <input type="file" id="fichier" accept="image/*,.txt,.csv,.docx,.xlsx" multiple hidden>
+      <div class="note">Elle peut se tromper : relis avant d'envoyer un document important. Les calculs, eux, sont faits par l'ordinateur.</div>
+    </footer>
+  </main>
+</div>
+</section>
+
+<!-- =========================== MES DOCUMENTS =========================== -->
+<section class="vue cache" id="vue-documents" aria-label="Mes documents">
+  <div class="fenetre">
+    <header class="fenetre-barre">
+      <h1 id="docsTitre">📁 Mes documents</h1>
+      <div class="chemin" id="docsChemin"></div>
+      <div class="fenetre-actions">
+        <button class="bouton" id="docsHaut" title="Dossier précédent">⬆ Remonter</button>
+        <button class="bouton" id="docsNouveau">＋ Nouveau dossier</button>
+        <button class="bouton principal" id="docsAjouter">📥 Ajouter des fichiers</button>
+        <button class="bouton danger cache" id="docsVider">Vider la corbeille</button>
+      </div>
+    </header>
+    <div class="docs-zone" id="docsZone">
+      <div class="docs-vide cache" id="docsBrancher">
+        <div class="gros-emoji">📁</div>
+        <h2>Ouvrons ton dossier « Mes documents »</h2>
+        <p>Clique sur le bouton, puis choisis le dossier <strong>Mes documents</strong> qui est sur ta clé.<br>Tu n'auras à le faire qu'une seule fois.</p>
+        <button class="bouton principal" id="docsChoisir">Choisir le dossier</button>
+      </div>
+      <div class="docs-vide cache" id="docsReconnecter">
+        <div class="gros-emoji">🔌</div>
+        <h2>On reconnecte ton dossier ?</h2>
+        <p>Windows demande ta permission à chaque fois qu'on rebranche la clé.</p>
+        <button class="bouton principal" id="docsReconnecterBtn">Reconnecter « Mes documents »</button>
+      </div>
+      <div class="docs-liste" id="docsListe" role="list"></div>
+    </div>
+    <footer class="fenetre-pied" id="docsPied">Astuce : glisse des fichiers de l'ordinateur dans cette fenêtre pour les copier sur la clé.</footer>
+  </div>
+  <input type="file" id="docsFichiers" multiple hidden>
+</section>
+
+<!-- ============================ CALCULATRICE ============================ -->
+<section class="vue cache" id="vue-calcul" aria-label="Calculatrice">
+  <div class="fenetre etroite">
+    <header class="fenetre-barre"><h1>🧮 Calculatrice</h1></header>
+    <div class="calc">
+      <input class="calc-ecran" id="calcEcran" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Calcul">
+      <div class="calc-resultat" id="calcResultat">&nbsp;</div>
+      <div class="calc-touches" id="calcTouches"></div>
+      <div class="calc-taxes">
+        <button class="bouton" id="calcPlusTaxes">＋ Taxes (TPS + TVQ)</button>
+        <button class="bouton" id="calcTaxesIncluses">Taxes incluses ?</button>
+      </div>
+      <div class="calc-detail" id="calcDetail"></div>
+      <h2 class="calc-titre-hist">Historique</h2>
+      <div class="calc-hist" id="calcHist"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= BLOC-NOTES ============================= -->
+<section class="vue cache" id="vue-agenda" aria-label="Agenda">
+  <div class="fenetre">
+    <header class="fenetre-barre">
+      <h1>📅 Agenda</h1>
+      <div class="agenda-nav">
+        <button class="bouton" id="agPrec" aria-label="Mois précédent">‹</button>
+        <strong id="agMois" class="agenda-titre-mois"></strong>
+        <button class="bouton" id="agSuiv" aria-label="Mois suivant">›</button>
+        <button class="bouton fantome" id="agAujourdhui">Aujourd'hui</button>
+      </div>
+      <div class="fenetre-actions">
+        <button class="bouton principal" id="agAjouter">＋ Rendez-vous</button>
+      </div>
+    </header>
+    <div class="agenda">
+      <div class="agenda-grille" id="agGrille"></div>
+      <aside class="agenda-jour">
+        <h2 id="agJourTitre"></h2>
+        <div id="agJourListe"></div>
+        <button class="bouton plein" id="agAjouterJour">＋ Ajouter à cette date</button>
+        <p class="petit">Astuce : double-clique sur une journée pour y ajouter un rendez-vous. Tu peux aussi demander à l'assistante : « Mets-moi un rendez-vous jeudi à 14 h chez le dentiste ».</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="vue cache" id="vue-cerveau" aria-label="Mini-cerveau">
+  <div class="fenetre">
+    <header class="fenetre-barre">
+      <h1>💡 Mini-cerveau</h1>
+      <span class="petit" id="cerveauCompte"></span>
+    </header>
+    <div class="cerveau">
+      <p class="cerveau-intro">Ici, ton assistante garde ce qu'elle a appris de ses erreurs. Elle relit ces leçons <strong>avant chaque réponse</strong>, pour ne pas refaire deux fois la même erreur.</p>
+      <form class="cerveau-ajout" id="cerveauForm">
+        <input id="cerveauNouvelle" autocomplete="off" placeholder="Apprends-lui quelque chose… ex. : Le magasin ferme à 17 h le vendredi">
+        <button class="bouton principal" type="submit">＋ Retenir</button>
+      </form>
+      <div class="mdp-erreur" id="cerveauErreur" aria-live="polite"></div>
+      <div class="cerveau-liste" id="cerveauListe"></div>
+      <p class="petit">👩 = ajouté par toi · 🤖 = retenu par l'assistante quand tu l'as corrigée. Tu peux modifier ✏️ ou faire oublier 🗑️ une leçon.</p>
+    </div>
+  </div>
+</section>
+
+<section class="vue cache" id="vue-notes" aria-label="Bloc-notes">
+  <div class="fenetre">
+    <header class="fenetre-barre">
+      <h1>📝 Bloc-notes</h1>
+      <div class="fenetre-actions">
+        <button class="bouton" id="notesNouvelle">＋ Nouvelle note</button>
+        <button class="bouton" id="notesWord">📄 Mettre dans Word</button>
+        <button class="bouton principal" id="notesAssistante">💬 Améliorer avec l'assistante</button>
+      </div>
+    </header>
+    <div class="notes">
+      <nav class="notes-liste" id="notesListe"></nav>
+      <div class="notes-edition">
+        <input id="noteTitre" class="note-titre" placeholder="Titre de la note" aria-label="Titre">
+        <textarea id="noteTexte" class="note-texte" placeholder="Écris ici… (c'est enregistré tout seul)" aria-label="Texte de la note"></textarea>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== AFFICHES ============================== -->
+<section class="vue cache" id="vue-affiche" aria-label="Créateur d'affiches">
+  <div class="fenetre">
+    <header class="fenetre-barre"><h1>🖼️ Créateur d'affiches</h1></header>
+    <div class="affiche-zone">
+      <form class="affiche-form" id="afficheForm">
+        <label>Bandeau du haut <input name="accroche" placeholder="PROMO, NOUVEAU, SOLDE…"></label>
+        <label>Titre <input name="titre" placeholder="Grande vente d'automne" required></label>
+        <label>Sous-titre <input name="sous_titre" placeholder="Tout le magasin à -20 %"></label>
+        <label>Prix <input name="prix" placeholder="19,99 $"></label>
+        <label>Points forts (un par ligne) <textarea name="points" rows="3" placeholder="Installation gratuite&#10;Garantie 3 ans"></textarea></label>
+        <label>Appel à l'action <input name="appel" placeholder="Venez nous voir !"></label>
+        <label>Photo <input type="file" name="photo" accept="image/*"></label>
+        <div class="affiche-choix">
+          <label>Couleur
+            <select name="couleur"><option value="rouge">Rouge</option><option value="bleu">Bleu</option><option value="vert">Vert</option><option value="noir">Noir</option></select>
+          </label>
+          <label>Format
+            <select name="format"><option value="facebook">Facebook</option><option value="imprimer">À imprimer</option></select>
+          </label>
+        </div>
+        <div class="affiche-boutons">
+          <button type="button" class="bouton" id="afficheApercu">👀 Aperçu</button>
+          <button type="submit" class="bouton principal">💾 Enregistrer l'affiche</button>
+        </div>
+      </form>
+      <div class="affiche-apercu" id="afficheApercuZone"><span>L'aperçu apparaîtra ici.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== MODÈLES IA ============================== -->
+<section class="vue cache" id="vue-modeles" aria-label="Modèles IA">
+  <div class="fenetre">
+    <header class="fenetre-barre">
+      <h1>🧠 Modèles IA</h1>
+      <span class="petit">Choisis l'intelligence artificielle de ton mini-ordinateur</span>
+    </header>
+    <div class="modeles">
+      <div class="modeles-intro cache" id="modelesIntro">
+        <h2>👋 Bienvenue ! Une dernière étape</h2>
+        <p>Pour que ton assistante puisse t'aider, il faut installer son « cerveau » sur la clé. Ça se fait <strong>une seule fois</strong>, avec internet (de 10 à 40 minutes). Ensuite, plus besoin d'internet.</p>
+        <p>J'ai regardé ton ordinateur : choisis le modèle marqué <strong>✅ Recommandé</strong>, puis clique sur <strong>Installer</strong>.</p>
+      </div>
+      <div class="modeles-intro modeles-panne cache" id="modelesPanne" role="alert">
+        <h2>⚠️ L'assistante n'a pas pu démarrer avec ce modèle</h2>
+        <p>Il est sans doute trop gros pour cet ordinateur. Ce n'est pas grave : choisis plutôt un modèle marqué <strong>✅</strong> ci-dessous, puis clique sur <strong>Utiliser ce modèle</strong> (ou <strong>Installer</strong>).</p>
+        <p class="petit">Tes documents et tes conversations ne sont pas touchés.</p>
+      </div>
+      <article class="machine" id="machine">
+        <h2>💻 Ton ordinateur</h2>
+        <div class="machine-grille" id="machineInfos"><span class="petit">Je lis l'ordinateur…</span></div>
+      </article>
+      <article class="installation cache" id="installation">
+        <div class="inst-haut">
+          <h2 id="instTitre">⏳ Installation en cours</h2>
+          <div class="inst-pourcent" id="instPourcent" aria-live="polite"></div>
+        </div>
+        <ol class="inst-etapes" id="instEtapes" aria-label="Étapes de l'installation"></ol>
+        <div id="instMessage" class="inst-message"></div>
+        <div class="progres grand" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="instProgres"><div id="instBarre"></div></div>
+        <div class="inst-chiffres" id="instChiffres"></div>
+        <div class="inst-conseil cache" id="instConseil"></div>
+        <div class="petit" id="instDetail"></div>
+        <div class="alex-boutons"><button class="bouton principal cache" id="instAller">💬 Aller à l'assistante</button><button class="bouton principal cache" id="instReessayer">🔁 Réessayer</button></div>
+      </article>
+      <div class="cartes-modeles" id="cartesModeles"></div>
+      <p class="petit modeles-note">Tout se télécharge sur la clé, pas dans l'ordinateur. Une fois installée, l'IA fonctionne sans internet et rien ne sort de l'ordinateur.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================ GUIDE ================================ -->
+<section class="vue cache" id="vue-guide" aria-label="Guide">
+  <div class="fenetre">
+    <header class="fenetre-barre">
+      <h1>📖 Guide : comment ça marche</h1>
+      <div class="fenetre-actions"><button class="bouton principal" id="guideFini">C'est parti !</button></div>
+    </header>
+    <div class="guide" id="guide"></div>
+  </div>
+</section>
+
+<!-- ============================ ESPACE ALEX ============================ -->
+<section class="vue cache" id="vue-alex" aria-label="Espace technique">
+  <div class="fenetre">
+    <header class="fenetre-barre alex-barre">
+      <h1>🛠️ Espace technique</h1>
+      <span class="petit">Réglages techniques — pas besoin de venir ici au quotidien.</span>
+    </header>
+    <div class="alex">
+      <article class="alex-carte">
+        <h2>⚡ Moteur IA</h2>
+        <div id="alexMoteur" class="alex-etat">Vérification…</div>
+        <button class="bouton" id="alexRafraichir">⟳ Vérifier</button>
+      </article>
+      <article class="alex-carte">
+        <h2>🎛️ Réglages avancés</h2>
+        <label>Créativité (température) <span id="alexTempVal"></span>
+          <input type="range" id="alexTemp" min="0" max="1.2" step="0.05"></label>
+        <label>Longueur maximale des réponses (jetons)
+          <input type="number" id="alexMax" min="200" max="4000" step="100"></label>
+        <label>Mémoire de la conversation (messages renvoyés)
+          <input type="number" id="alexMemoire" min="2" max="40" step="1"></label>
+        <label>Instructions spéciales (ajoutées à la personnalité)
+          <textarea id="alexInstructions" rows="4" placeholder="Ex. : La boutique est fermée le dimanche. Toujours proposer la livraison gratuite à Saint-Bidon."></textarea></label>
+        <div class="alex-boutons">
+          <button class="bouton principal orange" id="alexEnregistrer">Enregistrer</button>
+          <button class="bouton" id="alexDefaut">Valeurs par défaut</button>
+        </div>
+      </article>
+      <article class="alex-carte">
+        <h2>💾 Sauvegarde</h2>
+        <p class="petit">Conversations, notes, réglages et liste des documents, dans un seul fichier.</p>
+        <div class="alex-boutons">
+          <button class="bouton" id="alexExporter">⬇ Exporter une sauvegarde</button>
+          <button class="bouton" id="alexImporter">⬆ Importer</button>
+        </div>
+        <input type="file" id="alexFichier" accept=".json" hidden>
+      </article>
+      <article class="alex-carte">
+        <h2>🧹 Remise à zéro</h2>
+        <div class="alex-boutons col">
+          <button class="bouton" id="alexFete">🎂 Voir la surprise de fête (essai, 1er novembre)</button>
+          <button class="bouton" id="alexGuide">Remontrer le guide au prochain démarrage</button>
+          <button class="bouton" id="alexEffacerConv">Effacer toutes les conversations</button>
+          <button class="bouton danger" id="alexToutEffacer">Tout remettre à neuf</button>
+        </div>
+      </article>
+      <article class="alex-carte">
+        <h2>ℹ️ À propos</h2>
+        <div class="petit" id="alexInfos"></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<!-- ============================ MENU DÉMARRER ============================ -->
+<div class="menu-demarrer cache" id="menuDemarrer" role="dialog" aria-label="Menu Démarrer">
+  <input class="menu-recherche" id="menuRecherche" placeholder="🔎 Rechercher une application…" autocomplete="off">
+  <h2>Épinglées</h2>
+  <div class="menu-applis" id="menuApplis"></div>
+  <h2>Recommandé</h2>
+  <div class="menu-recents" id="menuRecents"></div>
+  <footer class="menu-pied">
+    <div class="menu-qui"><span class="avatar" id="menuAvatar">🙂</span><span id="menuNom">Moi</span></div>
+    <button type="button" class="bouton fantome cache" id="menuVerrouiller" title="Verrouiller avec ton mot de passe">🔒 Verrouiller</button>
+    <span class="petit">Pour éteindre : ferme la fenêtre (✕ en haut à droite)</span>
+  </footer>
+</div>
+
+<!-- =========================== BARRE DES TÂCHES =========================== -->
+<nav class="barre-taches" aria-label="Barre des tâches">
+  <div class="taches" id="taches">
+    <button class="tache demarrer" id="boutonDemarrer" title="Démarrer" aria-label="Menu Démarrer" aria-expanded="false"><img src="icone.svg" alt=""></button>
+  </div>
+  <button class="pilule-installation cache" id="piluleInstallation" title="Voir l'installation de l'IA">⏳ IA <span id="pilulePourcent">…</span></button>
+  <button class="tache-alex" data-vue="alex" id="boutonAlex" title="Espace technique (réglages avancés)">🛠️</button>
+  <div class="zone-notif">
+    <span title="Tout reste dans cet ordinateur">🔒</span>
+    <div class="horloge" id="horloge"></div>
+  </div>
+</nav>
+
+<!-- ============================= visionneuse ============================= -->
+<dialog id="visionneuse" class="dialogue visionneuse">
+  <div class="vis-barre">
+    <strong id="visTitre">Fichier</strong>
+    <div class="vis-actions">
+      <button class="bouton principal cache" id="visOffice">📝 Ouvrir dans Word</button>
+      <button class="bouton" id="visCopie" title="Enregistre une copie à ouvrir dans Word ou Excel">📥 Copie à modifier</button>
+      <button class="bouton" id="visFermer">Fermer</button>
+    </div>
+  </div>
+  <div class="vis-contenu" id="visContenu"></div>
+  <div class="vis-note petit" id="visNote"></div>
+</dialog>
+
+<!-- ============================== réglages ============================== -->
+<dialog id="reglages" class="dialogue">
+  <form method="dialog">
+    <h2>Réglages</h2>
+    <fieldset class="groupe">
+      <legend>Apparence</legend>
+      <label>Thème
+        <select id="rTheme">
+          <option value="auto">🌗 Automatique : clair le jour, sombre le soir</option>
+          <option value="clair">☀️ Clair</option>
+          <option value="sombre">🌙 Sombre</option>
+          <option value="systeme">🖥️ Comme Windows</option>
+        </select>
+      </label>
+      <div class="choix-couleurs" id="rAccents" role="radiogroup" aria-label="Couleur"></div>
+      <div class="choix-fonds" id="rFonds" role="radiogroup" aria-label="Fond d'écran"></div>
+    </fieldset>
+    <label>Ton prénom <input id="rPrenom" autocomplete="off"></label>
+    <label>Ta fête (facultatif) <input type="date" id="rFete"></label>
+    <label>Ton travail (facultatif) <input id="rRole" autocomplete="off" placeholder="Ex. : adjointe administrative"></label>
+    <label>Ta ville (facultatif) <input id="rVille" autocomplete="off" placeholder="Ex. : Saint-Bidon"></label>
+    <label>Nom de l'assistante <input id="rNom" autocomplete="off"></label>
+    <label>Entreprise <input id="rEntreprise" autocomplete="off"></label>
+    <label>Coordonnées (pour les affiches et lettres)
+      <textarea id="rCoordonnees" rows="2" placeholder="123, rue Principale, Saint-Bidon&#10;Téléphone"></textarea>
+    </label>
+    <label>Signature des courriels
+      <textarea id="rSignature" rows="3" placeholder="Prénom Nom&#10;Ton titre"></textarea>
+    </label>
+    <div class="ligne-dossier">
+      <label class="case"><input type="checkbox" id="rVoixAuto"> 🔊 Lire les réponses à voix haute automatiquement</label>
+    </div>
+    <label>Vitesse de la voix
+      <select id="rVitesse">
+        <option value="0.8">Lente</option>
+        <option value="1">Normale</option>
+        <option value="1.2">Rapide</option>
+      </select>
+    </label>
+    <fieldset class="groupe">
+      <legend>🔒 Mot de passe</legend>
+      <div class="ligne-dossier">
+        <div>
+          <strong id="rMdpTitre">Aucun mot de passe</strong>
+          <div class="petit" id="rMdpEtat">Ajoute un mot de passe pour que personne d'autre n'ouvre ton mini-ordinateur.</div>
+        </div>
+        <button type="button" class="bouton" id="rMdpCreer">🔑 Créer</button>
+      </div>
+      <div id="rMdpOptions" class="cache">
+        <label>Verrouiller tout seul si je ne m'en sers pas pendant
+          <select id="rMdpDelai">
+            <option value="0">Jamais (seulement à l'ouverture)</option>
+            <option value="5">5 minutes</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 heure</option>
+          </select>
+        </label>
+        <div class="boutons-mdp">
+          <button type="button" class="bouton" id="rMdpVerrouiller">🔒 Verrouiller maintenant</button>
+          <button type="button" class="bouton fantome" id="rMdpEnlever">Enlever le mot de passe</button>
+        </div>
+      </div>
+    </fieldset>
+    <div class="ligne-dossier">
+      <div>
+        <strong>Icône sur le bureau de l'ordinateur</strong>
+        <div class="petit" id="rRaccourciEtat">Pour ouvrir ton mini-ordinateur d'un double-clic (la clé doit être branchée).</div>
+      </div>
+      <button type="button" class="bouton" id="rRaccourci">🖥️ Ajouter</button>
+    </div>
+    <div class="ligne-dossier">
+      <div>
+        <strong>Dossier de travail</strong>
+        <div class="petit" id="rDossier">Aucun : les fichiers vont dans Téléchargements.</div>
+      </div>
+      <button type="button" class="bouton" id="rChoisir">Choisir…</button>
+    </div>
+    <div class="actions-dialogue">
+      <button value="annuler" class="bouton fantome">Annuler</button>
+      <button value="ok" class="bouton principal" id="rEnregistrer">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ========================= mot de passe ========================= -->
+<dialog id="dialogueMdp" class="dialogue">
+  <form method="dialog" id="formMdp">
+    <h2 id="mdpTitre">🔑 Créer un mot de passe</h2>
+    <label id="mdpAncienBloc">Mot de passe actuel <input type="password" id="mdpAncien" autocomplete="current-password"></label>
+    <label>Nouveau mot de passe <input type="password" id="mdpNouveau" autocomplete="new-password"></label>
+    <label>Encore une fois, pour être sûre <input type="password" id="mdpConfirmer" autocomplete="new-password"></label>
+    <label>Indice (facultatif, s'affiche si tu l'oublies)
+      <input id="mdpIndice" autocomplete="off" placeholder="Ex. : le nom de mon premier chien">
+    </label>
+    <label class="case"><input type="checkbox" id="mdpVoir"> Montrer ce que j'écris</label>
+    <div class="mdp-erreur" id="mdpErreur" aria-live="polite"></div>
+    <div class="actions-dialogue">
+      <button value="annuler" class="bouton fantome">Annuler</button>
+      <button type="submit" value="ok" class="bouton principal" id="mdpEnregistrer">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ========================= rendez-vous ========================= -->
+<dialog id="dialogueRdv" class="dialogue">
+  <form method="dialog" id="formRdv">
+    <h2 id="rdvTitreDialogue">📅 Nouveau rendez-vous</h2>
+    <label>Quoi ? <input id="rdvTitre" autocomplete="off" placeholder="Ex. : Commande de bleuets à confirmer"></label>
+    <div class="deux-colonnes">
+      <label>Date <input type="date" id="rdvDate"></label>
+      <label>Heure (facultatif) <input type="time" id="rdvHeure"></label>
+    </div>
+    <label>Me le rappeler
+      <select id="rdvRappel">
+        <option value="-1">Pas de rappel</option>
+        <option value="0">À l'heure du rendez-vous</option>
+        <option value="15">15 minutes avant</option>
+        <option value="30">30 minutes avant</option>
+        <option value="60">1 heure avant</option>
+      </select>
+    </label>
+    <label>Note (facultatif) <textarea id="rdvNote" rows="2" placeholder="Adresse, numéro de téléphone, quoi apporter…"></textarea></label>
+    <div class="mdp-erreur" id="rdvErreur" aria-live="polite"></div>
+    <div class="actions-dialogue">
+      <button type="button" class="bouton danger cache" id="rdvSupprimer">Supprimer</button>
+      <button value="annuler" class="bouton fantome">Annuler</button>
+      <button type="submit" value="ok" class="bouton principal">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+<div class="toasts" id="toasts" aria-live="assertive"></div>
+
+<!-- ========================= corriger une réponse ========================= -->
+<dialog id="dialogueLecon" class="dialogue">
+  <form method="dialog" id="formLecon">
+    <h2>🧠 Corriger l'assistante</h2>
+    <p class="petit">Écris ce qui n'allait pas et la bonne façon de faire. Elle s'en souviendra pour la prochaine fois.</p>
+    <label>Ce qu'elle doit retenir
+      <textarea id="leconTexte" rows="3" placeholder="Ex. : On écrit « Boutique Le Petit Bleuet » avec des majuscules. / Les prix sont toujours avant taxes."></textarea>
+    </label>
+    <label class="case"><input type="checkbox" id="leconRefaire" checked> Lui demander de refaire sa réponse tout de suite</label>
+    <div class="mdp-erreur" id="leconErreur" aria-live="polite"></div>
+    <div class="actions-dialogue">
+      <button value="annuler" class="bouton fantome">Annuler</button>
+      <button type="submit" value="ok" class="bouton principal">Retenir</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ====================== surprise de fête (1er novembre) ====================== -->
+<div class="fete cache" id="fete" role="dialog" aria-modal="true" aria-label="Bonne fête" aria-hidden="true">
+  <canvas class="fete-confettis" id="feteConfettis"></canvas>
+  <div class="fete-carte">
+    <div class="fete-gateau" aria-hidden="true">🎂</div>
+    <h1 class="fete-titre" id="feteTitre">Bonne fête !</h1>
+    <p class="fete-de" id="feteDe">De la part de ton assistante 💙</p>
+    <p class="fete-souhait" id="feteSouhait">Bonne journée ! 💙</p>
+    <div class="fete-actions">
+      <button class="bouton" id="feteEcouter">🔊 Écouter</button>
+      <button class="bouton principal" id="feteMerci">Merci ! 💙</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="lib/docx.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="lib/mammoth.browser.min.js"></script>
+<script src="lib/mermaid.min.js"></script>
+<script src="markdown.js"></script>
+<script src="outils.js"></script>
+<script src="app.js"></script>
+<script src="cerveau.js"></script>
+<script src="agenda.js"></script>
+<script src="fete.js"></script>
+<script src="bienvenue.js"></script>
+<script src="bureau.js"></script>
+<script src="verrou.js"></script>
+</body>
+</html>

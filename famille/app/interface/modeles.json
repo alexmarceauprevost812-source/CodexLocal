@@ -1,0 +1,49 @@
+{
+  "_note": "Catalogue des modèles IA proposés. Lu par la fenêtre ET par preparer.ps1. Tailles approximatives (modèle Q4_K_M + vision).",
+  "modeles": [
+    {
+      "id": "qwen3-vl-2b",
+      "nom": "Petite et rapide",
+      "famille": "Qwen3-VL 2B",
+      "description": "Pour les ordinateurs modestes. Répond vite, comprend les photos ; un peu moins fine pour les longs textes.",
+      "depot": "Qwen/Qwen3-VL-2B-Instruct-GGUF",
+      "taille_go": 1.9,
+      "ram_min": 3,
+      "ram_confort": 4,
+      "vram_conseillee": 0
+    },
+    {
+      "id": "qwen3-vl-4b",
+      "nom": "Équilibrée",
+      "famille": "Qwen3-VL 4B",
+      "description": "Le bon choix pour la plupart des ordinateurs de bureau. Bonne en français, en courriels et en calculs avec les outils.",
+      "depot": "Qwen/Qwen3-VL-4B-Instruct-GGUF",
+      "taille_go": 3.3,
+      "ram_min": 6,
+      "ram_confort": 8,
+      "vram_conseillee": 0
+    },
+    {
+      "id": "qwen3-vl-8b",
+      "nom": "Puissante",
+      "famille": "Qwen3-VL 8B",
+      "description": "Plus intelligente et plus précise. Idéale avec une carte graphique ; lente sur un ordinateur sans carte.",
+      "depot": "Qwen/Qwen3-VL-8B-Instruct-GGUF",
+      "taille_go": 5.9,
+      "ram_min": 10,
+      "ram_confort": 16,
+      "vram_conseillee": 8
+    },
+    {
+      "id": "qwen3-vl-30b-a3b",
+      "nom": "Experte",
+      "famille": "Qwen3-VL 30B-A3B",
+      "description": "La plus forte. Pour les ordinateurs très puissants (32 Go de mémoire et plus).",
+      "depot": "Qwen/Qwen3-VL-30B-A3B-Instruct-GGUF",
+      "taille_go": 19,
+      "ram_min": 28,
+      "ram_confort": 40,
+      "vram_conseillee": 16
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+﻿MON ASSISTANTE — mode d'emploi
+==============================
+
+POUR COMMENCER
+  1. Branche la clé dans l'ordinateur et ouvre-la dans l'Explorateur de
+     fichiers (elle s'appelle « Mon assistante », avec le logo bleu).
+  2. Double-clique sur « ▶️ START » (ou sur « Mon assistante »).
+  3. Ton mini-ordinateur s'ouvre, comme un bureau Windows.
+
+  Astuce : sur le bureau du mini-ordinateur, clique sur « Mettre une icône sur
+  le bureau de l'ordinateur ». Ensuite, il suffit de brancher la clé et de
+  double-cliquer sur l'icône « Mon assistante » du bureau Windows.
+
+LA TOUTE PREMIÈRE FOIS
+  L'assistante te demande ton prénom (et ta fête, si tu veux). Tu pourras
+  les changer plus tard dans Réglages.
+  L'appli « 🧠 Modèles IA » s'ouvre toute seule. Elle a regardé ton
+  ordinateur et te conseille un modèle (marqué ✅ Recommandé).
+  Clique sur « Installer » et laisse la fenêtre ouverte (il faut internet,
+  de 10 à 40 minutes). Quand c'est prêt, c'est écrit « C'est prêt ! ».
+  Ensuite, plus besoin d'internet. Aucune fenêtre noire, rien à taper.
+
+  Plus tard, dans « 🧠 Modèles IA », tu peux installer un autre modèle
+  (plus rapide ou plus intelligent) et changer de modèle d'un clic.
+
+TON MINI-ORDINATEUR
+  Bureau avec icônes, menu Démarrer et barre des tâches, comme Windows.
+  Grosse horloge à droite, et toutes les applis en bas dans la barre des tâches.
+  Applis : Assistante, Mes documents, Calculatrice (TPS/TVQ), Agenda, Bloc-notes,
+  Affiches, Mini-cerveau, Modèles IA, Guide, Corbeille, Réglages (thème
+  clair/sombre/automatique, couleur, fond d'écran, voix, mot de passe).
+
+AGENDA
+  Clique sur « ＋ Rendez-vous » (ou double-clique sur une journée). Choisis
+  « Me le rappeler » : une petite fenêtre et un son t'avertissent avant.
+  Les rendez-vous du jour s'affichent sur le bureau. Les jours fériés du Québec
+  sont déjà là. Tu peux aussi le demander à l'assistante.
+
+MINI-CERVEAU
+  Quand l'assistante se trompe, clique sur « 🧠 Corriger » sous sa réponse (ou
+  dis-lui « Non, c'est plutôt… »). Elle retient la leçon et la relit avant
+  chaque réponse, pour ne pas refaire deux fois la même erreur.
+
+CE QUE L'ASSISTANTE SAIT FAIRE
+  - Écrire et corriger des courriels, des lettres, des avis, des rappels de paiement.
+  - Créer de vrais fichiers Word et Excel (avec les totaux calculés).
+  - Calculer les taxes (TPS et TVQ) sans erreur.
+  - Faire des affiches publicitaires avec tes photos (Facebook ou vitrine).
+  - Dessiner des schémas et des plans (étapes, organigramme, planning).
+  - Faire une petite vidéo MP4 avec tes photos.
+  - Lire une photo : facture, étiquette de batterie, document.
+  - Aider à la maison : recettes, questions de tous les jours.
+
+Astuces : clique sur 📎 pour ajouter une photo, un Word ou un Excel ; tu peux
+aussi coller une photo (Ctrl+V) ou la glisser dans la fenêtre. Sous chaque
+réponse : « Copier », « Mettre dans Word », « Mettre dans Excel ».
+A− et A+, en haut à droite, changent la grosseur du texte.
+
+OÙ SONT MES FICHIERS ?
+  Tout ce que l'assistante crée va dans le dossier « Mes documents » de la
+  clé. Ouvre-le dans l'Explorateur comme n'importe quel dossier : tu peux
+  copier-coller des fichiers entre la clé et l'ordinateur comme d'habitude.
+
+MOT DE PASSE
+  Dans Réglages, section « 🔒 Mot de passe », clique sur « Créer ». Ensuite,
+  ton mini-ordinateur s'ouvre sur un écran verrouillé, comme Windows.
+  Tu peux le faire verrouiller tout seul après 5, 15, 30 minutes ou 1 heure
+  sans t'en servir, ou cliquer sur « 🔒 Verrouiller » dans le menu Démarrer.
+  Ajoute un indice : il s'affiche si tu cliques « J'ai oublié mon mot de passe ».
+  Le mot de passe protège l'assistante, tes conversations et tes notes. Les
+  fichiers de « Mes documents » restent des fichiers ordinaires sur la clé.
+  (Pour la personne qui a préparé la clé : en cas d'oubli, effacer le dossier
+  app\profil remet tout à zéro — conversations, notes et réglages — sans toucher à Mes documents.)
+
+C'EST PRIVÉ
+  L'assistante fonctionne entièrement sur l'ordinateur, sans internet.
+  Rien de ce que tu écris n'est envoyé ailleurs. Personne d'autre ne le lit.
+
+  Elle peut quand même se tromper : relis avant d'envoyer un document
+  important. Les calculs, eux, sont faits par l'ordinateur.
+
+POUR FERMER
+  Ferme simplement la fenêtre : l'assistante s'arrête toute seule.
+  Avant de retirer la clé, ferme la fenêtre et attends quelques secondes.
+
+UN PROBLÈME ?
+  Ferme la fenêtre et double-clique de nouveau sur « ▶️ START ».
+  Si ça ne marche toujours pas, redémarre l'ordinateur, puis demande de l'aide à la personne
+  qui t'a préparé la clé.
+
+ti-lex · édition Famille — Produit du Québec.

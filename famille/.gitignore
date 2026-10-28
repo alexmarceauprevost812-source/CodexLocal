@@ -1,0 +1,6 @@
+# Telecharges par l'installation (trop gros, propres a chaque cle)
+app/modele/
+app/moteur/
+app/profil/
+Mes documents/
+*.gguf
