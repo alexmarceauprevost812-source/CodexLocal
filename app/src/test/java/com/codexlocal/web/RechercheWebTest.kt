@@ -35,6 +35,11 @@ class RechercheWebTest {
         val q = RechercheWeb.requeteGenerale("Peux-tu chercher sur internet la version de Ollama, clé sk-ant-abc123456789xyz ghp_abcdefgh12345678")!!
         assertFalse(q.contains("sk-ant"))
         assertFalse(q.contains("ghp_"))
+        // le code en ligne et les mots de passe ne partent jamais
+        val enLigne = RechercheWeb.requeteGenerale("Cherche sur le web pourquoi `login('alice', 'hunter2')` échoue, mot de passe: hunter3")!!
+        assertFalse(enLigne.contains("hunter2"))
+        assertFalse(enLigne.contains("hunter3"))
+        assertFalse(enLigne.contains("login("))
         // un bloc de code colle n'est jamais envoye
         val avecCode = RechercheWeb.requeteGenerale("Cherche sur le web cette erreur\n```\nmot_de_passe = 'secret'\n```")!!
         assertFalse(avecCode.contains("secret"))

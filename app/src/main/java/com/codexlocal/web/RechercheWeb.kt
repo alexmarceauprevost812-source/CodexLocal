@@ -116,7 +116,10 @@ object RechercheWeb {
         if (!demandeWeb.containsMatchIn(texte)) return null
         // Seulement la premiere ligne / phrase : jamais un bloc de code colle dans le message
         val premiere = texte.substringBefore("```").lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
-        val q = premiere.replace(secrets, " ").replace(mots, " ")
+        // Le code en ligne (`...`) et les « mot de passe = ... » ne partent jamais sur Internet
+        val sansCode = premiere.replace(Regex("`[^`]*`?"), " ")
+            .replace(Regex("(?i)(?<![\\p{L}\\d])(password|passwd|pwd|pass|mot\\s+de\\s+passe|mdp|token|jeton|secret|api[_-]?key|cl[ée])(?![\\p{L}\\d])\\s*[:=]\\s*\\S+"), " ")
+        val q = sansCode.replace(secrets, " ").replace(mots, " ")
             .replace(Regex("[\\s?!.,;:]+"), " ").trim().take(120).trim()
         return q.takeIf { it.length >= 3 }
     }
@@ -135,7 +138,7 @@ object RechercheWeb {
     suspend fun rechercherGeneral(
         requete: String,
         chercher: (String) -> List<SourceWeb> = ::duckduckgo,
-        lire: (String) -> String = { url -> com.codexlocal.tilabo.Web.lirePage(url, 3500).optString("texte") }
+        lire: (String) -> String = { url -> texteHtml(chargerPublic(url)).take(3500) }
     ): ResultatWeb = withContext(Dispatchers.IO) {
         currentCoroutineContext().ensureActive()
         val trouves = chercher(requete).filter { urlPublique(it.url) }.distinctBy { it.url }.take(5)
@@ -147,6 +150,48 @@ object RechercheWeb {
         val sources = listOf(premier.copy(extrait = (premier.extrait + if (page.isNotEmpty()) "\n\n" + page else "").take(4000))) +
             trouves.drop(1).map { it.copy(extrait = it.extrait.take(500)) }
         ResultatWeb(requete, sources)
+    }
+
+    /** Une adresse dont le nom pointe vers le telephone ou le reseau de la maison est refusee. */
+    private fun adressePublique(hote: String): Boolean = runCatching {
+        java.net.InetAddress.getAllByName(hote).all { a ->
+            !(a.isLoopbackAddress || a.isSiteLocalAddress || a.isLinkLocalAddress || a.isAnyLocalAddress || a.isMulticastAddress ||
+                (a is java.net.Inet6Address && (a.address[0].toInt() and 0xfe) == 0xfc))
+        }
+    }.getOrDefault(false)
+
+    /** Lit une page publique : chaque redirection est verifiee avant d'y aller (jamais vers le reseau local). */
+    internal fun chargerPublic(url: String): String {
+        var courant = url
+        repeat(4) {
+            require(urlPublique(courant) && adressePublique(URI(courant).host)) { "Adresse non publique refusée" }
+            val c = URL(courant).openConnection() as HttpURLConnection
+            try {
+                c.connectTimeout = 10_000
+                c.readTimeout = 15_000
+                c.instanceFollowRedirects = false
+                c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 15) CodexLocal/1.0")
+                val code = c.responseCode
+                if (code in 300..399) {
+                    courant = URI(courant).resolve(c.getHeaderField("Location") ?: error("Redirection vide")).toString()
+                } else {
+                    require(code in 200..299) { "HTTP $code" }
+                    return c.inputStream.use { input ->
+                        val sortie = ByteArrayOutputStream()
+                        val tampon = ByteArray(8192)
+                        while (sortie.size() < 1_000_000) {
+                            val n = input.read(tampon)
+                            if (n < 0) break
+                            sortie.write(tampon, 0, n)
+                        }
+                        sortie.toString("UTF-8")
+                    }
+                }
+            } finally {
+                c.disconnect()
+            }
+        }
+        error("Trop de redirections")
     }
 
     private fun duckduckgo(requete: String): List<SourceWeb> {
