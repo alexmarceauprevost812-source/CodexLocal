@@ -123,8 +123,20 @@ class YeuxDemon @JvmOverloads constructor(
         super.onDetachedFromWindow()
     }
 
+    /** Vrai quand la vue et tous ses parents sont visibles à l'écran. */
+    private var visibleAEcran = false
+
+    // Cachés (accueil remplacé par la conversation, écran en arrière-plan) :
+    // on coupe toutes les animations pour épargner la batterie et l'inférence.
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        visibleAEcran = isVisible
+        if (isVisible) demarrerVie() else arreterVie()
+    }
+
     private fun demarrerVie() {
         arreterVie()
+        if (!visibleAEcran) return
         if (toujoursAnimes || pensee) {
             demarrerPulsation()
         } else {
