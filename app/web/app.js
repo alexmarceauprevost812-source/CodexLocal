@@ -229,6 +229,34 @@ function conseilsVitesse() {
   if (loc(p.modele_codex) && loc(p.modele_jasette) && p.modele_codex !== p.modele_jasette)
     dire("deux", "💡 Ta Jasette et ton Codex utilisent deux IA différentes : en passant de l'une à l'autre, l'IA doit se recharger. Pour des réponses toujours rapides, choisis la même (IA locales › Utiliser).");
 }
+// Diagnostic : pourquoi l'IA est lente ou ne répond pas
+async function diagnostic() {
+  const D = $("#ia-diag");
+  D.hidden = false; D.innerHTML = `<p class="sous">🩺 Vérification…</p>`;
+  try {
+    const d = await api("ia/diagnostic");
+    const ou = (c) => c.gpu_pct >= 90 ? "carte graphique (GPU)" : c.gpu_pct > 0 ? "GPU " + c.gpu_pct + " % / processeur" : "processeur (CPU, lent)";
+    D.innerHTML = `<h2>🩺 Diagnostic de l'IA</h2>
+      <div class="ligne" style="flex-wrap:wrap;gap:8px;margin:8px 0">
+        <span class="tag ${d.version ? "vert" : "rouge"}">Moteur ${d.version ? "v" + esc(d.version) : "arrêté"}</span>
+        <span class="tag">IA choisie : ${esc(d.choisie || "aucune")}${d.taille_choisie_go ? " · " + d.taille_choisie_go + " Go" : ""}</span>
+        ${d.ram_go ? `<span class="tag">RAM : ${d.ram_libre_go} Go libres sur ${d.ram_go} Go</span>` : ""}
+        <span class="tag">Mémoire de conversation : ${d.contexte}</span></div>
+      ${d.chargees.length ? d.chargees.map((c) => `<p style="margin:4px 0">⚡ <b>${esc(c.nom)}</b> en mémoire · ${c.taille_go} Go · ${ou(c)}</p>`).join("") : `<p class="sous">Aucune IA en mémoire pour l'instant.</p>`}
+      ${d.ollama_pc && d.ollama_pc.length ? `<p style="margin:4px 0">⚠ L'Ollama du PC garde en mémoire : ${d.ollama_pc.map((m) => esc(m.nom) + " (" + m.taille_go + " Go)").join(", ")}</p>` : ""}
+      <ul style="margin:10px 0">${d.conseils.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+      <div class="ligne" style="gap:8px;flex-wrap:wrap">
+        ${d.ollama_pc && d.ollama_pc.length ? `<button class="btn prim" id="bt-liberer-pc">Libérer la carte graphique</button>` : ""}
+        <button class="btn" id="bt-rediag">Revérifier</button></div>`;
+    $("#bt-rediag").onclick = diagnostic;
+    if ($("#bt-liberer-pc")) $("#bt-liberer-pc").onclick = async () => {
+      const r = await api("ia/liberer-pc", {}).catch((e) => ({ erreur: e.message }));
+      toast(r.liberees && r.liberees.length ? "Carte graphique libérée : " + r.liberees.join(", ") : "Rien à libérer");
+      diagnostic();
+    };
+  } catch (e) { D.innerHTML = `<p style="color:var(--red)">Diagnostic impossible : ${esc(e.message)}</p>`; }
+}
+$("#bt-diag").onclick = diagnostic;
 function suivreCharge() {
   clearInterval(minuterieCharge);
   minuterieCharge = setInterval(async () => { if (!(await majCharge())) { clearInterval(minuterieCharge); minuterieCharge = null; } }, 2000);
@@ -528,6 +556,15 @@ function creerChat(conteneur, mode) {
     const surDefilement = () => { pres = zoneDefile.scrollHeight - zoneDefile.scrollTop - zoneDefile.clientHeight < 80; };
     zoneDefile.addEventListener("scroll", surDefilement);
     controleur = new AbortController();
+    // Si l'IA ne dit rien après 25 s, on explique pourquoi au lieu de laisser attendre sans rien dire
+    const minuterieLente = setTimeout(() => {
+      if (reponse) return;
+      const ch = etat.chargees.find((c) => c.nom === sel.value || c.nom === sel.value + ":latest");
+      const pourquoi = !ch ? "elle se charge depuis la clé (une seule fois)" : ch.gpu_pct < 60 ? "elle roule surtout sur le processeur (trop grosse pour la carte graphique)" : "elle réfléchit";
+      etapes.insertAdjacentHTML("beforeend", `<div class="etape">⏳ L'IA prend du temps : ${pourquoi}. <a href="#" data-diag>🩺 Diagnostic</a></div>`);
+      const l = etapes.querySelector("[data-diag]:last-of-type");
+      if (l) l.onclick = (e) => { e.preventDefault(); allerA("ia"); diagnostic(); };
+    }, 25000);
     btEnvoyer.innerHTML = ic("stop");
     btEnvoyer.setAttribute("aria-label", "Arrêter");
     const coller = () => { fil.scrollTop = fil.scrollHeight; };
@@ -563,6 +600,7 @@ function creerChat(conteneur, mode) {
     } catch (e) {
       if (e.name !== "AbortError") { await ecrivain.terminer(); contenu.insertAdjacentHTML("beforeend", `<p style="color:var(--red)">${esc(e.message)}</p>`); }
     } finally {
+      clearTimeout(minuterieLente);
       await ecrivain.terminer();
       if (window.TiSchemas && mode !== "codex") TiSchemas.activer(contenu).catch(() => {});
       zoneDefile.removeEventListener("scroll", surDefilement);
@@ -1416,12 +1454,15 @@ function rendreVitrine() {
   const projets = [...etat.projets].sort((a, b) => (b.web === true) - (a.web === true) || b.modifie - a.modifie);
   if (!projets.length) { V.innerHTML = `<p class="sous">Aucun projet pour l'instant. Demande au Codex de te créer une appli, elle apparaîtra ici.</p>`; return; }
   V.innerHTML = "";
+  let apercus = 0; // au plus 8 aperçus en direct : avec beaucoup de projets, l'interface reste légère
   projets.forEach((p) => {
+    const direct = p.web && apercus++ < 8;
     const c = document.createElement("article");
     c.className = "appli";
     const date = new Date(p.modifie * 1000).toLocaleDateString("fr-CA", { day: "numeric", month: "short" });
-    c.innerHTML = (p.web
+    c.innerHTML = (direct
       ? `<div class="ecran" title="Lancer l'appli"><iframe loading="lazy" tabindex="-1" sandbox="allow-scripts" src="${urlAppli(p.nom)}" title=""></iframe><div class="jouer">▶</div></div>`
+      : p.web ? `<div class="ecran code" title="Lancer l'appli" style="cursor:pointer">🌐</div>`
       : `<div class="ecran code" title="Pas de page web à lancer">${p.langage === "Python" ? "🐍" : "🧩"}</div>`) +
       `<div class="infos"><b>${esc(p.nom)}</b><p>${esc(p.resume || (p.web ? "Appli web" : "Projet " + (p.langage || "")))}</p>
         <span class="sous" style="font-size:12px">${esc(p.langage || "—")} · ${p.fichiers} fichiers · modifié le ${date}</span></div>

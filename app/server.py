@@ -214,11 +214,70 @@ def ia_chargees():
 _prechauffe_en_cours = set()
 
 
+def liberer_ollama_pc():
+    """Si l'Ollama installe sur le PC garde une IA en memoire (ex. qwen3-coder:30b), elle occupe la
+    carte graphique : l'IA de la cle tombe alors sur le processeur et devient tres lente.
+    On demande a l'Ollama du PC de vider sa memoire (ses IA restent installees)."""
+    if ANDROID or lire_params().get("moteur") != "ollama":
+        return []
+    try:
+        r = http_json("http://127.0.0.1:%d/api/ps" % PORT_OLLAMA_PC, delai=2)
+    except Exception:
+        return []
+    liberees = []
+    for m in r.get("models", []):
+        nom = m.get("name") or m.get("model")
+        try:
+            http_json("http://127.0.0.1:%d/api/generate" % PORT_OLLAMA_PC, {"model": nom, "keep_alive": 0}, delai=30)
+            liberees.append(nom)
+        except Exception:
+            pass
+    return liberees
+
+
+def diagnostic_ia():
+    """Pourquoi l'IA est lente ou ne repond pas : faits mesures + conseils simples."""
+    p = lire_params()
+    d = dict(ia_chargees())
+    d.update({"moteur_choisi": p.get("moteur"), "version": ollama_vivant(cle=True), "contexte": contexte_ia()})
+    total, libre = memoire_vive()
+    d["ram_go"], d["ram_libre_go"] = total, libre
+    try:
+        r = http_json("http://127.0.0.1:%d/api/ps" % PORT_OLLAMA_PC, delai=2)
+        d["ollama_pc"] = [{"nom": m.get("name"), "taille_go": round((m.get("size") or 0) / 1e9, 1),
+                           "vram_go": round((m.get("size_vram") or 0) / 1e9, 1)} for m in r.get("models", [])]
+    except Exception:
+        d["ollama_pc"] = None
+    choisie = ia_a_garder(p)
+    d["choisie"] = choisie
+    d["taille_choisie_go"] = taille_modele_go(choisie) if choisie else None
+    conseils = []
+    if not d["version"]:
+        conseils.append("Le moteur de la cle est arrete : clique « Demarrer le moteur ».")
+    if d["ollama_pc"]:
+        conseils.append("L'Ollama du PC garde %s en memoire : il prend la carte graphique. Clique « Liberer la carte graphique »."
+                        % ", ".join(m["nom"] for m in d["ollama_pc"]))
+    for c in d["chargees"]:
+        if c["gpu_pct"] < 60 and c["taille_go"] > 3:
+            conseils.append("%s (%s Go) roule surtout sur le processeur : trop grosse pour la carte graphique. "
+                            "Prends une IA de 7-8 milliards de parametres (ex. qwen2.5-coder:7b)." % (c["nom"], c["taille_go"]))
+    if d["taille_choisie_go"] and d["taille_choisie_go"] > 9:
+        conseils.append("L'IA choisie (%s, %s Go) est plus grosse que la memoire de ta carte graphique (8 Go pour une RTX 5060) : "
+                        "elle sera lente. Choisis-en une plus petite dans IA locales > Utiliser." % (choisie, d["taille_choisie_go"]))
+    if libre is not None and d["taille_choisie_go"] and libre < d["taille_choisie_go"] + 1:
+        conseils.append("Il reste peu de memoire vive (%s Go libres). Ferme les gros programmes (jeux, navigateur avec beaucoup d'onglets)." % libre)
+    if d["en_cours"]:
+        conseils.append("Chargement en cours depuis la cle (%s). La premiere fois, ca peut prendre 30 s a 2 min selon la vitesse de la cle." % ", ".join(d["en_cours"]))
+    d["conseils"] = conseils or ["Tout est correct : l'IA est prete."]
+    return d
+
+
 def prechauffer(nom):
     """Charge l'IA en memoire tout de suite (requete vide), pour que la premiere reponse soit rapide."""
     if not nom or nom in _prechauffe_en_cours:
         return
     _prechauffe_en_cours.add(nom)
+    liberer_ollama_pc()
     try:
         http_json(ollama_url("/api/generate"), {"model": nom, "keep_alive": GARDER_EN_MEMOIRE,
                                                 "options": {"num_ctx": contexte_ia()}}, delai=900)
@@ -300,13 +359,26 @@ def lire_resume(dossier):
     return ""
 
 
-def liste_projets():
+_cache_projets = {"t": 0.0, "res": None}
+
+
+def liste_projets(frais=False):
+    """Liste des projets. Gardee 20 s en memoire : avec beaucoup de projets sur une cle USB,
+    tout relire a chaque fois rendait l'interface lente."""
+    if not frais and _cache_projets["res"] is not None and time.time() - _cache_projets["t"] < 20:
+        return _cache_projets["res"]
+    res = _liste_projets()
+    _cache_projets.update(t=time.time(), res=res)
+    return res
+
+
+def _liste_projets():
     res = []
     for nom in sorted(os.listdir(PROJETS), key=str.lower):
         p = os.path.join(PROJETS, nom)
         if not os.path.isdir(p) or nom.startswith("."):
             continue
-        nb = sum(len(f) for _, _, f in marcher(p))
+        nb = sum(len(f) for _, _, f in marcher(p, limite=400))
         res.append({
             "nom": nom,
             "fichiers": nb,
@@ -1765,6 +1837,8 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, self.modeles())
             if route == "ia/chargees":
                 return self.envoyer(200, ia_chargees())
+            if route == "ia/diagnostic":
+                return self.envoyer(200, diagnostic_ia())
             if route == "github/depots":
                 return self.envoyer(200, github_depots())
             if route == "stockage":
@@ -1860,6 +1934,8 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.erreur(e, 401)
         if not self.autorise():
             return self.erreur("Acces refuse", 403)
+        if route.startswith(("projet", "github/", "terminal", "fichier", "codex")):
+            _cache_projets["res"] = None  # un projet a pu etre cree, modifie ou supprime
         try:
             d = self.corps_json()
             if route == "agenda":
@@ -1937,6 +2013,8 @@ class Gestion(BaseHTTPRequestHandler):
                 # charge le modele en memoire tout de suite (requete vide)
                 threading.Thread(target=prechauffer, args=(d.get("nom"),), daemon=True).start()
                 return self.envoyer(200, {"ok": True})
+            if route == "ia/liberer-pc":
+                return self.envoyer(200, {"liberees": liberer_ollama_pc()})
             if route == "ia/decharger":
                 http_json(ollama_url("/api/generate"), {"model": d.get("nom"), "keep_alive": 0}, delai=60)
                 return self.envoyer(200, {"chargees": ia_chargees()})
