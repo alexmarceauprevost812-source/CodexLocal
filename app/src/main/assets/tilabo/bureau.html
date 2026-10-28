@@ -337,7 +337,7 @@ function dessinerMenu(q){
     l.onclick = () => { localStorage.setItem("tilabo-question", $("#cherche").value); fermerMenu(); ouvrir({...APPS[0], recharger: true}); };
     C.appendChild(l);
     // « Normandin », « météo Paris » : voir la météo de cette ville, cherchée sur le web
-    const ville = $("#cherche").value.replace(/^\s*(la\s+)?m[ée]t[ée]o\s*(à|a|de|du|au|pour)?\s*/i, "").trim();
+    const ville = $("#cherche").value.replace(/^\s*(la\s+)?m[ée]t[ée]o(?:\s+(?:à|a|de|du|au|pour)(?=\s))?\s*/i, "").trim();
     if (ville && ville.length < 50) {
       const m = document.createElement("div"); m.className = "ligne";
       m.innerHTML = `<span class="e">🌤️</span><span><b>Météo à ${echap(ville)}</b><small>Cherchée sur le web</small></span>`;
