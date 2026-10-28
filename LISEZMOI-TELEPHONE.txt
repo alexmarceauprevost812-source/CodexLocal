@@ -75,6 +75,13 @@ GitHub, et Studio/Mémoire (Ti-Labo complet dans Termux).
   Un fichier changé des deux côtés n'est jamais écrasé (l'autre version est
   gardée à côté).
 - Le Ti-Labo de Termux et l'appli partagent TiLabo/projets du téléphone.
+- 🗓️ Agenda (style Samsung, thème TI-LEX-AL) : le même que sur la clé.
+  Clé branchée : l'agenda du téléphone et celui de la clé se fusionnent.
+  Rappels en notification. La Jasette répond à « qu'est-ce que j'ai demain ? ».
+- Jasette : « fais-moi un plan » = plan + schéma animé (vidéo MP4), puis
+  « ➜ Envoyer au Codex » pour que le Codex code l'appli à partir du plan.
+- ⬆️ Mise à jour (menu ☰) : installe la nouvelle version par-dessus, depuis
+  GitHub (il faut ton jeton GitHub dans la page GitHub de l'appli).
 Elle trouve les .gguf dans CodexLocal/models, Téléchargements,
 TiLabo/ia/gguf et sur la clé USB-C (TiLabo/ia/gguf).
 

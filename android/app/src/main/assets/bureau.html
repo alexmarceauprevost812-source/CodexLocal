@@ -17,9 +17,9 @@ main{max-width:620px;margin:0 auto;padding:14px 16px calc(24px + env(safe-area-i
 .statut{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
 .statut div{background:#0d0d0d;border:1px solid var(--bord);border-radius:12px;padding:9px;font-size:12px;color:var(--doux);min-width:0}
 .statut b{display:block;color:#fff;font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.icones{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.icones{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .icones a{display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;color:#E5E5E5;font-size:13px;text-align:center}
-.boite{width:100%;aspect-ratio:1;max-width:96px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:38px;
+.boite{width:100%;aspect-ratio:1;max-width:96px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:32px;
   background:radial-gradient(circle at 30% 25%,var(--c2),var(--c1));box-shadow:0 6px 18px -6px var(--c1),inset 0 1px 0 rgba(255,255,255,.25);transition:transform .12s}
 .icones a:active .boite{transform:scale(.93)}
 .astuce{margin-top:18px;background:#120a03;border:1px solid #4a2408;border-radius:12px;padding:12px;color:#E5E5E5;font-size:14px;line-height:1.5}
@@ -29,6 +29,8 @@ main{max-width:620px;margin:0 auto;padding:14px 16px calc(24px + env(safe-area-i
 <header><b>Bureau</b></header>
 <main>
   <div class="heros"><img src="/logo.png" alt="Ti-Labo"></div>
+  <div id="banniere"></div>
+  <div id="ajd"></div>
   <div class="statut">
     <div>🧠 IA<b id="sIA">…</b></div>
     <div>🔌 Clé USB-C<b id="sCle">…</b></div>
@@ -37,6 +39,7 @@ main{max-width:620px;margin:0 auto;padding:14px 16px calc(24px + env(safe-area-i
   <div class="icones">
     <a href="/jasette"><span class="boite" style="--c1:#c2410c;--c2:#FF7A1A">💬</span>Jasette</a>
     <a href="/codex"><span class="boite" style="--c1:#1d4ed8;--c2:#60a5fa">🧑‍💻</span>Codex</a>
+    <a href="/agenda"><span class="boite" style="--c1:#b45309;--c2:#fdba74">🗓️</span>Agenda</a>
     <a href="/jasette#ia"><span class="boite" style="--c1:#7e22ce;--c2:#c084fc">🧠</span>IA locales</a>
     <a href="/cle"><span class="boite" style="--c1:#15803d;--c2:#4ade80">🔌</span>Clé USB-C</a>
     <a href="/github"><span class="boite" style="--c1:#334155;--c2:#94a3b8">🐙</span>GitHub</a>
@@ -61,6 +64,20 @@ async function maj(){
   document.getElementById("sWeb").textContent = TL.internet ? "activé" : "désactivé";
 }
 document.addEventListener("tl-reglages", maj);
+document.addEventListener("tl-maj", () => {
+  const m = TL.maj; const b = document.getElementById("banniere");
+  if (!m || !m.disponible) { b.innerHTML = ""; return; }
+  b.innerHTML = "<div class='tl-banniere'><span>⬆️ <b>Ti-Labo " + m.derniere + "</b> est disponible.</span><button id='bInst'>Installer</button></div>";
+  document.getElementById("bInst").onclick = e => TL.installerMaj(e.currentTarget);
+});
+// Aujourd'hui dans l'agenda
+fetch("/tilabo/agenda", {method: "POST", body: "{}"}).then(r => r.json()).then(j => {
+  const auj = new Date(), s = auj.getFullYear() + "-" + String(auj.getMonth() + 1).padStart(2, "0") + "-" + String(auj.getDate()).padStart(2, "0");
+  const l = (j.evenements || []).filter(e => e.debut.slice(0, 10) === s).sort((a, b) => a.debut.localeCompare(b.debut));
+  if (!l.length) return;
+  document.getElementById("ajd").innerHTML = "<a href='/agenda' class='tl-banniere' style='text-decoration:none;background:#0d0d0d;border-color:#262626'><span>🗓️ <b>Aujourd'hui</b> : " +
+    l.slice(0, 3).map(e => (e.debut.length > 10 ? e.debut.slice(11, 16) + " " : "") + e.titre.replace(/</g, "&lt;")).join(" · ") + "</span></a>";
+}).catch(() => {});
 maj(); setInterval(maj, 6000);
 </script>
 </body>

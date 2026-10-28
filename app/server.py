@@ -1693,6 +1693,8 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, liste_projets())
             if route == "arbre":
                 return self.envoyer(200, arbre(q.get("projet", "")))
+            if route == "agenda":
+                return self.envoyer(200, {"evenements": [e for e in lire_agenda() if not e.get("supprime")]})
             if route == "nouvelles":
                 return self.envoyer(200, nouvelles(q.get("rubrique", "une"), q.get("sujet", "")))
             if route == "fichier":
@@ -1796,6 +1798,8 @@ class Gestion(BaseHTTPRequestHandler):
             return self.erreur("Acces refuse", 403)
         try:
             d = self.corps_json()
+            if route == "agenda":
+                return self.envoyer(200, agenda_modifier(d))
             if route == "parametres":
                 secrets_ = ("github_token", "anthropic_key", "mot_de_passe")
                 ecrire_params({k: v for k, v in d.items() if k not in secrets_})
@@ -2918,6 +2922,50 @@ def demarrer_gguf(chemin):
     ecrire_params({"moteur": "openai", "url_openai": "http://127.0.0.1:%d/v1" % PORT_GGUF,
                    "modele_jasette": os.path.basename(chemin), "modele_codex": os.path.basename(chemin)})
     return os.path.basename(chemin)
+
+
+# ---------------------------------------------------------------- agenda (le meme fichier que l'appli Android)
+# Cle : donnees/agenda.json. Telephone (Termux) : TILABO_AGENDA = TiLabo/agenda.json du stockage partage.
+AGENDA = os.environ.get("TILABO_AGENDA") or os.path.join(DONNEES, "agenda.json")
+_verrou_agenda = threading.Lock()
+
+
+def lire_agenda():
+    try:
+        with open(AGENDA, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return d.get("evenements", []) if isinstance(d, dict) else []
+    except (OSError, ValueError):
+        return []
+
+
+def ecrire_agenda(evts):
+    os.makedirs(os.path.dirname(AGENDA), exist_ok=True)
+    tmp = AGENDA + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"version": 1, "evenements": evts}, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, AGENDA)
+
+
+def agenda_modifier(d):
+    """{evenement: {...}} ajoute ou remplace ; {supprimer: id} marque supprime (pour la synchro avec le telephone)."""
+    with _verrou_agenda:
+        evts = lire_agenda()
+        maintenant = int(time.time() * 1000)
+        if d.get("supprimer"):
+            for e in evts:
+                if e.get("id") == d["supprimer"]:
+                    e.update({"supprime": True, "modifie": maintenant})
+        else:
+            ev = d.get("evenement") or {}
+            if not ev.get("id") or not ev.get("debut"):
+                raise ValueError("Evenement invalide")
+            ev = {k: ev.get(k) for k in ("id", "titre", "debut", "fin", "journee", "couleur", "lieu", "note", "rappel", "repete")}
+            ev["modifie"] = maintenant
+            ev["supprime"] = False
+            evts = [e for e in evts if e.get("id") != ev["id"]] + [ev]
+        ecrire_agenda(evts)
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- Claude (cle API Anthropic)

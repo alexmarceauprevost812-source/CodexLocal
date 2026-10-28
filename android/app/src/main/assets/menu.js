@@ -18,6 +18,11 @@
   #tl-panneau .tl-sep{flex:1}
   #tl-panneau label{display:flex;align-items:center;gap:10px;color:#E5E5E5;padding:10px;font-size:15px}
   #tl-panneau label input{accent-color:#FF7A1A;width:20px;height:20px}
+  #tl-maj.dispo{background:#1d0f04;border:1px solid #FF7A1A}
+  #tl-maj.dispo small{color:#FF7A1A}
+  .tl-banniere{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#3a1a04,#1a0c02);border:1px solid #FF7A1A;border-radius:14px;padding:10px 12px;margin:10px 0;color:#fff;font-size:14px}
+  .tl-banniere span{flex:1}
+  .tl-banniere button{background:#FF7A1A;color:#000;border:0;border-radius:10px;min-height:36px;padding:0 12px;font-weight:700}
   .tl-sources{display:flex;gap:8px;overflow-x:auto;padding:4px 0 8px;margin:4px 0;white-space:normal}
   .tl-source{flex:0 0 210px;background:#0d0d0d;border:1px solid #262626;border-top:3px solid var(--tl-c,#FF7A1A);border-radius:10px;padding:8px 10px;text-decoration:none;color:#fff}
   .tl-source .h{display:flex;align-items:center;gap:6px;font-size:11px;color:#B3B3B3;margin-bottom:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -44,6 +49,19 @@
   .tl-meteo .jour{background:rgba(0,0,0,.22);border-radius:12px;padding:7px 4px;text-align:center;font-size:12px}
   .tl-meteo .jour .e{font-size:24px;display:block;margin:2px 0}
   .tl-meteo .jour b{font-size:13px}
+  .schema-carte{border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;margin:.6em 0;background:#000;white-space:normal}
+  .schema-tete{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;background:#101010;border-bottom:1px solid #2a2a2a;flex-wrap:wrap}
+  .schema-tete b{color:#FF7A1A;font-size:13px}
+  .schema-tete .espace{flex:1}
+  .schema-dessin{padding:12px;overflow:auto;display:flex;justify-content:center}
+  .schema-dessin svg{max-width:100%;height:auto}
+  .btn.petit{min-height:32px;padding:0 10px;font-size:12.5px;border-radius:8px;background:#161616;color:#FF7A1A;border:1px solid #2a2a2a}
+  .btn.petit.prim{background:#FF7A1A;color:#000;border:0;font-weight:700}
+  .bloc-code pre{white-space:pre;overflow-x:auto;background:#0e0e0e;border:1px solid #262626;border-radius:8px;padding:10px;font:12px ui-monospace,monospace}
+  .sous{color:#9a9a9a;font-size:12px}
+  .actions-plan{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 2px;white-space:normal}
+  .actions-plan button{flex:1;min-width:140px;min-height:42px;border-radius:12px;font:inherit;font-size:14px;background:#161616;color:#FF7A1A;border:1px solid #2a2a2a}
+  .actions-plan button.plein{background:linear-gradient(135deg,#ff9a4d,#FF7A1A);color:#000;border:0;font-weight:700;box-shadow:0 6px 16px -8px #FF7A1A}
   .k{color:#FF9F4A}.s{color:#9BE37A}.c{color:#6B7280;font-style:italic}.nb{color:#7CC4FF}.f{color:#F7D774}.t{color:#FF7A9C}
   `;
   const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
@@ -53,6 +71,7 @@
     ["/", "🏠", "Bureau"],
     ["/jasette", "💬", "Jasette"],
     ["/codex", "🧑‍💻", "Codex"],
+    ["/agenda", "🗓️", "Agenda"],
     ["/jasette#ia", "🧠", "IA locales"],
     ["/cle", "🔌", "Clé USB-C"],
     ["/github", "🐙", "GitHub"],
@@ -61,7 +80,8 @@
   p.innerHTML = `<div class="tl-tete"><img src="/logo.png" alt=""><div><b>Ti-Labo</b><small>Moteur gguf sur le téléphone</small></div></div>` +
     choix.map(([h, e, n]) => `<a href="${h}" class="${(h === ICI && !h.includes("#")) ? "actif" : ""}"><span class="e">${e}</span>${n}</a>`).join("") +
     `<a href="#" id="tl-complet"><span class="e">🎬</span>Studio, Mémoire…<small>Ti-Labo complet</small></a>` +
-    `<div class="tl-sep"></div><label><input type="checkbox" id="tl-internet"> 🌐 Internet pour l'IA</label>`;
+    `<div class="tl-sep"></div><label><input type="checkbox" id="tl-internet"> 🌐 Internet pour l'IA</label>` +
+    `<a href="#" id="tl-maj"><span class="e">⬆️</span>Mise à jour<small id="tl-version"></small></a>`;
   const v = document.createElement("div"); v.id = "tl-voile";
   document.body.append(v, p);
   v.onclick = () => document.body.classList.remove("tl-ouvert");
@@ -205,6 +225,47 @@
     return t + "\nReponds a la question meteo de facon vivante, avec plein d'emojis meteo (☀️🌤️⛅🌧️❄️🌬️🌡️🧥☔), " +
       "et un petit conseil pratique (quoi porter, parapluie, pneus d'hiver…).\n\n";
   };
+
+
+  // --- mise a jour de l'appli (Releases GitHub)
+  const bMaj = p.querySelector("#tl-maj");
+  TL.verifierMaj = async () => {
+    try {
+      const r = await post("/tilabo/maj", {});
+      TL.maj = r;
+      p.querySelector("#tl-version").textContent = r.disponible ? "v" + r.derniere + " dispo !" : "v" + r.actuelle;
+      bMaj.classList.toggle("dispo", !!r.disponible);
+      document.dispatchEvent(new Event("tl-maj"));
+      return r;
+    } catch (e) { p.querySelector("#tl-version").textContent = ""; TL.majErreur = e.message; return null; }
+  };
+  TL.installerMaj = async (bouton) => {
+    const affiche = t => { if (bouton) bouton.textContent = t; p.querySelector("#tl-version").textContent = t; };
+    try { await post("/tilabo/maj/installer", {}); } catch (e) { alert("⚠ " + e.message); return; }
+    for (;;) {
+      await new Promise(ok => setTimeout(ok, 700));
+      const e = await (await fetch("/tilabo/maj/etat")).json();
+      if (e.etat === "telechargement") affiche("⬇️ " + (e.pourcent || 0) + " %");
+      else if (e.etat === "installation") affiche("📦 Installation…");
+      else if (e.etat === "confirmation") { affiche("👉 Confirme l'installation"); return; }
+      else if (e.etat === "a_jour") { affiche("✅ Déjà à jour"); return; }
+      else if (e.etat === "installee") { affiche("✅ Installée"); return; }
+      else if (e.etat === "erreur") { affiche("⚠ Erreur"); alert("⚠ " + e.message); return; }
+    }
+  };
+  bMaj.onclick = async e => {
+    e.preventDefault();
+    const r = TL.maj || await TL.verifierMaj();
+    if (!r) return alert("⚠ " + (TL.majErreur || "Vérification impossible"));
+    if (!r.disponible) return alert("✅ Ti-Labo est à jour (v" + r.actuelle + ").");
+    if (confirm("⬆️ Ti-Labo " + r.derniere + " est disponible (" + r.taille_mo + " Mo).\nL'installer maintenant ? Rien ne sera perdu.")) TL.installerMaj();
+  };
+  // une verification par jour au plus
+  try {
+    const der = Number(localStorage.getItem("tilabo-maj-verif") || 0);
+    if (Date.now() - der > 6 * 3600e3) { localStorage.setItem("tilabo-maj-verif", String(Date.now())); setTimeout(TL.verifierMaj, 1500); }
+    else setTimeout(TL.verifierMaj, 4000);
+  } catch (_) { setTimeout(TL.verifierMaj, 2000); }
 
   TL.chargerReglages();
 })();

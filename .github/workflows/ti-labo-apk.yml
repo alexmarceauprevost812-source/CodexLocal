@@ -5,6 +5,8 @@ on:
     branches: [ti-labo]
     paths:
       - "android/**"
+      - "app/web/agenda.*"
+      - "app/web/schemas.js"
       - ".github/workflows/ti-labo-apk.yml"
   workflow_dispatch:
 
@@ -42,6 +44,13 @@ jobs:
           "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.13113456" "cmake;3.31.6"
       - name: Recuperer llama.cpp v0.6.0 (le meme moteur que CodexLocal)
         run: git clone --depth 1 --branch v0.6.0 https://github.com/ggml-org/llama.cpp.git lib/src/main/cpp/llama.cpp
+      - name: Fichiers partages avec le Ti-Labo de la cle (agenda, moteur de schemas)
+        working-directory: .
+        run: |
+          D=android/app/src/main/assets
+          cp app/web/agenda.js app/web/agenda.css app/web/schemas.js "$D/"
+          cp app/web/lib/mermaid.min.js "$D/"
+          ls -la "$D"
       - name: Cle de signature (la meme pour toutes les versions)
         working-directory: .
         env:

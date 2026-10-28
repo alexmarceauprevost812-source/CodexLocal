@@ -14,6 +14,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Demarrer le Ti-Labo (Python) dans Termux -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+    <!-- Mise a jour de l'appli depuis GitHub, rappels de l'agenda apres un redemarrage -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <queries>
         <package android:name="com.termux" />
@@ -49,5 +52,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Moteur d'IA local (llama.cpp) qui repond au Ti-Labo sur 127.0.0.1" />
         </service>
+        <receiver android:name=".RappelRecepteur" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".MajRecepteur" android:exported="false" />
     </application>
 </manifest>

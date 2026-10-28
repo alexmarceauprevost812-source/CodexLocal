@@ -48,6 +48,7 @@ if mkdir -p "$PARTAGE" 2>/dev/null && [ -w "$PARTAGE" ]; then
     touch "$ICI/projets/.copie-partage"
   fi
   export TILABO_PROJETS="$PARTAGE"
+  export TILABO_AGENDA="/storage/emulated/0/TiLabo/agenda.json"   # le meme agenda que l'appli
   echo "== Projets : $PARTAGE (memes projets que l'appli Ti-Labo)"
 fi
 

@@ -53,6 +53,7 @@ class MoteurService : Service() {
         startForeground(NOTIF, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         reveil = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TiLabo:moteur").apply { acquire() }
+        runCatching { Rappels.canal(this); Rappels.planifier(applicationContext) }
         serveur = ServeurLocal(applicationContext).also {
             try {
                 it.demarrer()

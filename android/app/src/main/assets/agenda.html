@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo — Agenda</title>
+<link rel="stylesheet" href="/agenda.css">
+<style>
+html,body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #1a1a1a}
+header b{flex:1;color:#FF7A1A;font-size:17px}
+header button{font:inherit;border-radius:10px;min-height:38px;padding:0 12px;background:#161616;color:#FF7A1A;border:1px solid #262626}
+#ag{flex:1;min-height:0}
+</style>
+</head>
+<body>
+<header><b>🗓️ Agenda</b></header>
+<div id="ag"></div>
+<script src="/menu.js"></script>
+<script src="/agenda.js"></script>
+<script>
+async function post(c, corps){
+  const r = await fetch(c, {method: "POST", body: JSON.stringify(corps || {})});
+  const j = await r.json(); if (!r.ok) throw new Error(j.error ? j.error.message : r.status); return j;
+}
+TiAgenda.monter(document.getElementById("ag"), {
+  charger: () => post("/tilabo/agenda"),
+  enregistrer: ev => post("/tilabo/agenda/modifier", {evenement: ev}),
+  supprimer: id => post("/tilabo/agenda/modifier", {supprimer: id}),
+  synchro: () => post("/tilabo/agenda/synchro"),
+});
+</script>
+</body>
+</html>

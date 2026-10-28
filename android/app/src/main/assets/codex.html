@@ -21,6 +21,30 @@ button:disabled{opacity:.4}
 #barre{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #141414;font-size:13px;color:var(--doux)}
 #barre .p{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #barre .p b{color:var(--texte)}
+.modesel{background:#161616;color:var(--texte);border:1px solid var(--bord);border-radius:10px;min-height:36px;padding:0 6px;font:inherit;font-size:13px}
+.barreEcr{height:3px;background:linear-gradient(90deg,#FF7A1A,#ffd27a,#ff5f8f,#7cc4ff,#FF7A1A);background-size:300% 100%;animation:degrade 1.6s linear infinite;border-radius:14px 14px 0 0;display:none}
+#ecran.ecrit .barreEcr{display:block}
+@keyframes degrade{to{background-position:300% 0}}
+.fich.nouveau .n{color:#9BE37A;text-shadow:0 0 8px rgba(155,227,122,.45)}
+.fich.nouveau .n::after{content:" ● nouveau";font-size:10px;color:#9BE37A}
+.carte .plus,.d-plus b{color:#4ade80}.carte .moins,.d-moins b{color:#f87171}
+.carte .ok{font-size:10.5px;color:#4ade80;border:1px solid #1f5131;border-radius:20px;padding:1px 6px;margin-left:4px}
+.carte .bt{display:flex;gap:6px;margin-top:6px;width:100%}
+.carte .bt button{flex:1;min-height:32px;font-size:12px;border-radius:8px}
+.carte.wrap{flex-wrap:wrap}
+.carte.cree{border-left-color:#4ade80}
+.carte.avert{border-left-color:#eab308;background:#141003}
+#code .d-l{display:block;padding:0 10px}
+#code .d-plus{background:rgba(74,222,128,.12)}#code .d-moins{background:rgba(248,113,113,.12)}
+#code .d-l i{display:inline-block;width:30px;color:#3a3a3a;font-style:normal;text-align:right;margin-right:6px}
+#code .d-l b{display:inline-block;width:12px}
+#code .d-saut{display:block;color:#555;text-align:center;padding:2px}
+.plan-recu{border:1px solid #4a2408;border-left:3px solid var(--orange);background:#100803;border-radius:12px;padding:10px 12px;white-space:normal}
+.plan-recu .contenu{max-height:220px;overflow:auto;white-space:pre-wrap;font-size:13.5px;margin:6px 0}
+.plan-recu .contenu.ouvert{max-height:none}
+.hist{display:flex;align-items:center;gap:8px;padding:10px 2px;border-bottom:1px solid #161616}
+.hist .n{flex:1;min-width:0}.hist .n div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist small{color:var(--doux)}
 label.plan{display:flex;align-items:center;gap:5px;white-space:nowrap}
 label.plan input{accent-color:var(--orange);width:18px;height:18px}
 #fil{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
@@ -78,12 +102,14 @@ input[type=text]{width:100%;background:var(--carte);color:var(--texte);border:1p
 <header>
   <img src="/logo.png" alt="">
   <nav class="onglets"><a href="/">Jasette</a><a class="actif" href="/codex">Codex</a></nav>
+  <button id="bHist" title="Anciennes conversations">📜</button>
   <button id="bFich" title="Fichiers">📁</button>
   <button id="bNouv" title="Nouvelle session">＋</button>
 </header>
 <div id="barre">
   <div class="p" id="projetNom">Aucun projet</div>
-  <label class="plan"><input type="checkbox" id="plan"> Plan d'abord</label>
+  <select id="mode" class="modesel" title="Codex direct : écrit le code tout de suite. Plan à valider : fait un plan, puis tu cliques Accepter.">
+    <option value="direct">⚡ Codex direct</option><option value="valider">📋 Plan à valider</option></select>
   <button id="bProj">Projet</button>
 </div>
 <div id="fil"><div class="vide" id="vide"><img src="/logo.png" alt=""><p>Le <b>Codex</b> du Ti-Labo écrit directement dans les fichiers de ton projet, avec ton IA .gguf. Mêmes dossiers <b>TiLabo/projets</b> que ta clé USB-C.</p></div></div>
@@ -94,9 +120,11 @@ input[type=text]{width:100%;background:var(--carte);color:var(--texte);border:1p
 </form>
 
 <div id="ecran">
+  <div class="barreEcr" id="barreEcr"></div>
   <div class="tete"><span class="nom" id="ecNom"></span><span class="etat" id="ecEtat"></span></div>
   <pre id="code"></pre>
   <div class="pied">
+    <button id="ecVue" style="display:none">Fichier complet</button>
     <button id="ecCopier">Copier</button>
     <button id="ecAnnuler" style="display:none">Annuler</button>
     <button class="plein" id="ecFermer">Fermer</button>
@@ -112,6 +140,13 @@ input[type=text]{width:100%;background:var(--carte);color:var(--texte);border:1p
   <button style="width:100%;margin-top:8px" onclick="fermerV('vProj')">Fermer</button>
 </div></div>
 
+<div class="voile" id="vHist"><div class="feuille">
+  <h2>📜 Anciennes conversations</h2>
+  <p class="note">Le Codex garde tes 15 dernières conversations par projet : rouvre-en une pour retrouver son code et continuer.</p>
+  <div id="listeHist"></div>
+  <button style="width:100%;margin-top:8px" onclick="fermerV('vHist')">Fermer</button>
+</div></div>
+
 <div class="voile" id="vFich"><div class="feuille">
   <h2>Fichiers</h2>
   <p class="note">Touche un fichier pour le voir. 📎 = le donner au Codex comme contexte.</p>
@@ -124,7 +159,7 @@ input[type=text]{width:100%;background:var(--carte);color:var(--texte);border:1p
 const $ = s => document.querySelector(s);
 const MAX_LECTURES = 4, MAX_TOURS = 3, MAX_CTX = 24000;
 let projet = null, arbre = [], historique = [], epingles = new Set(), envoyes = {}, arbreEnvoye = "";
-let ctrl = null, ecranFichier = null;
+let ctrl = null, ecranFichier = null, nouveaux = new Set(), sessionId = null;
 
 function echap(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 async function api(chemin, corps){
@@ -142,6 +177,8 @@ function montrer(nom, code, etat, annuler){
   if (ecranFichier !== nom) { e.classList.remove("change"); void e.offsetWidth; e.classList.add("change"); }
   ecranFichier = nom;
   e.classList.add("ouvert");
+  e.classList.toggle("ecrit", etat === "écrit…");
+  $("#ecVue").style.display = "none";
   $("#ecNom").textContent = nom;
   $("#ecEtat").textContent = etat || "";
   const enBas = $("#code").scrollHeight - $("#code").scrollTop - $("#code").clientHeight < 60;
@@ -163,6 +200,54 @@ async function voirFichier(chemin){
 const RE_CHERCHER = /^\s*={2,}\s*CHERCHER\s*:\s*(.+?)\s*=*\s*$/im;
 const RE_FICHIER = /^\s*={2,}\s*FICHIER\s*:\s*(.+?)\s*=*\s*$/i, RE_LIRE = /^\s*={2,}\s*LIRE\s*:\s*(.+?)\s*=*\s*$/i, RE_FIN = /^\s*={2,}\s*FIN\s*={2,}\s*$/i;
 const RE_NOM = /([\w.\-\/]+\.[A-Za-z0-9]{1,8})/;
+const RE_MODIFIER = /^\s*={2,}\s*MODIFIER\s*:\s*(.+?)\s*=*\s*$/i;
+function blocsModif(t){
+  const res = [], L = t.split("\n"); let etat = 0, av = [], ap = [];
+  for (const l of L) {
+    if (/^\s*<{5,}/.test(l)) { etat = 1; av = []; ap = []; }
+    else if (etat === 1 && /^\s*={5,}\s*$/.test(l)) etat = 2;
+    else if (etat === 2 && /^\s*>{5,}/.test(l)) { res.push({avant: av.join("\n"), apres: ap.join("\n")}); etat = 0; }
+    else if (etat === 1) av.push(l); else if (etat === 2) ap.push(l);
+  }
+  return res;
+}
+/** Un fichier « en morceaux » (… reste du code inchange) ne doit pas ecraser le vrai fichier. */
+const RE_INCOMPLET = /^\s*(\/\/|#|<!--|\/\*|\*)?\s*(\.\.\.|…)\s*((le )?reste|code existant|existing|inchang|rest of)?|\(?\s*(reste (du (code|fichier) )?inchang|code existant|le reste ne change pas)/im;
+/** Changements ligne par ligne (vert = ajoute, rouge = enleve). */
+function difference(ancien, nouveau){
+  const a = (ancien || "").split("\n"), b = nouveau.split("\n");
+  if (ancien == null) return {plus: b.length, moins: 0, lignes: null};
+  if (a.length * b.length > 4e6) return {plus: b.length, moins: a.length, lignes: null};
+  const n = a.length, m = b.length, t = Array.from({length: n + 1}, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) t[i][j] = a[i] === b[j] ? t[i + 1][j + 1] + 1 : Math.max(t[i + 1][j], t[i][j + 1]);
+  const brut = []; let i = 0, j = 0;
+  while (i < n || j < m) {
+    if (i < n && j < m && a[i] === b[j]) { brut.push({t: " ", l: b[j], n: j + 1}); i++; j++; }
+    else if (j < m && (i >= n || t[i][j + 1] >= t[i + 1][j])) { brut.push({t: "+", l: b[j], n: j + 1}); j++; }
+    else { brut.push({t: "-", l: a[i], n: i + 1}); i++; }
+  }
+  const plus = brut.filter(x => x.t === "+").length, moins = brut.filter(x => x.t === "-").length;
+  // garder 2 lignes de contexte autour des changements
+  const garder = brut.map(() => false);
+  brut.forEach((x, k) => { if (x.t !== " ") for (let d = -2; d <= 2; d++) if (brut[k + d]) garder[k + d] = true; });
+  const lignes = []; let saut = false;
+  brut.forEach((x, k) => { if (garder[k]) { lignes.push(x); saut = false; } else if (!saut) { lignes.push({t: "…"}); saut = true; } });
+  return {plus, moins, lignes};
+}
+function montrerDiff(nom, d, complet, annuler){
+  if (!d.lignes) return montrer(nom, complet, "écrit", annuler);
+  const e = $("#ecran");
+  e.classList.add("ouvert"); e.classList.remove("ecrit");
+  $("#ecNom").textContent = nom;
+  $("#ecEtat").innerHTML = "<span style='color:#4ade80'>+" + d.plus + "</span> <span style='color:#f87171'>−" + d.moins + "</span>";
+  $("#code").innerHTML = d.lignes.map(x => x.t === "…" ? "<span class='d-saut'>⋯</span>" :
+    "<span class='d-l d-" + (x.t === "+" ? "plus" : x.t === "-" ? "moins" : "eq") + "'><i>" + x.n + "</i><b>" + (x.t === " " ? " " : x.t) + "</b>" + (colorer(x.l || "", nom) || " ") + "</span>").join("");
+  const v = $("#ecVue"); v.style.display = ""; v.textContent = "Fichier complet";
+  v.onclick = () => { montrer(nom, complet, "écrit", annuler); v.style.display = ""; v.textContent = "Changements"; v.onclick = () => montrerDiff(nom, d, complet, annuler); };
+  $("#ecCopier").onclick = () => navigator.clipboard.writeText(complet).then(() => $("#ecCopier").textContent = "Copié", () => {});
+  const a = $("#ecAnnuler"); a.style.display = annuler ? "" : "none"; a.onclick = annuler;
+  ecranFichier = nom;
+}
 function sansReflexion(t){ return t.replace(/<think>[\s\S]*?(<\/think>|$)/g, ""); }
 function extraire(reponse){
   const L = sansReflexion(reponse).split("\n"), actions = [];
@@ -170,15 +255,18 @@ function extraire(reponse){
   for (const l of L) {
     let m;
     if (cur) {
-      if (RE_FIN.test(l)) { actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: true}); cur = null; }
-      else if ((m = l.match(RE_FICHIER))) { actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: false}); cur = {chemin: m[1], l: []}; }
+      if (RE_FIN.test(l)) { actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: true, modif: cur.modif}); cur = null; }
+      else if ((m = l.match(RE_FICHIER))) { actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: false, modif: cur.modif}); cur = {chemin: m[1], l: []}; }
       else cur.l.push(l);
       continue;
     }
     if ((m = l.match(RE_FICHIER))) cur = {chemin: m[1], l: []};
+    else if ((m = l.match(RE_MODIFIER))) cur = {chemin: m[1], l: [], modif: true};
     else if ((m = l.match(RE_LIRE))) actions.push({type: "lire", chemin: m[1]});
   }
-  if (cur) actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: false});
+  if (cur) actions.push({type: "ecrire", chemin: cur.chemin, contenu: cur.l.join("\n"), complet: false, modif: cur.modif});
+  // === MODIFIER === : blocs AVANT / APRES
+  actions.forEach(a => { if (a.modif) { a.type = "modifier"; a.blocs = blocsModif(a.contenu); } });
   if (actions.length) return actions.map(nettoyer);
   // Petits modeles : blocs ``` avec un nom de fichier juste avant ou dans l'ouverture
   const res = []; let dansBloc = false, nom = null, buf = [], avant = "";
@@ -215,6 +303,8 @@ function rendu(t){
   t = t.replace(/<think>([\s\S]*?)(<\/think>|$)/g, (_, p) => "\u0000P" + p.trim() + "\u0000");
   t = t.replace(/^\s*={2,}\s*FICHIER\s*:\s*(.+?)\s*=*\s*\n[\s\S]*?(^\s*={2,}\s*FIN\s*={2,}\s*$|$(?![\s\S]))/gim,
     (_, n) => "\u0000F" + n.trim() + "\u0000");
+  t = t.replace(/^\s*={2,}\s*MODIFIER\s*:\s*(.+?)\s*=*\s*\n[\s\S]*?(^\s*={2,}\s*FIN\s*={2,}\s*$|$(?![\s\S]))/gim,
+    (_, n) => "\u0000F" + n.trim() + "\u0000");
   t = t.replace(/^\s*={2,}\s*CHERCHER\s*:\s*(.+?)\s*=*\s*$/gim, (_, n) => "\u0000W" + n.trim() + "\u0000");
   t = t.replace(/^\s*={2,}\s*LIRE\s*:\s*(.+?)\s*=*\s*$/gim, (_, n) => "\u0000L" + n.trim() + "\u0000");
   const m = t.split(/```/); let h = "";
@@ -236,6 +326,8 @@ function consigne(){
     "=== FICHIER: chemin/relatif.ext ===\n(contenu complet du fichier)\n=== FIN ===\n\n" +
     "Pour lire un fichier existant avant de le modifier, ecris seul sur une ligne :\n=== LIRE: chemin/relatif.ext ===\n" +
     "puis arrete ta reponse : tu recevras son contenu.\n\n" +
+    "Pour une PETITE correction dans un gros fichier existant, remplace seulement le passage :\n" +
+    "=== MODIFIER: chemin/relatif.ext ===\n<<<<<<< AVANT\n(lignes exactes a remplacer, copiees du fichier)\n=======\n(nouvelles lignes)\n>>>>>>> APRES\n=== FIN ===\n\n" +
     "Regles : chemins relatifs au projet ; toujours le fichier en entier (jamais « ... » ni de morceau) ; " +
     "pas de bloc ``` autour des fichiers ; explique en une a trois phrases ce que tu fais, avec quelques emojis 🛠️✨ ; reponds en francais." +
     (TL.internet ? "\n\nSi tu as besoin de documentation ou d'un exemple recent, ecris seul sur une ligne :\n=== CHERCHER: mots-cles ===\n" +
@@ -251,7 +343,7 @@ function dessinerArbre(){
   if (!projet) { A.innerHTML = "<p class='note'>Choisis d'abord un projet.</p>"; return; }
   if (!arbre.length) { A.innerHTML = "<p class='note'>Projet vide.</p>"; return; }
   arbre.forEach(f => {
-    const d = document.createElement("div"); d.className = "ligne fich" + (epingles.has(f.chemin) ? " ep" : "");
+    const d = document.createElement("div"); d.className = "ligne fich" + (epingles.has(f.chemin) ? " ep" : "") + (nouveaux.has(f.chemin) ? " nouveau" : "");
     d.innerHTML = "<span class='n'>" + echap(f.chemin) + "</span><small>" + (f.taille < 1024 ? f.taille + " o" : Math.round(f.taille / 1024) + " Ko") + "</small>";
     d.querySelector(".n").onclick = () => { fermerV("vFich"); voirFichier(f.chemin); };
     const b = document.createElement("button"); b.textContent = "📎";
@@ -288,7 +380,8 @@ document.querySelectorAll(".voile").forEach(v => v.onclick = e => { if (e.target
 
 function nouvelleSession(){
   if (ctrl) ctrl.abort();
-  historique = []; envoyes = {}; arbreEnvoye = "";
+  sauverSession();
+  historique = []; envoyes = {}; arbreEnvoye = ""; sessionId = null; nouveaux = new Set();
   $("#fil").innerHTML = "";
   bulle("ia", "<span class='pense'>" + (projet ? "Projet « " + echap(projet.nom) + " » ouvert. Dis au Codex quoi coder." : "Choisis un projet.") + "</span>");
 }
@@ -347,9 +440,58 @@ async function tour(texte, sortie){
   return rep;
 }
 
+async function ecrireAction(a, carte, force){
+  let ancien = null;
+  try { ancien = (await api("/tilabo/projet/lire", {projet: projet.chemin, chemin: a.chemin})).contenu; } catch (_) {}
+  let contenu = a.contenu;
+  if (a.type === "modifier") {
+    if (ancien == null) throw new Error("fichier introuvable pour MODIFIER");
+    contenu = ancien; let faits = 0;
+    for (const b of a.blocs) {
+      if (b.avant && contenu.includes(b.avant)) { contenu = contenu.replace(b.avant, b.apres); faits++; }
+      else if (b.avant.trim()) {
+        // tolerance : memes lignes, espaces de fin differents
+        const net = x => x.split("\n").map(l => l.trimEnd()).join("\n");
+        const c2 = net(contenu), a2 = net(b.avant);
+        if (c2.includes(a2)) { contenu = c2.replace(a2, net(b.apres)); faits++; }
+      }
+    }
+    if (!faits) throw new Error("passage à remplacer introuvable dans le fichier");
+  } else if (!force && ancien != null && ancien.split("\n").length > 15 && RE_INCOMPLET.test(contenu)) {
+    // Ecriture sure : un fichier « avec des … » ecraserait le vrai code
+    carte.className = "carte wrap avert";
+    carte.innerHTML = "<span>⚠</span><span class='n'>" + echap(a.chemin) + "</span><small>morceau incomplet (« … ») : pas écrit</small>" +
+      "<div class='bt'><button>👁 Voir</button><button class='plein'>Écrire quand même</button></div>";
+    const [v, w] = carte.querySelectorAll("button");
+    v.onclick = ev => { ev.stopPropagation(); montrer(a.chemin, contenu, "non écrit"); };
+    w.onclick = async ev => { ev.stopPropagation(); await ecrireAction(a, carte, true); chargerArbre(); };
+    return null;
+  }
+  const r = await api("/tilabo/projet/ecrire", {projet: projet.chemin, chemin: a.chemin, contenu});
+  const d = difference(r.ancien, contenu);
+  if (r.nouveau) nouveaux.add(a.chemin);
+  const annuler = async () => {
+    await api("/tilabo/projet/ecrire", {projet: projet.chemin, chemin: a.chemin, contenu: r.ancien});
+    carte.querySelector("small").textContent = "annulé"; $("#ecran").classList.remove("ouvert"); chargerArbre();
+  };
+  carte.className = "carte wrap" + (r.nouveau ? " cree" : "");
+  carte.dataset.chemin = a.chemin;
+  carte.innerHTML = "<span>" + (r.nouveau ? "✚" : "✎") + "</span><span class='n'><b>" + (r.nouveau ? "Créé" : "Modifié") + "</b> " + echap(a.chemin) + "</span>" +
+    "<small><span class='plus'>+" + d.plus + "</span> <span class='moins'>−" + d.moins + "</span><span class='ok'>✓ enregistré</span>" +
+    (a.complet === false ? " · coupé ?" : "") + "</small>" +
+    "<div class='bt'><button>Changements</button><button>Fichier complet</button><button>Annuler</button></div>";
+  const [b1, b2, b3] = carte.querySelectorAll(".bt button");
+  b1.onclick = ev => { ev.stopPropagation(); montrerDiff(a.chemin, d, contenu, annuler); };
+  b2.onclick = ev => { ev.stopPropagation(); montrer(a.chemin, contenu, r.nouveau ? "créé" : "modifié", annuler); };
+  b3.onclick = ev => { ev.stopPropagation(); annuler(); };
+  carte.onclick = () => montrerDiff(a.chemin, d, contenu, annuler);
+  if (epingles.has(a.chemin)) envoyes[a.chemin] = contenu;
+  return () => r.nouveau ? montrer(a.chemin, contenu, "créé", annuler) : montrerDiff(a.chemin, d, contenu, annuler);
+}
+
 async function appliquer(rep, sortie){
   const actions = extraire(rep);
-  const ecritures = actions.filter(a => a.type === "ecrire").slice(0, 20);
+  const ecritures = actions.filter(a => a.type === "ecrire" || a.type === "modifier").slice(0, 20);
   const lectures = actions.filter(a => a.type === "lire").slice(0, MAX_LECTURES);
   const cartes = [...sortie.querySelectorAll(".carte:not(.lu)")];
   let derniere = null;
@@ -357,44 +499,74 @@ async function appliquer(rep, sortie){
     const a = ecritures[i];
     let carte = cartes[i];
     if (!carte) { carte = document.createElement("div"); carte.className = "carte"; sortie.appendChild(carte); }
-    try {
-      const r = await api("/tilabo/projet/ecrire", {projet: projet.chemin, chemin: a.chemin, contenu: a.contenu});
-      const nb = a.contenu.split("\n").length;
-      const annuler = async () => {
-        await api("/tilabo/projet/ecrire", {projet: projet.chemin, chemin: a.chemin, contenu: r.ancien});
-        carte.querySelector("small").textContent = "annulé"; $("#ecran").classList.remove("ouvert"); chargerArbre();
-      };
-      carte.innerHTML = "<span>✎</span><span class='n'>" + echap(a.chemin) + "</span><small>" +
-        (r.nouveau ? "créé" : "modifié") + " · " + nb + " lignes" + (a.complet ? "" : " · coupé ?") + "</small>";
-      carte.onclick = () => montrer(a.chemin, a.contenu, r.nouveau ? "créé" : "modifié", annuler);
-      derniere = () => montrer(a.chemin, a.contenu, r.nouveau ? "créé" : "modifié", annuler);
-      if (epingles.has(a.chemin)) envoyes[a.chemin] = a.contenu;
-    } catch (e) {
-      carte.className = "carte err"; carte.innerHTML = "<span>⚠</span><span class='n'>" + echap(a.chemin) + "</span><small>" + echap(e.message) + "</small>";
-    }
+    try { derniere = (await ecrireAction(a, carte, false)) || derniere; }
+    catch (e) { carte.className = "carte err"; carte.innerHTML = "<span>⚠</span><span class='n'>" + echap(a.chemin) + "</span><small>" + echap(e.message) + "</small>"; }
   }
   if (derniere) derniere();
   if (ecritures.length) chargerArbre();
   return lectures;
 }
 
-async function envoyer(texte){
+// ---------------------------------------------------------------- historique (15 conversations par projet)
+const cleHist = () => "tilabo-codex-hist:" + (projet ? projet.chemin : "");
+function lireHist(){ try { return JSON.parse(localStorage.getItem(cleHist()) || "[]"); } catch (_) { return []; } }
+function sauverSession(){
+  if (!projet || !historique.length) return;
+  if (!sessionId) sessionId = "s" + Date.now();
+  const l = lireHist().filter(x => x.id !== sessionId);
+  const premier = historique.find(m => m.role === "user");
+  const titre = (premier ? premier.content : "Conversation").split("\n").filter(x => x.trim()).pop().slice(0, 80);
+  l.unshift({id: sessionId, date: Date.now(), titre, historique: historique.slice(-40), html: $("#fil").innerHTML.slice(-400000)});
+  try { localStorage.setItem(cleHist(), JSON.stringify(l.slice(0, 15))); }
+  catch (_) { try { localStorage.setItem(cleHist(), JSON.stringify(l.slice(0, 5).map(x => ({...x, html: ""})))); } catch (__) {} }
+}
+function ouvrirHist(){
+  $("#vHist").classList.add("ouvert");
+  const L = $("#listeHist"), l = lireHist();
+  L.innerHTML = l.length ? "" : "<p class='note'>Aucune conversation enregistrée pour ce projet.</p>";
+  l.forEach(x => {
+    const d = document.createElement("div"); d.className = "hist";
+    d.innerHTML = "<div class='n'><div>" + echap(x.titre) + "</div><small>" + new Date(x.date).toLocaleString("fr-CA", {dateStyle: "medium", timeStyle: "short"}) + "</small></div>";
+    const b = document.createElement("button"); b.className = "plein"; b.textContent = "Rouvrir";
+    b.onclick = () => {
+      if (ctrl) ctrl.abort();
+      historique = x.historique || []; sessionId = x.id; envoyes = {}; arbreEnvoye = "";
+      $("#fil").innerHTML = x.html || "";
+      // les cartes de fichiers restent utiles : elles ouvrent le fichier tel qu'il est maintenant
+      $("#fil").querySelectorAll(".carte[data-chemin]").forEach(c => c.onclick = () => voirFichier(c.dataset.chemin));
+      $("#fil").querySelectorAll(".carte .bt, .actions-plan, .actions").forEach(e => e.remove());
+      bulle("ia", "<span class='pense'>♻️ Conversation rouverte : le Codex reprend où il était rendu.</span>");
+      fermerV("vHist");
+    };
+    d.appendChild(b); L.appendChild(d);
+  });
+}
+
+async function envoyer(texte, force){
   if (!projet) { ouvrirProjets(); return; }
-  const plan = $("#plan").checked;
+  const plan = force === "executer" ? false : (force === "planifier" || $("#mode").value === "valider");
   bulle("moi", echap(texte));
   let message = (await contexte()) + texte;
-  if (plan) message += "\n\n(Mode plan : donne seulement un plan court en etapes numerotees, sans ecrire de fichier. J'approuverai ensuite.)";
+  if (plan) message += "\n\n(Mode plan : donne seulement un plan clair en etapes numerotees, avec les fichiers a creer, sans ecrire de fichier. J'approuverai ensuite.)";
   for (let n = 0; n <= MAX_TOURS; n++) {
     const sortie = bulle("ia", "<span class='pense'>…</span>");
     const rep = await tour(message, sortie);
     if (plan && n === 0) {
-      const a = document.createElement("div"); a.className = "actions";
-      const b = document.createElement("button"); b.className = "plein"; b.textContent = "✓ Coder ce plan";
-      b.onclick = () => { a.remove(); $("#plan").checked = false; envoyer("Le plan est bon. Applique-le maintenant en ecrivant les fichiers."); };
-      a.appendChild(b); sortie.appendChild(a);
+      sauverSession();
+      if (!rep) return;
+      const a = document.createElement("div"); a.className = "actions-plan";
+      a.innerHTML = "<button class='plein'>✅ Accepter le plan</button><button>🧐 Avis sur le plan</button><button>✎ Corriger le plan</button>";
+      const [ok, avis, corriger] = a.querySelectorAll("button");
+      ok.onclick = () => { a.remove(); envoyer("Le plan est bon. Réalise-le maintenant et écris les fichiers du projet.", "executer"); };
+      avis.onclick = () => { a.remove(); envoyer("Avant que je valide, donne-moi ton avis HONNÊTE sur ce plan, comme un développeur senior qui le relit :\n" +
+        "1. ✅ Ce qui est juste\n2. ⚠️ Ce qui cloche ou est dépassé\n3. ❓ Ce qui manque\n4. Verdict clair, puis le plan corrigé en quelques étapes.\n" +
+        "Ne sois pas complaisant.\n\nLe plan :\n" + rep, "planifier"); };
+      corriger.onclick = () => { a.remove(); $("#q").placeholder = "Dis ce qu'il faut changer dans le plan…"; $("#q").focus(); planACorriger = true; };
+      sortie.appendChild(a);
       return;
     }
     const lectures = await appliquer(rep, sortie);
+    sauverSession();
     const recherche = TL.internet && rep.match(RE_CHERCHER);
     if ((!lectures.length && !recherche) || n === MAX_TOURS) return;
     // Le Codex a demande a lire des fichiers ou a chercher sur Internet : on lui donne et il continue
@@ -413,23 +585,54 @@ async function envoyer(texte){
     message += "Continue le travail.";
   }
 }
+let planACorriger = false;
+
+// ---------------------------------------------------------------- plan recu de la Jasette
+function slug(t){ return (t || "mon-app").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "mon-app"; }
+async function planRecu(){
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem("tilabo-plan-codex") || "null"); } catch (_) {}
+  if (!p || Date.now() - p.date > 86400e3) return;
+  const d = bulle("ia", "");
+  d.innerHTML = "<div class='plan-recu'><b>📋 Plan reçu de la Jasette</b>" + (p.question ? "<div class='note' style='font-size:12px'>« " + echap(p.question.slice(0, 120)) + " »</div>" : "") +
+    "<div class='contenu'>" + rendu(p.texte.replace(/```mermaid[\s\S]*?```/g, "(schéma du plan)")) + "</div>" +
+    "<div class='actions-plan'><button class='plein'>✅ Coder ce plan</button><button>Voir tout</button><button>✕ Ignorer</button></div></div>";
+  const [ok, tout, non] = d.querySelectorAll(".actions-plan button");
+  tout.onclick = () => d.querySelector(".contenu").classList.toggle("ouvert");
+  non.onclick = () => { localStorage.removeItem("tilabo-plan-codex"); d.remove(); };
+  ok.onclick = async () => {
+    if (!projet || confirm("Créer un nouveau projet pour ce plan ?\n(Annuler = l'écrire dans « " + (projet ? projet.nom : "") + " »)")) {
+      const nom = prompt("Nom du nouveau projet :", slug(p.question));
+      if (!nom) return;
+      try { choisir(await api("/tilabo/projets/creer", {nom})); } catch (e) { return alert(e.message); }
+    }
+    localStorage.removeItem("tilabo-plan-codex");
+    envoyer("Voici le plan de l'application ou de l'outil à réaliser (fait dans la Jasette) :\n\n" + p.texte +
+      "\n\nRéalise ce plan maintenant : crée et écris tous les fichiers du projet, complets.", "executer");
+  };
+}
 
 $("#f").onsubmit = e => {
   e.preventDefault();
   if (ctrl) { ctrl.abort(); return; }
   const t = $("#q").value.trim(); if (!t) return;
   $("#q").value = ""; $("#q").style.height = "";
+  if (planACorriger) { planACorriger = false; $("#q").placeholder = "Qu'est-ce que le Codex doit coder ?"; envoyer("Corrige le plan ainsi : " + t, "planifier"); return; }
   envoyer(t);
 };
 $("#q").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; });
 $("#bProj").onclick = ouvrirProjets;
 $("#bFich").onclick = () => { $("#vFich").classList.add("ouvert"); chargerArbre(); };
 $("#bNouv").onclick = nouvelleSession;
+$("#bHist").onclick = ouvrirHist;
+try { $("#mode").value = localStorage.getItem("tilabo-codex-mode") || "direct"; } catch (_) {}
+$("#mode").onchange = () => { try { localStorage.setItem("tilabo-codex-mode", $("#mode").value); } catch (_) {} };
 
 (async () => {
   try { const p = JSON.parse(localStorage.getItem("tilabo-projet") || "null"); if (p) { projet = p; $("#projetNom").innerHTML = "<b>" + echap(p.nom) + "</b> · " + echap(p.ou); await chargerArbre(); } } catch (_) {}
   try { const e = await api("/tilabo/etat"); if (!e.modele) bulle("ia", "<span class='pense'>Aucune IA chargée : va dans Jasette › IA et choisis un .gguf.</span>"); } catch (_) {}
-  if (!projet) ouvrirProjets();
+  await planRecu();
+  if (!projet && !localStorage.getItem("tilabo-plan-codex")) ouvrirProjets();
 })();
 </script>
 </body>

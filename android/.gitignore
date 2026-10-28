@@ -6,3 +6,8 @@ local.properties
 *.keystore
 *.jks
 lib/src/main/cpp/llama.cpp/
+# copies a la compilation depuis app/web (Ti-Labo de la cle)
+app/src/main/assets/agenda.js
+app/src/main/assets/agenda.css
+app/src/main/assets/schemas.js
+app/src/main/assets/mermaid.min.js

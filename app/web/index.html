@@ -6,6 +6,7 @@
 <title>Ti-Labo</title>
 <link rel="stylesheet" href="/web/style.css">
 <link rel="stylesheet" href="/web/devoirs.css">
+<link rel="stylesheet" href="/web/agenda.css">
 <script>window.TILABO_JETON = "__JETON__";</script>
 </head>
 <body>
@@ -28,6 +29,7 @@
   <symbol id="i-plan" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-cle" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="9" rx="1"/><rect x="5" y="11" width="14" height="11" rx="2"/></symbol>
+  <symbol id="i-agenda" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/></symbol>
   <symbol id="i-journal" viewBox="0 0 24 24"><path d="M4 5h13v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v10a2 2 0 0 1-2 2"/><path d="M7 9h7M7 13h7M7 17h4"/></symbol>
   <symbol id="i-livre" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></symbol>
   <symbol id="i-pinceau" viewBox="0 0 24 24"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L11 15.8 8.2 13z"/><path d="M8.2 13c-2 0-3.7 1.6-3.7 3.6 0 1.6-1.3 2.9-2.5 3.4 1 .7 2.6 1 4 1 3 0 5-2.2 5-5.2z"/></symbol>
@@ -60,6 +62,7 @@
       <button class="nav" data-vue="images"><svg class="ic"><use href="#i-pinceau"/></svg>Images</button>
       <button class="nav" data-vue="devoirs"><svg class="ic"><use href="#i-livre"/></svg>Devoirs</button>
       <button class="nav" data-vue="nouvelles"><svg class="ic"><use href="#i-journal"/></svg>Nouvelles</button>
+      <button class="nav" data-vue="agenda"><svg class="ic"><use href="#i-agenda"/></svg>Agenda</button>
       <div class="section-nav">La clé</div>
       <button class="nav" data-vue="ia"><svg class="ic"><use href="#i-puce"/></svg>IA locales<span class="compte" id="nb-ia"></span></button>
       <button class="nav" data-vue="github"><svg class="ic"><use href="#i-git"/></svg>GitHub</button>
@@ -84,6 +87,7 @@
           <button class="icone" data-aller="studio"><span class="boite"><svg class="ic"><use href="#i-studio"/></svg></span>Studio</button>
           <button class="icone" data-aller="images"><span class="boite"><svg class="ic"><use href="#i-pinceau"/></svg></span>Images</button>
           <button class="icone" data-aller="nouvelles"><span class="boite"><svg class="ic"><use href="#i-journal"/></svg></span>Nouvelles</button>
+          <button class="icone" data-aller="agenda"><span class="boite"><svg class="ic"><use href="#i-agenda"/></svg></span>Agenda</button>
           <button class="icone" data-aller="ia"><span class="boite"><svg class="ic"><use href="#i-puce"/></svg></span>IA locales</button>
           <button class="icone" data-aller="github"><span class="boite"><svg class="ic"><use href="#i-git"/></svg></span>GitHub</button>
           <button class="icone" data-aller="memoire"><span class="boite"><svg class="ic"><use href="#i-memoire"/></svg></span>Mémoire</button>
@@ -322,6 +326,11 @@ Chaque « ## » devient une diapo quand tu présentes."></textarea>
         <div class="dv-modale" id="dv-galerie" hidden><div class="dv-modale-boite"><div class="ligne"><h2 style="margin:0">Choisis une image</h2><span class="espace"></span><button class="btn petit" id="dv-galerie-fermer">✕</button></div><div class="galerie" id="dv-galerie-liste" style="margin-top:12px"></div></div></div>
       </section>
 
+      <!-- Agenda (le meme que l'appli Android) -->
+      <section class="vue plein" id="v-agenda" aria-label="Agenda">
+        <div id="ag-racine" style="flex:1;min-height:0"></div>
+      </section>
+
       <!-- Nouvelles du matin -->
       <section class="vue" id="v-nouvelles" aria-label="Nouvelles du matin">
         <div class="nv-tete">
@@ -454,6 +463,7 @@ Chaque « ## » devient une diapo quand tu présentes."></textarea>
 <script src="/web/artefact.js"></script>
 <script src="/web/devoirs.js"></script>
 <script src="/web/nouvelles.js"></script>
+<script src="/web/agenda.js"></script>
 <script src="/web/app.js"></script>
 </body>
 </html>

@@ -69,6 +69,9 @@ textarea:focus{outline:none;border-color:var(--orange)}
 </div></div>
 
 <script src="/menu.js"></script>
+<script src="/mermaid.min.js"></script>
+<script src="/schemas.js"></script>
+<script src="/agenda.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const colorer = TL.colorer;
@@ -83,7 +86,9 @@ function rendu(t){
   morceaux.forEach((m, i) => {
     if (i % 2) {
       const nl = m.indexOf("\n"); const code = nl >= 0 ? m.slice(nl + 1) : m;
-      h += "<pre><button class='copier' type='button'>Copier</button><code>" + colorer(code.replace(/\n$/, ""), m.slice(0, nl)) + "</code></pre>";
+      const lang = (nl >= 0 ? m.slice(0, nl) : "").trim().toLowerCase();
+      if (lang === "mermaid") h += "<div class='bloc-code' data-lang='mermaid'><pre><code>" + echap(code.replace(/\n$/, "")) + "</code></pre></div>";
+      else h += "<pre><button class='copier' type='button'>Copier</button><code>" + colorer(code.replace(/\n$/, ""), lang) + "</code></pre>";
     } else {
       h += TL.enrichir(echap(m)).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
         .replace(/\u0000P([\s\S]*?)\u0000/g, (_, p) => p ? "<div class='pense'>" + p + "</div>" : "");
@@ -152,6 +157,11 @@ const CONSIGNE = "Tu es l'IA locale du Ti-Labo, un laboratoire de developpeur qu
   "Si on te donne des resultats Internet, appuie-toi dessus et cite les sources [titre](adresse).";
 const CONSIGNE_WEB = " Si tu as besoin d'une information recente ou que tu ne connais pas, ecris seul sur une ligne : " +
   "=== CHERCHER: mots-cles === puis arrete ta reponse : tu recevras les resultats.";
+const QUESTION_PLAN = /\b(plan|sch[ée]ma|diagramme|organigramme|flowchart|architecture|[ée]tapes)\b/i;
+const QUESTION_AGENDA = /agenda|rendez-vous|\brdv\b|qu.est-ce que j.ai|ai-je (quelque chose|des)|mon horaire|ma semaine|cette semaine|mon calendrier|suis-je libre|occup[ée]/i;
+const CONSIGNE_PLAN = "\n\nOn te demande un PLAN. Reponds ainsi : une phrase d'intro avec un emoji, le plan en etapes numerotees " +
+  "(### titres courts, listes), puis UN schema Mermaid qui resume le plan dans un bloc ```mermaid (flowchart TD, " +
+  "noms de boites courts ENTRE GUILLEMETS, ex. A[\"Interface\"] --> B[\"Moteur\"]). Le plan doit etre assez clair pour qu'un Codex code l'application avec.";
 let web = localStorage.getItem("tilabo-web") !== "0";
 function majWeb(){ const b = $("#bWeb"); b.className = TL.internet ? (web ? "on" : "") : "off"; }
 $("#bWeb").onclick = () => { web = !web; localStorage.setItem("tilabo-web", web ? "1" : "0"); majWeb(); };
@@ -174,7 +184,7 @@ async function tour(message, entete){
   let rep = "";
   ctrl = new AbortController(); $("#bEnv").textContent = "■";
   try {
-    const sys = CONSIGNE + (TL.internet ? CONSIGNE_WEB : "");
+    const sys = CONSIGNE + (TL.internet ? CONSIGNE_WEB : "") + (modePlan ? CONSIGNE_PLAN : "");
     const r = await fetch("/v1/chat/completions", {method: "POST", signal: ctrl.signal,
       body: JSON.stringify({messages: [{role: "system", content: sys}, ...historique], stream: true})});
     if (!r.ok) { const j = await r.json(); throw new Error(j.error ? j.error.message : r.status); }
@@ -196,16 +206,45 @@ async function tour(message, entete){
     if (e.name !== "AbortError") rep += (rep ? "\n\n" : "") + "⚠ " + e.message;
   }
   zone.innerHTML = rendu(rep || "(arrêté)");
+  // Moteur de schemas de la cle : les blocs mermaid deviennent des schemas animes (Rejouer, Video MP4, Image)
+  if (window.TiSchemas) TiSchemas.activer(zone).catch(() => {});
+  if (rep && (modePlan || /```mermaid/i.test(rep))) actionsPlan(sortie, rep);
   historique.push({role: "assistant", content: rep});
   ctrl = null; $("#bEnv").textContent = "➤";
   return {rep, sortie};
+}
+
+let modePlan = false, dernierePlanQuestion = "";
+function actionsPlan(sortie, rep){
+  const a = document.createElement("div"); a.className = "actions-plan";
+  a.innerHTML = "<button class='plein'>➜ Envoyer au Codex</button><button>📋 Copier le plan</button>";
+  const [b1, b2] = a.querySelectorAll("button");
+  b1.onclick = () => {
+    localStorage.setItem("tilabo-plan-codex", JSON.stringify({texte: rep, question: dernierePlanQuestion, date: Date.now()}));
+    location.href = "/codex";
+  };
+  b2.onclick = () => navigator.clipboard.writeText(rep).then(() => { b2.textContent = "✅ Copié"; setTimeout(() => b2.textContent = "📋 Copier le plan", 1500); });
+  sortie.appendChild(a);
 }
 
 async function envoyer(texte){
   if (!modele) { await etat(); if (!modele) { ouvrirIA(); return; } }
   bulle("moi", echap(texte));
   let message = texte, entete = null;
-  if (TL.internet && TL.QUESTION_METEO.test(texte)) {
+  modePlan = QUESTION_PLAN.test(texte);
+  if (modePlan) dernierePlanQuestion = texte;
+  if (QUESTION_AGENDA.test(texte) && window.TiAgenda) {
+    // L'agenda (le meme que sur la cle) : l'IA voit les prochains evenements
+    entete = document.createElement("div");
+    try {
+      const j = await (await fetch("/tilabo/agenda", {method: "POST", body: "{}"})).json();
+      const l = TiAgenda.resume(j.evenements || [], 14);
+      entete.innerHTML = TL.outil("🗓️ Agenda : " + l.length + " élément(s) dans les 2 prochaines semaines");
+      message = "Aujourd'hui : " + new Date().toLocaleDateString("fr-CA", {weekday: "long", year: "numeric", month: "long", day: "numeric"}) +
+        ".\nAgenda des 14 prochains jours :\n" + (l.length ? l.map(x => "- " + x).join("\n") : "(rien de prevu)") +
+        "\n\nReponds avec des emojis 🗓️⏰📍, de facon claire et chaleureuse.\n\nQuestion : " + texte;
+    } catch (e) { entete.innerHTML = TL.outil("⚠ Agenda : " + e.message); }
+  } else if (TL.internet && TL.QUESTION_METEO.test(texte)) {
     // Question meteo : la vraie meteo, en carte, puis l'IA repond avec des emojis
     entete = document.createElement("div");
     entete.innerHTML = TL.outil("🌦️ Météo…");

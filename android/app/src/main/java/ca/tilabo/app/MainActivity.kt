@@ -124,6 +124,13 @@ class MainActivity : Activity() {
         demarrer()
     }
 
+    override fun onNewIntent(i: Intent) {
+        super.onNewIntent(i)
+        setIntent(i)
+        // touche d'une notification de rappel : on ouvre l'agenda
+        if (i.getStringExtra("page") == "agenda" && ::vue.isInitialized) vue.loadUrl(URL_AUTONOME + "agenda")
+    }
+
     override fun onResume() {
         super.onResume()
         if (attendAcces && Environment.isExternalStorageManager()) {
@@ -160,7 +167,11 @@ class MainActivity : Activity() {
         afficher(page("Démarrage…", "<p>On prépare le moteur d'IA du téléphone.</p><div class='roue'></div>"))
         Thread {
             for (n in 0 until 40) {
-                if (vivant(URL_AUTONOME + "tilabo/etat")) { principal.post { vue.loadUrl(URL_AUTONOME) }; return@Thread }
+                if (vivant(URL_AUTONOME + "tilabo/etat")) {
+                    val page = if (intent?.getStringExtra("page") == "agenda") "agenda" else ""
+                    principal.post { vue.loadUrl(URL_AUTONOME + page) }
+                    return@Thread
+                }
                 try { Thread.sleep(250) } catch (e: InterruptedException) { break }
             }
             principal.post {

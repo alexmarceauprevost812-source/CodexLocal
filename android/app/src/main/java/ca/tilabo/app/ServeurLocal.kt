@@ -215,6 +215,27 @@ class ServeurLocal(private val ctx: Context) {
                     erreur(out, 400, e.message ?: "Erreur")
                 }
             }
+            "/tilabo/agenda", "/tilabo/agenda/modifier", "/tilabo/agenda/synchro", "/tilabo/maj", "/tilabo/maj/installer", "/tilabo/maj/etat" -> {
+                val d = JSONObject(String(r.corps, Charsets.UTF_8).ifBlank { "{}" })
+                try {
+                    val res: Any = when (r.chemin) {
+                        "/tilabo/agenda" -> Agenda.lister(ctx)
+                        "/tilabo/agenda/modifier" -> Agenda.modifier(ctx, d)
+                        "/tilabo/agenda/synchro" -> Agenda.synchroniser(ctx)
+                        "/tilabo/maj" -> MiseAJour.verifier(ctx)
+                        "/tilabo/maj/installer" -> { MiseAJour.installer(ctx); MiseAJour.progres }
+                        else -> MiseAJour.progres
+                    }
+                    json(out, 200, res)
+                } catch (e: Exception) {
+                    erreur(out, 400, e.message ?: e.javaClass.simpleName)
+                }
+            }
+            "/agenda" -> asset(out, "agenda.html", "text/html; charset=utf-8")
+            "/agenda.js" -> asset(out, "agenda.js", "text/javascript; charset=utf-8")
+            "/agenda.css" -> asset(out, "agenda.css", "text/css; charset=utf-8")
+            "/schemas.js" -> asset(out, "schemas.js", "text/javascript; charset=utf-8")
+            "/mermaid.min.js" -> asset(out, "mermaid.min.js", "text/javascript; charset=utf-8")
             "/tilabo/meteo" -> {
                 val d = JSONObject(String(r.corps, Charsets.UTF_8).ifBlank { "{}" })
                 try {
