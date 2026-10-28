@@ -135,6 +135,20 @@ class Prefs(context: Context) {
             sp.edit().putString(KEY_SYSTEM_PROMPT, v).apply()
         }
 
+    /** Couleur des yeux de démon (clé de YeuxDemon.COULEURS). */
+    var yeuxCouleur: String
+        get() = sp.getString(KEY_YEUX_COULEUR, YeuxDemon.COULEUR_DEFAUT) ?: YeuxDemon.COULEUR_DEFAUT
+        set(v) {
+            sp.edit().putString(KEY_YEUX_COULEUR, v).apply()
+        }
+
+    /** Yeux toujours animés (sinon : ils s'animent seulement quand on les touche). */
+    var yeuxToujoursAnimes: Boolean
+        get() = sp.getBoolean(KEY_YEUX_ANIMES, true)
+        set(v) {
+            sp.edit().putBoolean(KEY_YEUX_ANIMES, v).apply()
+        }
+
     /** Visibilite du fond d'ecran, de 0 a 100 %. */
     var fondOpacite: Int
         get() = sp.getInt(KEY_FOND_OPACITE, FondEcran.OPACITE_DEFAUT)
@@ -214,6 +228,8 @@ class Prefs(context: Context) {
         const val KEY_SYSTEM_PROMPT = "systemPrompt"
         const val KEY_AUTO_UPDATE = "autoUpdate"
         const val KEY_FOND_OPACITE = "fondOpacite"
+        const val KEY_YEUX_COULEUR = "yeuxCouleur"
+        const val KEY_YEUX_ANIMES = "yeuxToujoursAnimes"
         const val KEY_SESSION = "sessionActive"
         const val KEY_GITHUB_TOKEN = "githubToken"
     }

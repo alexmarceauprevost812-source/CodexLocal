@@ -211,6 +211,8 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         Updater.reprendreInstallation(this)
         appliquerFond()
+        binding.yeuxBarre.appliquerReglages()
+        binding.logoAccueil.appliquerReglages()
         refreshStatus()
         verifierProjetActif()
     }

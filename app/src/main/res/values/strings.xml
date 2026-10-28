@@ -166,6 +166,10 @@
     <string name="msg_echec_dossier">Impossible de créer le dossier</string>
 
     <!-- ====== Fond d\'écran ====== -->
+    <string name="section_yeux">Thème Halloween 🎃 : les yeux</string>
+    <string name="yeux_couleur">Couleur des yeux : %1$s</string>
+    <string name="yeux_toujours_animes">Yeux toujours animés</string>
+    <string name="yeux_animes_aide">Désactivé : les yeux restent immobiles et s\'animent seulement quand tu les touches.</string>
     <string name="section_fond">Fond d\'écran</string>
     <string name="fond_choisir">Choisir une image</string>
     <string name="fond_defaut">Fond par défaut</string>

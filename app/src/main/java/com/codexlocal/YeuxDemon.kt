@@ -8,15 +8,15 @@ import android.graphics.Path
 import android.util.AttributeSet
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
-import androidx.core.content.ContextCompat
 import kotlin.random.Random
 
 /**
- * Les deux yeux de démon orange, toujours vivants :
- *  - ils brillent en pulsant doucement,
- *  - ils clignent de temps en temps (et quand on les touche),
- *  - ils regardent à gauche et à droite,
- *  - quand l'IA travaille ([setPensee]), ils plissent et brillent plus fort.
+ * Les deux yeux de démon du thème Halloween.
+ *  - Couleur au choix (Réglages › Les yeux).
+ *  - « Toujours animés » : lueur pulsée, clignements, regard qui bouge.
+ *    Sinon : immobiles, ils s'animent seulement quand on les touche.
+ *  - Toucher : réaction (éclat, double clignement, yeux plissés).
+ *  - Quand l'IA travaille ([setPensee]) : plissés et plus brillants.
  * Dessinés dans une boîte de 150 × 60, mise à l'échelle de la vue.
  */
 class YeuxDemon @JvmOverloads constructor(
@@ -24,12 +24,30 @@ class YeuxDemon @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
-    private val couleur = ContextCompat.getColor(context, R.color.orange)
+    data class Couleur(val cle: String, val nom: String, val couleur: Int)
 
-    private val pinceau = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-        color = couleur
+    companion object {
+        const val COULEUR_DEFAUT = "orange"
+
+        val COULEURS = listOf(
+            Couleur("orange", "Orange", 0xFFFF7A00.toInt()),
+            Couleur("bleu_fonce", "Bleu foncé", 0xFF2F55FF.toInt()),
+            Couleur("bleu_ciel", "Bleu ciel", 0xFF38BDF8.toInt()),
+            Couleur("rose", "Rose", 0xFFFF4FB4.toInt()),
+            Couleur("violet", "Violet", 0xFFA855F7.toInt()),
+            Couleur("rouge", "Rouge", 0xFFFF2A2A.toInt()),
+            Couleur("jaune", "Jaune", 0xFFFFE14D.toInt()),
+            Couleur("or", "Or", 0xFFE8B84A.toInt()),
+        )
+
+        fun couleurDe(cle: String): Int =
+            (COULEURS.firstOrNull { it.cle == cle } ?: COULEURS.first()).couleur
     }
+
+    private var couleur = couleurDe(COULEUR_DEFAUT)
+    private var toujoursAnimes = true
+
+    private val pinceau = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
     // Œil gauche : le haut descend vers le centre (sourcils froncés), pointe intérieure.
     private val oeilGauche = Path().apply {
@@ -51,11 +69,12 @@ class YeuxDemon @JvmOverloads constructor(
 
     /** 1 = ouverts, 0 = fermés (clignement). */
     private var ouverture = 1f
-    /** Plissement : 1 = normal, plus petit = yeux plissés (pensée). */
+    /** Plissement : 1 = normal, plus petit = plissés. */
     private var plissement = 1f
-    /** Intensité de la lueur. */
+    /** Éclat ajouté à la lueur lors d'une réaction au toucher. */
+    private var eclat = 0f
     private var lueur = 1f
-    /** Décalage horizontal du regard, en unités de la boîte (−1 à 1). */
+    /** Décalage horizontal du regard (−1 à 1). */
     private var regard = 0f
 
     private var pensee = false
@@ -64,6 +83,7 @@ class YeuxDemon @JvmOverloads constructor(
     private var pulsation: ValueAnimator? = null
     private var animRegard: ValueAnimator? = null
     private var animPlissement: ValueAnimator? = null
+    private var animEclat: ValueAnimator? = null
 
     private val prochainClignement = Runnable { cligner(); planifierClignement() }
     private val prochainRegard = Runnable { regarderAilleurs(); planifierRegard() }
@@ -73,24 +93,56 @@ class YeuxDemon @JvmOverloads constructor(
         setLayerType(LAYER_TYPE_SOFTWARE, null)
         isClickable = true
         contentDescription = context.getString(R.string.app_name)
-        setOnClickListener { cligner() }
+        setOnClickListener { reagir() }
+        lireReglages()
+    }
+
+    private fun lireReglages() {
+        val prefs = Prefs(context)
+        couleur = couleurDe(prefs.yeuxCouleur)
+        toujoursAnimes = prefs.yeuxToujoursAnimes
+    }
+
+    /** Relit la couleur et le mode d'animation choisis dans les Réglages. */
+    fun appliquerReglages() {
+        lireReglages()
+        if (isAttachedToWindow) demarrerVie()
+        invalidate()
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        demarrerPulsation()
-        planifierClignement()
-        planifierRegard()
+        demarrerVie()
     }
 
     override fun onDetachedFromWindow() {
+        arreterVie()
+        clignement?.cancel()
+        animPlissement?.cancel()
+        animEclat?.cancel()
+        super.onDetachedFromWindow()
+    }
+
+    private fun demarrerVie() {
+        arreterVie()
+        if (toujoursAnimes || pensee) {
+            demarrerPulsation()
+        } else {
+            lueur = 0.8f
+        }
+        if (toujoursAnimes) {
+            planifierClignement()
+            planifierRegard()
+        } else if (regard != 0f) {
+            regarderVers(0f)
+        }
+    }
+
+    private fun arreterVie() {
         removeCallbacks(prochainClignement)
         removeCallbacks(prochainRegard)
-        clignement?.cancel()
         pulsation?.cancel()
         animRegard?.cancel()
-        animPlissement?.cancel()
-        super.onDetachedFromWindow()
     }
 
     /** L'IA travaille : yeux plissés, lueur plus forte et plus rapide. */
@@ -103,13 +155,26 @@ class YeuxDemon @JvmOverloads constructor(
             addUpdateListener { plissement = it.animatedValue as Float; invalidate() }
             start()
         }
-        if (isAttachedToWindow) demarrerPulsation()
+        if (isAttachedToWindow) demarrerVie()
+    }
+
+    /** Réaction au toucher : éclat de lueur, double clignement, coup d'œil. */
+    fun reagir() {
+        animEclat?.cancel()
+        animEclat = ValueAnimator.ofFloat(0f, 1.6f, 0f).apply {
+            duration = 650
+            addUpdateListener { eclat = it.animatedValue as Float; invalidate() }
+            start()
+        }
+        cligner(double = true)
+        regarderVers(if (Random.nextBoolean()) -1f else 1f)
+        postDelayed({ regarderVers(0f) }, 500)
     }
 
     private fun demarrerPulsation() {
         pulsation?.cancel()
-        val (min, duree) = if (pensee) 0.8f to 520L else 0.6f to 1800L
-        pulsation = ValueAnimator.ofFloat(min, if (pensee) 1.5f else 1f).apply {
+        val (min, max, duree) = if (pensee) Triple(0.8f, 1.5f, 520L) else Triple(0.6f, 1f, 1800L)
+        pulsation = ValueAnimator.ofFloat(min, max).apply {
             duration = duree
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
@@ -129,13 +194,11 @@ class YeuxDemon @JvmOverloads constructor(
         postDelayed(prochainRegard, 1500L + Random.nextLong(3500L))
     }
 
-    fun cligner() {
+    fun cligner(double: Boolean = Random.nextInt(5) == 0) {
         clignement?.cancel()
-        // Parfois un double clignement, pour plus de vie.
-        val valeurs = if (Random.nextInt(5) == 0) floatArrayOf(1f, 0.06f, 1f, 0.06f, 1f)
-        else floatArrayOf(1f, 0.06f, 1f)
+        val valeurs = if (double) floatArrayOf(1f, 0.06f, 1f, 0.06f, 1f) else floatArrayOf(1f, 0.06f, 1f)
         clignement = ValueAnimator.ofFloat(*valeurs).apply {
-            duration = if (valeurs.size > 3) 420 else 210
+            duration = if (double) 420 else 210
             addUpdateListener { ouverture = it.animatedValue as Float; invalidate() }
             start()
         }
@@ -148,6 +211,10 @@ class YeuxDemon @JvmOverloads constructor(
             1 -> 1f
             else -> 0f
         }
+        regarderVers(cible)
+    }
+
+    private fun regarderVers(cible: Float) {
         animRegard?.cancel()
         animRegard = ValueAnimator.ofFloat(regard, cible).apply {
             duration = 320
@@ -173,13 +240,15 @@ class YeuxDemon @JvmOverloads constructor(
         val dx = (width - 150f * echelle) / 2f
         val dy = (height - 60f * echelle) / 2f
 
-        pinceau.setShadowLayer(16f * echelle * lueur + 3f, 0f, 0f, couleur)
+        pinceau.color = couleur
+        pinceau.setShadowLayer(16f * echelle * (lueur + eclat) + 3f, 0f, 0f, couleur)
 
         canvas.save()
         canvas.translate(dx + regard * 8f * echelle, dy)
         canvas.scale(echelle, echelle)
-        // Clignement + plissement : on écrase verticalement autour du milieu des yeux.
-        canvas.scale(1f, ouverture * plissement, 75f, 34f)
+        // Clignement + plissement (+ léger plissement pendant l'éclat) autour du milieu des yeux.
+        val hauteurOeil = ouverture * plissement * (1f - 0.15f * eclat.coerceAtMost(1f))
+        canvas.scale(1f, hauteurOeil, 75f, 34f)
         canvas.drawPath(oeilGauche, pinceau)
         canvas.drawPath(oeilDroit, pinceau)
         canvas.restore()
