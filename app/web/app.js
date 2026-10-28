@@ -192,6 +192,47 @@ function machineAEcrire(el, apres) {
   };
 }
 
+/* ------------------------------------------------------------ IA en mémoire (chargées) */
+// Une IA « chargée » est déjà dans la mémoire du PC (ou de la carte graphique) : elle répond tout de suite.
+// Sinon, la première réponse doit d'abord relire le modèle sur la clé (10 à 60 s).
+etat.chargees = []; etat.enChargement = new Set();
+const estChargee = (nom) => etat.chargees.some((c) => c.nom === nom || c.nom === nom + ":latest");
+let minuterieCharge = null;
+async function majCharge() {
+  try {
+    const r = await api("ia/chargees");
+    etat.chargees = r.chargees || [];
+    etat.enChargement = new Set((r.en_cours || []).filter((n) => !estChargee(n)));
+  } catch { etat.chargees = []; }
+  $$('[data-s="charge"]').forEach((b) => {
+    const nom = b.closest(".chat")?.querySelector('[data-s="modele"]')?.value || "";
+    const m = etat.modeles.find((x) => x.nom === nom);
+    const c = etat.chargees.find((x) => x.nom === nom || x.nom === nom + ":latest");
+    b.hidden = !m || !!m.nuage;
+    b.className = "charge-ia " + (c ? "prete" : etat.enChargement.has(nom) ? "charge" : "dort");
+    b.textContent = c ? "⚡ prête" + (c.gpu_pct >= 90 ? " · GPU" : c.gpu_pct > 0 ? " · GPU " + c.gpu_pct + " %" : " · CPU")
+      : etat.enChargement.has(nom) ? "⏳ chargement…" : "💤 charger";
+    b.title = c ? "En mémoire : réponses rapides. " + (c.gpu_pct >= 90 ? "Elle roule sur la carte graphique." : c.gpu_pct > 0 ? "En partie sur la carte graphique." : "Elle roule sur le processeur (plus lent).")
+      : "Clique pour charger l'IA en mémoire : la première réponse sera rapide.";
+  });
+  if ($("#v-ia")?.classList.contains("actif")) rendreChargeesIA();
+  return etat.enChargement.size;
+}
+function suivreCharge() {
+  clearInterval(minuterieCharge);
+  minuterieCharge = setInterval(async () => { if (!(await majCharge())) { clearInterval(minuterieCharge); minuterieCharge = null; } }, 2000);
+}
+function rendreChargeesIA() {
+  $$("[data-charger]").forEach((b) => {
+    const nom = b.dataset.charger, c = etat.chargees.find((x) => x.nom === nom);
+    b.textContent = c ? "Décharger" : etat.enChargement.has(nom) ? "⏳ Chargement…" : "⚡ Charger";
+    b.disabled = etat.enChargement.has(nom);
+    b.classList.toggle("prim", !c);
+    const info = b.closest(".modele")?.querySelector("[data-memoire]");
+    if (info) info.innerHTML = c ? `<span class="tag vert">⚡ en mémoire · ${c.gpu_pct >= 90 ? "GPU" : c.gpu_pct > 0 ? "GPU " + c.gpu_pct + " %" : "CPU"}</span>` : "";
+  });
+}
+
 /* ------------------------------------------------------------ composant de chat */
 function creerChat(conteneur, mode) {
   const id = "c" + mode;
@@ -203,6 +244,7 @@ function creerChat(conteneur, mode) {
         <option value="openai">LM Studio / OpenAI</option>
       </select>
       <select class="champ" data-s="modele" aria-label="Modèle d'IA"></select>
+      <button class="charge-ia" data-s="charge" type="button" title="Charger l'IA en mémoire pour des réponses rapides">…</button>
       ${mode === "codex" ? `<select class="champ" data-s="plan" aria-label="Mode du Codex" title="Codex direct : écrit le code tout de suite. Plan à valider : fait un plan, puis tu cliques Accepter pour qu'il écrive." style="width:auto">
         <option value="direct">⚡ Codex direct</option>
         <option value="valider">📋 Plan à valider</option>
@@ -388,6 +430,14 @@ function creerChat(conteneur, mode) {
     if (m && !m.nuage) api("ia/prechauffer", { nom: m.nom }).catch(() => {});
   };
   sel.addEventListener("change", prechauffer);
+  const btCharge = $('[data-s="charge"]', conteneur);
+  btCharge.onclick = () => {
+    const m = etat.modeles.find((x) => x.nom === sel.value);
+    if (!m || m.nuage) return;
+    if (estChargee(m.nom)) return toast(m.nom + " est déjà en mémoire : les réponses sont rapides ⚡");
+    api("ia/prechauffer", { nom: m.nom }).then(() => { etat.enChargement.add(m.nom); majCharge(); suivreCharge(); }).catch((e) => toast(e.message));
+  };
+  sel.addEventListener("change", () => setTimeout(() => { etat.enChargement.add(sel.value); majCharge(); suivreCharge(); }, 50));
   sel.addEventListener("change", () => {
     const cle = mode === "codex" ? "modele_codex" : "modele_jasette";
     api("parametres", { [cle]: sel.value }).then((p) => Object.assign(etat.params, p)).catch((e) => toast(e.message));
@@ -1158,6 +1208,8 @@ function rendreIA() {
     return `<div class="modele"><div class="info"><b>${esc(m.nom)}</b>${(cat?.tags || []).map((t) => ` <span class="tag ${t === "vision" ? "bleu" : t === "internet" ? "vert" : "or"}">${t}</span>`).join("")}
       <small>${m.taille_go ? m.taille_go + " Go" : ""} ${esc(m.params || "")} ${esc(m.famille || "")}</small></div>
       <button class="btn petit" data-ren='${esc(JSON.stringify({ type: "ollama", nom: m.nom, actuel: m.nom }))}'>Renommer</button>
+      <span data-memoire></span>
+      <button class="btn petit" data-charger="${esc(m.nom)}">⚡ Charger</button>
       <button class="btn petit" data-util="${esc(m.nom)}">Utiliser</button>
       <button class="btn petit danger" data-ret="${esc(m.nom)}">Retirer</button></div>`;
   }).join("") || `<p class="vide">${etat.ollama ? "Aucune IA sur la clé pour l'instant." : "Le moteur est arrêté. Clique « Démarrer le moteur »."}</p>`;
@@ -1177,6 +1229,15 @@ function rendreIA() {
     try { await api("ia/supprimer", { nom: b.dataset.ret }); await rafraichirEtat(); rendreIA(); } catch (e) { toast(e.message); }
   }));
   $$("[data-tel]").forEach((b) => (b.onclick = () => telecharger(b.dataset.tel)));
+  $$("[data-charger]").forEach((b) => (b.onclick = async () => {
+    const nom = b.dataset.charger;
+    try {
+      if (estChargee(nom)) { await api("ia/decharger", { nom }); toast(nom + " libère la mémoire"); }
+      else { await api("ia/prechauffer", { nom }); etat.enChargement.add(nom); toast("Chargement de " + nom + " en mémoire…"); suivreCharge(); }
+    } catch (e) { toast(e.message); }
+    majCharge();
+  }));
+  majCharge();
   dessinerTels();
   brancherRenommer($("#ia-installees"));
 }
@@ -2014,6 +2075,8 @@ function deverrouiller() {
     allerA(qCadre.get("vue"));
   }
   codex.prechauffer(); // l'IA du Codex est prete avant le premier message
+  majCharge().then((n) => { if (n) suivreCharge(); });
+  setInterval(majCharge, 30000);
   // Le moteur peut prendre quelques secondes à démarrer : on revérifie.
   let essais = 0;
   const t = setInterval(async () => {

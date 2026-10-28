@@ -146,7 +146,7 @@ body.glisse .fen .cache-iframe{display:block}
     <div id="taches" style="display:flex;gap:4px"></div>
   </div>
   <div id="zone">
-    <span class="pastille" title="Moteur IA de la clé"><i class="pt" id="ptIA"></i>IA</span>
+    <span class="pastille" title="Moteur IA de la clé" id="pIA"><i class="pt" id="ptIA"></i><span id="tIA">IA</span></span>
     <span id="ptNet" title="Internet">🌐</span>
     <span id="libre" title="Espace libre sur la clé">💾 …</span>
     <div class="h" id="horloge"></div>
@@ -442,6 +442,31 @@ async function etat() {
       `<span class="pastille"><i class="pt ${etatTL.params.internet ? "warn" : "on"}"></i>${etatTL.params.internet ? "Internet permis" : "100 % hors-ligne"}</span>` +
       `<span class="pastille">💾 ${etatTL.libre_go} Go libres · ${esc(etatTL.lecteur || "")}</span>`;
   } catch (_) {}
+  await charge();
+}
+// L'IA en memoire : prete tout de suite, ou en train de se charger depuis la cle
+let suiviCharge = null;
+async function charge() {
+  let r = {chargees: [], en_cours: []};
+  try { r = await api("ia/chargees"); } catch (_) {}
+  const c = r.chargees[0], enCours = r.en_cours || [];
+  const ou = (x) => x.gpu_pct >= 90 ? "GPU" : x.gpu_pct > 0 ? "GPU " + x.gpu_pct + " %" : "CPU";
+  $("#tIA").textContent = c ? "⚡ " + c.nom.replace(/:latest$/, "") : enCours.length ? "⏳ chargement…" : "IA";
+  $("#pIA").title = c ? "En mémoire (" + ou(c) + ") : réponses rapides" : enCours.length ? "L'IA se charge depuis la clé…" : "Aucune IA en mémoire";
+  const g = $("#gCharge") || (() => { const d = document.createElement("div"); d.id = "gCharge"; d.style.marginTop = "10px"; $("#gEtat").after(d); return d; })();
+  if (c) g.innerHTML = r.chargees.map((x) => `<div class="ev"><b>⚡</b><span>${esc(x.nom)} · ${x.taille_go} Go · ${ou(x)}</span></div>`).join("");
+  else if (enCours.length) g.innerHTML = `<div class="vide">⏳ Chargement de ${esc(enCours.join(", "))} depuis la clé… (10 à 60 s, une seule fois)</div>`;
+  else {
+    g.innerHTML = `<button id="btCharger" style="width:100%;border:1px solid rgba(255,122,26,.5);background:rgba(255,122,26,.12);color:var(--or2);border-radius:9px;padding:9px;cursor:pointer">⚡ Charger l'IA en mémoire</button>`;
+    $("#btCharger").onclick = async () => {
+      const p = etatTL.params || {}, nom = p.modele_codex || p.modele_jasette;
+      if (!nom) return lancer(app("ia"));
+      try { await api("ia/prechauffer", {nom}); } catch (e) { return alert(e.message); }
+      clearInterval(suiviCharge); suiviCharge = setInterval(async () => { await charge(); if (!$("#tIA").textContent.includes("chargement")) clearInterval(suiviCharge); }, 2000);
+      charge();
+    };
+  }
+  if (enCours.length && !suiviCharge) suiviCharge = setInterval(async () => { await charge(); if (!$("#tIA").textContent.includes("chargement")) { clearInterval(suiviCharge); suiviCharge = null; } }, 2000);
 }
 async function rafraichir() { await etat(); chargerProjets(); agenda(); meteo(); }
 

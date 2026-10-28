@@ -509,3 +509,10 @@ html.codex-plein #v-codex .fil{padding:20px clamp(16px,4vw,64px)}
 #lanceur[hidden]{display:none}
 .lanceur-tete{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--border)}
 #lanceur-cadre{flex:1;border:0;background:#fff;width:100%}
+
+/* IA en mémoire : prête / chargement / à charger */
+.charge-ia{border:1px solid var(--border);background:var(--panel);color:var(--dim);border-radius:999px;padding:5px 11px;font:12px var(--ui);cursor:pointer;white-space:nowrap}
+.charge-ia.prete{color:#4ade80;border-color:#14532d;background:#06180c;cursor:default}
+.charge-ia.charge{color:#facc15;border-color:#713f12;background:#1a1204}
+.charge-ia.charge::before{content:"";display:inline-block;width:8px;height:8px;margin-right:4px;border-radius:50%;background:#facc15;animation:clignote 1s steps(1) infinite}
+.charge-ia.dort:hover{color:var(--accent);border-color:var(--accent-border)}

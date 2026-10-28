@@ -141,6 +141,13 @@ def env_outils():
     env["OLLAMA_HOST"] = "%s:%d" % (HOTE_OLLAMA, PORT_OLLAMA)
     if not ANDROID:
         env["OLLAMA_MODELS"] = MODELES
+        # Plus rapide et moins gourmand : attention « flash », memoire de contexte compressee,
+        # une seule conversation a la fois (laisse plus de place a l'IA sur la carte graphique).
+        env.setdefault("OLLAMA_FLASH_ATTENTION", "1")
+        env.setdefault("OLLAMA_KV_CACHE_TYPE", "q8_0")
+        env.setdefault("OLLAMA_NUM_PARALLEL", "1")
+        env.setdefault("OLLAMA_MAX_LOADED_MODELS", "2")
+        env.setdefault("OLLAMA_KEEP_ALIVE", "-1")
     env["PYTHONIOENCODING"] = "utf-8"
     env["GIT_TERMINAL_PROMPT"] = "0"
     return env
@@ -157,6 +164,9 @@ _proc_ollama = None
 
 
 PORT_OLLAMA_PC = 11434  # l'Ollama installe sur le PC (ex. qwen3-coder:30b)
+# Une fois chargee, l'IA reste en memoire tant que le Ti-Labo est ouvert (-1 = pas de limite) :
+# plus d'attente de 10 a 60 s pour relire le modele sur la cle entre deux messages.
+GARDER_EN_MEMOIRE = -1
 
 
 def ollama_url(chemin, cle=False):
@@ -172,6 +182,36 @@ def ollama_vivant(cle=False):
             return json.loads(r.read().decode()).get("version", "?")
     except Exception:
         return None
+
+
+def ia_chargees():
+    """Les IA en memoire en ce moment, et quelle part roule sur la carte graphique (GPU)."""
+    try:
+        r = http_json(ollama_url("/api/ps"), delai=3)
+    except Exception:
+        return {"moteur": False, "chargees": [], "en_cours": sorted(_prechauffe_en_cours)}
+    res = []
+    for m in r.get("models", []):
+        taille, vram = m.get("size", 0) or 0, m.get("size_vram", 0) or 0
+        res.append({"nom": m.get("name") or m.get("model"), "taille_go": round(taille / 1e9, 1),
+                    "gpu_pct": round(100 * vram / taille) if taille else 0})
+    return {"moteur": True, "chargees": res, "en_cours": sorted(_prechauffe_en_cours)}
+
+
+_prechauffe_en_cours = set()
+
+
+def prechauffer(nom):
+    """Charge l'IA en memoire tout de suite (requete vide), pour que la premiere reponse soit rapide."""
+    if not nom or nom in _prechauffe_en_cours:
+        return
+    _prechauffe_en_cours.add(nom)
+    try:
+        http_json(ollama_url("/api/generate"), {"model": nom, "keep_alive": GARDER_EN_MEMOIRE}, delai=900)
+    except Exception:
+        pass
+    finally:
+        _prechauffe_en_cours.discard(nom)
 
 
 def demarrer_ollama():
@@ -1709,6 +1749,8 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, {"chemin": q["chemin"], "contenu": lire_fichier(q["chemin"])})
             if route == "ia/modeles":
                 return self.envoyer(200, self.modeles())
+            if route == "ia/chargees":
+                return self.envoyer(200, ia_chargees())
             if route == "github/depots":
                 return self.envoyer(200, github_depots())
             if route == "stockage":
@@ -1879,9 +1921,11 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, {"telechargements": liste_telechargements()})
             if route == "ia/prechauffer":
                 # charge le modele en memoire tout de suite (requete vide)
-                threading.Thread(target=lambda: http_json(ollama_url("/api/generate"),
-                                 {"model": d.get("nom"), "keep_alive": "30m"}, delai=600), daemon=True).start()
+                threading.Thread(target=prechauffer, args=(d.get("nom"),), daemon=True).start()
                 return self.envoyer(200, {"ok": True})
+            if route == "ia/decharger":
+                http_json(ollama_url("/api/generate"), {"model": d.get("nom"), "keep_alive": 0}, delai=60)
+                return self.envoyer(200, {"chargees": ia_chargees()})
             if route == "ia/demarrer":
                 return self.envoyer(200, {"ok": demarrer_ollama(), "version": ollama_vivant()})
             if route == "jasette":
@@ -2260,7 +2304,7 @@ class Gestion(BaseHTTPRequestHandler):
             self.ligne({"outil": "Vision : %s regarde l'image" % vision})
             try:
                 r = http_json(ollama_url("/api/chat"), {
-                    "model": vision, "stream": False, "keep_alive": "30m",
+                    "model": vision, "stream": False, "keep_alive": GARDER_EN_MEMOIRE,
                     "messages": [{"role": "user", "images": imgs, "content":
                                   "Decris cette image en francais, de facon precise et utile : sujet, objets, texte "
                                   "visible (recopie-le), couleurs, style, disposition. 4 a 10 lignes, sans introduction."}]},
@@ -2272,7 +2316,7 @@ class Gestion(BaseHTTPRequestHandler):
 
     def options_ollama(self):
         # keep_alive : le modele reste en memoire -> plus de chargement de 10 a 60 s entre deux messages
-        o = {"keep_alive": "30m"}
+        o = {"keep_alive": GARDER_EN_MEMOIRE}
         if getattr(self, "_turbo", False):
             o["options"] = {"num_ctx": 16384, "temperature": 0.2, "top_p": 0.9}
         return o
@@ -3675,6 +3719,19 @@ def port_libre(port):
         return s.connect_ex(("127.0.0.1", port)) != 0
 
 
+def demarrer_et_charger():
+    """Au lancement : on demarre le moteur et on charge tout de suite les IA choisies (Codex, puis Jasette),
+    pendant que le navigateur s'ouvre. La premiere reponse arrive donc sans attendre le chargement."""
+    if not demarrer_ollama():
+        return
+    p = lire_params()
+    if p.get("moteur") != "ollama":
+        return
+    for nom in dict.fromkeys([p.get("modele_codex"), p.get("modele_jasette")]):
+        if nom and not nom.startswith("claude"):
+            prechauffer(nom)
+
+
 def main():
     global PORT_APP
     while not port_libre(PORT_APP) and PORT_APP < 8800:
@@ -3683,7 +3740,7 @@ def main():
     print("  Ti-Labo — bureau du laboratoire")
     print("  Cle : %s" % RACINE)
     print("=" * 52)
-    threading.Thread(target=demarrer_ollama, daemon=True).start()
+    threading.Thread(target=demarrer_et_charger, daemon=True).start()
     serveur = ThreadingHTTPServer(("127.0.0.1", PORT_APP), Gestion)
     serveur.daemon_threads = True
     # Deux bureaux : le bureau facon Windows (par defaut) ou l'interface classique (--classique)
