@@ -19,7 +19,7 @@ Mise à jour : `cd ~/TiLabo && git pull`. Détails : [LISEZMOI-TELEPHONE.txt](LI
 
 - Utilise directement les `.gguf` de CodexLocal (llama-server) et l'Ollama de Termux.
 - Déplace les IA du téléphone vers la clé USB-C (et les ramène), avec vérification avant effacement.
-- Appli Android : [`apk/Ti-Labo.apk`](apk/Ti-Labo.apk) (sources dans `apk/sources`).
+- Appli Android : [`apk/Ti-Labo.apk`](apk/Ti-Labo.apk), avec son propre moteur gguf (llama.cpp) — sources dans `android/`, compilée par GitHub (Releases).
 
 ## Clé USB-C (Windows)
 

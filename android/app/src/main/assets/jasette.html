@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo — Jasette</title>
+<style>
+:root{--fond:#000;--carte:#0e0e0e;--bord:#262626;--orange:#FF7A1A;--texte:#fff;--doux:#B3B3B3}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);font-family:system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bord)}
+header img{width:38px;height:38px;object-fit:contain}
+header .t{flex:1;min-width:0}
+header b{color:var(--orange);font-size:17px}
+header small{display:block;color:var(--doux);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button{font:inherit;border:0;border-radius:10px;min-height:40px;padding:0 14px;background:#161616;color:var(--orange);border:1px solid var(--bord)}
+button.plein{background:var(--orange);color:#000;font-weight:700;border:0}
+button:disabled{opacity:.4}
+#fil{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:92%;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+.moi{align-self:flex-end;background:#1a1a1a;border:1px solid var(--bord);border-radius:14px 14px 4px 14px;padding:10px 12px}
+.ia{align-self:flex-start;padding:2px 2px}
+.ia pre{white-space:pre;overflow-x:auto;background:var(--carte);border:1px solid var(--bord);border-left:3px solid var(--orange);border-radius:8px;padding:10px;margin:8px 0;font:13px/1.45 ui-monospace,monospace;position:relative}
+.ia code{font-family:ui-monospace,monospace;background:var(--carte);padding:1px 5px;border-radius:5px}
+.ia pre code{background:none;padding:0}
+.copier{position:absolute;top:6px;right:6px;min-height:26px;padding:0 8px;font-size:12px}
+.pense{color:var(--doux);font-style:italic;border-left:2px solid var(--bord);padding-left:8px;margin:4px 0}
+.vide{margin:auto;text-align:center;color:var(--doux);max-width:320px}
+.vide img{width:170px;height:170px;object-fit:contain}
+form{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--bord)}
+textarea{flex:1;resize:none;max-height:160px;min-height:44px;background:var(--carte);color:var(--texte);border:1px solid var(--bord);border-radius:12px;padding:11px 12px;font:inherit}
+textarea:focus{outline:none;border-color:var(--orange)}
+#panneau{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:flex-end;justify-content:center}
+#panneau.ouvert{display:flex}
+.feuille{width:100%;max-width:560px;max-height:80vh;overflow-y:auto;background:#0b0b0b;border:1px solid var(--bord);border-radius:16px 16px 0 0;padding:16px}
+.feuille h2{color:var(--orange);font-size:18px;margin:0 0 4px}
+.ia-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #161616}
+.ia-item .n{flex:1;min-width:0}
+.ia-item .n div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ia-item small{color:var(--doux)}
+.actif{color:var(--orange)}
+.note{color:var(--doux);font-size:13px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <img src="/logo.png" alt="">
+  <div class="t"><b>Ti-Labo</b><small id="etat">Moteur gguf…</small></div>
+  <button id="bIA">IA</button>
+  <button id="bNouv" title="Nouvelle jasette">＋</button>
+</header>
+<div id="fil"><div class="vide" id="vide"><img src="/logo.png" alt=""><p>Jasette autonome : tes IA <b>.gguf</b> roulent directement dans l'appli, sans Termux ni Internet.</p></div></div>
+<form id="f">
+  <textarea id="q" rows="1" placeholder="Écris ton message…"></textarea>
+  <button class="plein" id="bEnv" type="submit">➤</button>
+</form>
+
+<div id="panneau"><div class="feuille">
+  <h2>IA locales (.gguf)</h2>
+  <p class="note" id="noteAcces"></p>
+  <div id="liste"><p class="note">Recherche…</p></div>
+  <p class="note">Le Ti-Labo cherche dans CodexLocal/models, Téléchargements, TiLabo/ia/gguf et ta clé USB-C (dossier TiLabo/ia/gguf).</p>
+  <button style="width:100%;margin-top:8px" onclick="fermer()">Fermer</button>
+</div></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let historique = [], ctrl = null, modele = null;
+
+function echap(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function rendu(t){
+  // <think> … </think> des modeles qui reflechissent
+  t = t.replace(/<think>([\s\S]*?)(<\/think>|$)/g, (_, p) => "\u0000P" + p.trim() + "\u0000");
+  const morceaux = t.split(/```/);
+  let h = "";
+  morceaux.forEach((m, i) => {
+    if (i % 2) {
+      const nl = m.indexOf("\n"); const code = nl >= 0 ? m.slice(nl + 1) : m;
+      h += "<pre><button class='copier' type='button'>Copier</button><code>" + echap(code.replace(/\n$/, "")) + "</code></pre>";
+    } else {
+      h += echap(m).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+        .replace(/\u0000P([\s\S]*?)\u0000/g, (_, p) => p ? "<div class='pense'>" + p + "</div>" : "");
+    }
+  });
+  return h;
+}
+document.addEventListener("click", e => {
+  if (!e.target.classList.contains("copier")) return;
+  navigator.clipboard.writeText(e.target.nextElementSibling.textContent).then(() => {
+    e.target.textContent = "Copié"; setTimeout(() => e.target.textContent = "Copier", 1200);
+  });
+});
+
+function bulle(cls, html){
+  $("#vide")?.remove();
+  const d = document.createElement("div"); d.className = "msg " + cls; d.innerHTML = html;
+  $("#fil").appendChild(d); $("#fil").scrollTop = $("#fil").scrollHeight; return d;
+}
+
+async function etat(){
+  try {
+    const r = await (await fetch("/tilabo/etat")).json();
+    modele = r.modele;
+    $("#etat").textContent = r.chargement ? "Chargement : " + r.chargement + "…" :
+      (r.modele ? "IA : " + r.modele : (r.erreur ? "Erreur : " + r.erreur : "Aucune IA — touche « IA »"));
+    $("#noteAcces").textContent = r.acces_fichiers ? "" : "⚠ Donne l'accès « Tous les fichiers » au Ti-Labo pour voir tes IA.";
+    return r;
+  } catch (e) { $("#etat").textContent = "Moteur arrêté"; return null; }
+}
+
+async function ouvrirIA(){
+  $("#panneau").classList.add("ouvert");
+  const r = await etat(); const L = $("#liste");
+  if (!r) { L.innerHTML = "<p class='note'>Le moteur ne répond pas.</p>"; return; }
+  if (!r.fichiers.length) { L.innerHTML = "<p class='note'>Aucun fichier .gguf trouvé.</p>"; return; }
+  L.innerHTML = "";
+  r.fichiers.forEach(f => {
+    const d = document.createElement("div"); d.className = "ia-item";
+    const actif = r.chemin === f.chemin;
+    d.innerHTML = "<div class='n'><div class='" + (actif ? "actif" : "") + "'>" + echap(f.nom) + "</div><small>" +
+      f.taille_go + " Go · " + echap(f.ou) + "</small></div>";
+    const b = document.createElement("button"); b.textContent = actif ? "Active" : "Utiliser"; b.disabled = actif;
+    b.className = actif ? "" : "plein";
+    b.onclick = () => charger(f, b);
+    d.appendChild(b); L.appendChild(d);
+  });
+}
+function fermer(){ $("#panneau").classList.remove("ouvert"); }
+
+async function charger(f, b){
+  b.disabled = true; b.textContent = "…";
+  $("#etat").textContent = "Chargement : " + f.nom + " (ça peut prendre une minute)";
+  try {
+    const r = await fetch("/tilabo/charger", {method: "POST", body: JSON.stringify({chemin: f.chemin})});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error ? j.error.message : "refusé");
+    fermer(); historique = [];
+  } catch (e) { alert("Chargement impossible : " + e.message); }
+  etat();
+}
+
+async function envoyer(texte){
+  if (!modele) { await etat(); if (!modele) { ouvrirIA(); return; } }
+  historique.push({role: "user", content: texte});
+  bulle("moi", echap(texte));
+  const sortie = bulle("ia", "<span class='pense'>…</span>");
+  let rep = "";
+  ctrl = new AbortController(); $("#bEnv").textContent = "■";
+  try {
+    const r = await fetch("/v1/chat/completions", {method: "POST", signal: ctrl.signal,
+      body: JSON.stringify({messages: historique, stream: true})});
+    if (!r.ok) { const j = await r.json(); throw new Error(j.error ? j.error.message : r.status); }
+    const lecteur = r.body.getReader(); const dec = new TextDecoder(); let tampon = "";
+    for (;;) {
+      const {done, value} = await lecteur.read(); if (done) break;
+      tampon += dec.decode(value, {stream: true});
+      const lignes = tampon.split("\n"); tampon = lignes.pop();
+      for (const l of lignes) {
+        if (!l.startsWith("data:")) continue;
+        const d = l.slice(5).trim(); if (d === "[DONE]") continue;
+        try { rep += JSON.parse(d).choices[0].delta.content || ""; } catch (_) {}
+      }
+      const enBas = $("#fil").scrollHeight - $("#fil").scrollTop - $("#fil").clientHeight < 80;
+      sortie.innerHTML = rendu(rep);
+      if (enBas) $("#fil").scrollTop = $("#fil").scrollHeight;
+    }
+  } catch (e) {
+    if (e.name !== "AbortError") rep += (rep ? "\n\n" : "") + "⚠ " + e.message;
+  }
+  sortie.innerHTML = rendu(rep || "(arrêté)");
+  historique.push({role: "assistant", content: rep});
+  ctrl = null; $("#bEnv").textContent = "➤";
+}
+
+$("#f").onsubmit = e => {
+  e.preventDefault();
+  if (ctrl) { ctrl.abort(); return; }
+  const t = $("#q").value.trim(); if (!t) return;
+  $("#q").value = ""; $("#q").style.height = "";
+  envoyer(t);
+};
+$("#q").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; });
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && window.innerWidth > 700) { e.preventDefault(); $("#f").requestSubmit(); } });
+$("#bIA").onclick = ouvrirIA;
+$("#bNouv").onclick = () => { if (ctrl) ctrl.abort(); historique = []; $("#fil").innerHTML = ""; bulle("ia", "<span class='pense'>Nouvelle jasette.</span>"); };
+$("#panneau").onclick = e => { if (e.target.id === "panneau") fermer(); };
+etat().then(r => { if (r && !r.modele && !r.chargement) ouvrirIA(); });
+setInterval(etat, 5000);
+</script>
+</body>
+</html>

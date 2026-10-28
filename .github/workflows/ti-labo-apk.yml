@@ -1,0 +1,75 @@
+name: Ti-Labo APK Android
+
+on:
+  push:
+    branches: [ti-labo]
+    paths:
+      - "android/**"
+      - ".github/workflows/ti-labo-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ti-labo-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Compiler l'APK Ti-Labo (moteur gguf)
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
+      - name: Installer SDK, NDK et CMake
+        run: |
+          ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDK_MANAGER="$(find "$ANDROID_SDK" -type f -name sdkmanager -print -quit)"
+          yes | "$SDK_MANAGER" --licenses >/dev/null || true
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.13113456" "cmake;3.31.6"
+      - name: Recuperer llama.cpp v0.6.0 (le meme moteur que CodexLocal)
+        run: git clone --depth 1 --branch v0.6.0 https://github.com/ggml-org/llama.cpp.git lib/src/main/cpp/llama.cpp
+      - name: Cle de signature (la meme pour toutes les versions)
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TILABO_KEYSTORE_BASE64: ${{ secrets.TILABO_KEYSTORE_BASE64 }}
+        run: bash android/scripts/cle_signature.sh
+      - name: Compiler
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee "$RUNNER_TEMP/gradle.log"
+      - name: Resume des erreurs
+        if: failure()
+        run: |
+          J="$RUNNER_TEMP/gradle.log"; [ -f "$J" ] || exit 0
+          { grep -E '^e: ' "$J" | sort -u | head -40; grep -E -A8 'What went wrong' "$J" | head -30; } > "$RUNNER_TEMP/r.txt" || true
+          [ -s "$RUNNER_TEMP/r.txt" ] || tail -40 "$J" > "$RUNNER_TEMP/r.txt"
+          MSG=$(sed 's/%/%25/g' "$RUNNER_TEMP/r.txt" | cut -c1-400 | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Erreurs de compilation::${MSG:0:60000}"
+      - name: Publier (release Ti-Labo, jamais « latest » pour ne pas deranger CodexLocal)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="2.0.${GITHUB_RUN_NUMBER}"
+          APK="$(ls app/build/outputs/apk/release/*.apk | head -n1)"
+          cp "$APK" "Ti-Labo-$VERSION.apk"
+          cp "$APK" "Ti-Labo.apk"
+          gh release create "ti-labo-v$VERSION" "Ti-Labo-$VERSION.apk" "Ti-Labo.apk" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Ti-Labo $VERSION (Android)" \
+            --notes "Appli Ti-Labo avec moteur gguf integre (llama.cpp). Installe Ti-Labo.apk par-dessus la version precedente."

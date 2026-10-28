@@ -1778,7 +1778,7 @@ import hashlib
 
 PORT_GGUF = 8081
 _proc_gguf = None
-_gguf_actif = {"chemin": None}
+_gguf_actif = {"chemin": None, "appli": False}
 
 
 def dossier_ollama_local():
@@ -2051,8 +2051,26 @@ def deplacer_ollama(d, envoyer):
     envoyer({"fini": True, "message": ("Copie" if garder else "Deplace") + " et verifie : " + nom})
 
 
+def moteur_appli():
+    """Etat du moteur gguf de l'appli Android Ti-Labo (127.0.0.1:8081), ou None si elle ne roule pas."""
+    if not ANDROID:
+        return None
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/tilabo/etat" % PORT_GGUF, timeout=2) as r:
+            d = json.loads(r.read().decode("utf-8"))
+            return d if d.get("app") == "Ti-Labo" else None
+    except Exception:
+        return None
+
+
 def arreter_gguf():
     global _proc_gguf
+    if _gguf_actif.get("appli"):
+        try:
+            http_json("http://127.0.0.1:%d/tilabo/decharger" % PORT_GGUF, {}, delai=60)
+        except Exception:
+            pass
+        _gguf_actif["appli"] = False
     if _proc_gguf and _proc_gguf.poll() is None:
         _proc_gguf.terminate()
         try:
@@ -2124,6 +2142,22 @@ def demarrer_gguf(chemin):
     """Fait rouler un .gguf (ex. ceux de CodexLocal) avec llama-server, sans le copier."""
     global _proc_gguf
     chemin = chemin_gguf_autorise(chemin)
+    # Appli Android Ti-Labo : son moteur llama.cpp integre lit le .gguf directement (plus rapide, sans Termux).
+    if moteur_appli():
+        try:
+            r = http_json("http://127.0.0.1:%d/tilabo/charger" % PORT_GGUF, {"chemin": chemin}, delai=1800)
+        except urllib.error.HTTPError as e:
+            try:
+                msg = json.loads(e.read().decode("utf-8"))["error"]["message"]
+            except Exception:
+                msg = str(e)
+            raise ValueError("L'appli Ti-Labo n'a pas pu charger l'IA : " + msg)
+        _gguf_actif["chemin"] = chemin
+        _gguf_actif["appli"] = True
+        nom = r.get("modele") or os.path.basename(chemin)
+        ecrire_params({"moteur": "openai", "url_openai": "http://127.0.0.1:%d/v1" % PORT_GGUF,
+                       "modele_jasette": nom, "modele_codex": nom})
+        return nom
     exe = shutil.which("llama-server")
     if not exe:
         if not ANDROID:

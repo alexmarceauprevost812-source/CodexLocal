@@ -57,15 +57,27 @@ Attention : dans ce cas, désinstaller Termux efface ce dossier de la clé.
 
 Formate la clé en exFAT : FAT32 refuse les fichiers de plus de 4 Go.
 
-L'APPLI TI-LABO (apk/Ti-Labo.apk)
----------------------------------
-Une icône sur ton téléphone : elle démarre le Ti-Labo dans Termux et
-l'affiche en plein écran.
-1. Une seule fois, dans Termux :
+L'APPLI TI-LABO (apk/Ti-Labo.apk) — version 2
+----------------------------------------------
+Une vraie appli, avec son icône. Elle a son PROPRE moteur d'IA (llama.cpp,
+le même que CodexLocal) : elle lit tes .gguf directement, sans llama-server.
+- Avec Termux : elle démarre le Ti-Labo complet et l'affiche en plein écran ;
+  « IA locales > Utiliser » sur un .gguf passe par le moteur de l'appli.
+- Sans Termux : « Jasette sans Termux » parle directement à tes .gguf.
+Elle trouve les .gguf dans CodexLocal/models, Téléchargements,
+TiLabo/ia/gguf et sur la clé USB-C (TiLabo/ia/gguf).
+
+1. Si l'ancienne appli Ti-Labo est installée, désinstalle-la d'abord
+   (nouvelle signature).
+2. Installe Ti-Labo.apk, puis accepte : « Tous les fichiers » (pour lire tes IA),
+   les notifications, et « Exécuter des commandes dans Termux ».
+3. Pour le Ti-Labo complet, une seule fois dans Termux :
      mkdir -p ~/.termux
      echo "allow-external-apps=true" >> ~/.termux/termux.properties
      termux-reload-settings
-2. Installe apk/Ti-Labo.apk, accepte la permission « Exécuter des commandes dans Termux ».
+
+Les sources sont dans le dossier android/ ; GitHub compile l'APK tout seul
+(onglet Releases, « Ti-Labo … (Android) »).
 
 Termux doit venir de F-Droid ou de GitHub (celui du Play Store est trop vieux).
 
