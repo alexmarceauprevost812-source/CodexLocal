@@ -277,6 +277,27 @@ class ServeurLocal(private val ctx: Context) {
             "/cle" -> asset(out, "cle.html", "text/html; charset=utf-8")
             "/github" -> asset(out, "github.html", "text/html; charset=utf-8")
             "/menu.js" -> asset(out, "menu.js", "text/javascript; charset=utf-8")
+            "/memoire" -> asset(out, "memoire.html", "text/html; charset=utf-8")
+            "/parametres" -> asset(out, "parametres.html", "text/html; charset=utf-8")
+            "/ecriture" -> asset(out, "ecriture.html", "text/html; charset=utf-8")
+            "/meteo" -> asset(out, "meteo.html", "text/html; charset=utf-8")
+            "/logos.js" -> asset(out, "logos.js", "text/javascript; charset=utf-8")
+            "/noel.js" -> asset(out, "noel.js", "text/javascript; charset=utf-8")
+            "/yeux.js" -> asset(out, "yeux.js", "text/javascript; charset=utf-8")
+            "/halloween.js" -> asset(out, "halloween.js", "text/javascript; charset=utf-8")
+            "/tilabo/memoire", "/tilabo/memoire/ajouter", "/tilabo/memoire/supprimer", "/tilabo/memoire/chercher" -> {
+                val d = JSONObject(String(r.corps, Charsets.UTF_8).ifBlank { "{}" })
+                try {
+                    json(out, 200, when (r.chemin) {
+                        "/tilabo/memoire/ajouter" -> Memoire.ajouter(d.optString("texte"))
+                        "/tilabo/memoire/supprimer" -> Memoire.supprimer(d.optString("id"))
+                        "/tilabo/memoire/chercher" -> Memoire.chercher(d.optString("requete"))
+                        else -> Memoire.lister()
+                    })
+                } catch (e: Exception) {
+                    erreur(out, 400, e.message ?: e.javaClass.simpleName)
+                }
+            }
             "/", "/index.html" -> asset(out, "bureau.html", "text/html; charset=utf-8")
             "/logo.png" -> asset(out, "logo.png", "image/png")
             else -> erreur(out, 404, "introuvable : ${r.chemin}")

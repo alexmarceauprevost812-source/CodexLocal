@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo — Météo</title>
+<style>
+:root{--fond:#000;--carte:#0e0e0e;--bord:#262626;--orange:#FF7A1A;--texte:#fff;--doux:#B3B3B3}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);font-family:system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bord)}
+header img{width:38px;height:38px;object-fit:contain}
+header .t{flex:1;min-width:0}
+header b{color:var(--orange);font-size:17px}
+header small{display:block;color:var(--doux);font-size:12px}
+button{font:inherit;border-radius:10px;min-height:42px;padding:0 14px;background:#161616;color:var(--orange);border:1px solid var(--bord)}
+button.plein{background:var(--orange);color:#000;font-weight:700;border:0}
+main{flex:1;overflow-y:auto;padding:14px;max-width:620px;width:100%;margin:0 auto}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;background:var(--carte);color:var(--texte);border:1px solid var(--bord);border-radius:12px;padding:11px 14px;font:inherit}
+input:focus{outline:none;border-color:var(--orange)}
+.villes{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}
+.villes button{min-height:34px;font-size:13px;padding:0 12px;border-radius:20px;color:#fff}
+.villes button .x{color:var(--doux);margin-left:6px}
+#res{margin-top:10px}
+.etat{color:var(--doux);text-align:center;padding:30px 10px}
+.roue{width:34px;height:34px;border-radius:50%;border:3px solid #333;border-top-color:var(--orange);margin:0 auto 10px;animation:tourne 1s linear infinite}
+@keyframes tourne{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.roue,.tl-meteo .em{animation:none!important}}
+.conseil{background:var(--carte);border:1px solid var(--bord);border-left:3px solid var(--orange);border-radius:12px;padding:12px 14px;line-height:1.5;font-size:14.5px}
+.conseil h4{margin:0 0 4px;color:var(--orange);font-size:14px}
+.liens{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.note{color:var(--doux);font-size:12px;margin-top:14px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <img src="/logo.png" alt="">
+  <div class="t"><b>Météo</b><small>Cherchée sur le web (Open-Meteo, gratuit)</small></div>
+  <button id="bIci" title="Météo à ma position">📍</button>
+</header>
+<main>
+  <form id="f"><input id="ville" placeholder="Une ville : Normandin, Montréal, Paris…" autocomplete="off" enterkeyhint="search"><button class="plein" type="submit">🔎</button></form>
+  <div class="villes" id="villes"></div>
+  <div id="res"><div class="etat">Écris une ville ou touche 📍 pour ta position.</div></div>
+</main>
+<script src="/menu.js"></script>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const echap = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const lire = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (_) { return d; } };
+const ecrire = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
+
+let recentes = lire("tilabo-villes", []);
+function dessinerVilles(){
+  const V = $("#villes"); V.innerHTML = "";
+  recentes.forEach(v => {
+    const b = document.createElement("button"); b.type = "button";
+    b.innerHTML = echap(v) + "<span class='x' title='Retirer'>✕</span>";
+    b.onclick = e => {
+      if (e.target.classList.contains("x")) { recentes = recentes.filter(x => x !== v); ecrire("tilabo-villes", recentes); dessinerVilles(); return; }
+      chercher(v);
+    };
+    V.appendChild(b);
+  });
+}
+
+/** Petit conseil pratique selon la meteo (quoi porter, parapluie…) */
+function conseil(m){
+  const a = m.actuel, j = m.jours, t = Math.round(a.apparent_temperature), c = a.weather_code;
+  const l = [];
+  if (t <= -15) l.push("🥶 Froid intense : tuque, mitaines, foulard. Couvre ta peau.");
+  else if (t <= -5) l.push("🧥 Gros manteau d'hiver et mitaines.");
+  else if (t <= 5) l.push("🧥 Manteau chaud, une tuque ne fait pas de tort.");
+  else if (t <= 14) l.push("🧶 Une veste ou un coton ouaté.");
+  else if (t >= 28) l.push("🥵 Chaud : bois de l'eau, crème solaire 🧴.");
+  else l.push("👕 Température agréable.");
+  if ([51,53,55,61,63,65,80,81,82].includes(c)) l.push("☔ Il pleut : apporte un parapluie.");
+  if ([71,73,75,77,85,86].includes(c)) l.push("❄️ Il neige : routes glissantes, prends ton temps.");
+  if ([56,57,66,67].includes(c)) l.push("🧊 Verglas possible : prudence sur la route et les trottoirs.");
+  if (c >= 95) l.push("⛈️ Orage : reste à l'abri.");
+  if (a.wind_speed_10m >= 40) l.push("🌬️ Gros vent aujourd'hui.");
+  const p = j.precipitation_probability_max;
+  if (p && p[1] >= 60) l.push("📅 Demain : " + p[1] + " % de chances de précipitations.");
+  const mn = j.temperature_2m_min || [];
+  if (mn.slice(0, 4).some(x => x <= 0) && t > 0) l.push("🚗 Ça gèle la nuit : pense aux pneus d'hiver.");
+  return `<div class="conseil"><h4>💡 Conseil du jour</h4>${l.map(echap).join("<br>")}</div>`;
+}
+
+async function chercher(ville, dejaDemande){
+  if (window.TL && TL.chargerReglages && TL.hote === undefined) { try { await TL.chargerReglages(); } catch (_) {} }
+  if (window.TL && TL.internet === false) {
+    $("#res").innerHTML = "<div class='etat'>🌐 Internet est désactivé pour l'IA.<br>Active-le dans ⚙️ Paramètres pour chercher la météo sur le web.</div>";
+    return;
+  }
+  $("#res").innerHTML = "<div class='etat'><div class='roue'></div>Recherche de la météo" + (ville ? " à " + echap(ville) : "") + " sur le web…</div>";
+  try {
+    const m = await TL.meteo(ville || null);
+    if (ville) {
+      const nom = ville.trim();
+      recentes = [nom, ...recentes.filter(v => v.toLowerCase() !== nom.toLowerCase())].slice(0, 6);
+      ecrire("tilabo-villes", recentes); dessinerVilles();
+    }
+    ecrire("tilabo-meteo-derniere", {ville: ville || "", date: Date.now()});
+    $("#res").innerHTML = TL.carteMeteo(m) + conseil(m) +
+      `<div class="liens"><button id="bAct">🔄 Actualiser</button><button id="bJas">💬 Demander à la Jasette</button></div>` +
+      `<div class="note">Mis à jour à ${new Date().toLocaleTimeString("fr-CA", {hour: "2-digit", minute: "2-digit"})} · Open-Meteo</div>`;
+    $("#bAct").onclick = () => chercher(ville);
+    $("#bJas").onclick = () => {
+      try { localStorage.setItem("tilabo-question", "Quelle est la météo à " + (ville || m.lieu.split(",")[0]) + " ?"); } catch (_) {}
+      location.href = "/jasette" + (location.search.includes("fenetre") ? "?fenetre=1" : "");
+    };
+  } catch (e) {
+    if (e.code === "position") {
+      $("#res").innerHTML = "<div class='etat'>📍 Je n'ai pas ta position.<br>Écris le nom d'une ville en haut.</div>";
+      // une seule demande de permission par recherche : si la position manque encore apres, on laisse taper une ville
+      if (window.TiLaboApp && TiLaboApp.demanderPosition && !dejaDemande) {
+        // une fois la permission accordee, on refait la recherche tout seul (une seule fois)
+        window.addEventListener("tl-position", ev => { if (ev.detail) chercher("", true); }, {once: true});
+        TiLaboApp.demanderPosition();
+      }
+    } else {
+      $("#res").innerHTML = "<div class='etat'>⚠️ " + echap(e.message) + "<br><br><button id='bRe'>Réessayer</button></div>";
+      $("#bRe").onclick = () => chercher(ville);
+    }
+  }
+}
+
+$("#f").onsubmit = e => { e.preventDefault(); const v = $("#ville").value.trim(); if (v) { chercher(v); $("#ville").blur(); } };
+$("#bIci").onclick = () => chercher("");
+dessinerVilles();
+// au demarrage : la ville demandee par le bureau, sinon la derniere, sinon la position
+const demandee = new URLSearchParams(location.search).get("ville");
+const derniere = lire("tilabo-meteo-derniere", null);
+setTimeout(() => chercher(demandee || (derniere ? derniere.ville : "") || recentes[0] || ""), 150);
+</script>
+</body>
+</html>

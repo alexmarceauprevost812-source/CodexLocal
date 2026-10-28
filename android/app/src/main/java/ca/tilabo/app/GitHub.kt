@@ -17,6 +17,7 @@ object Reglages {
         val jeton = p.getString("github_token", "") ?: ""
         return JSONObject()
             .put("internet", p.getBoolean("internet", true))
+            .put("ville", p.getString("ville", "") ?: "")
             .put("github_token_present", jeton.isNotEmpty())
             .put("github_token_fin", if (jeton.length > 4) "…" + jeton.takeLast(4) else "")
     }
@@ -25,6 +26,8 @@ object Reglages {
         val e = prefs(ctx).edit()
         if (d.has("internet")) e.putBoolean("internet", d.optBoolean("internet"))
         if (d.has("github_token")) e.putString("github_token", d.optString("github_token").trim())
+        // ville par defaut de la meteo (meme cle que Meteo.obtenir)
+        if (d.has("ville")) d.optString("ville").trim().let { if (it.isEmpty()) e.remove("ville") else e.putString("ville", it) }
         e.apply()
     }
 
