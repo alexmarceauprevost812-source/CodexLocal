@@ -329,3 +329,16 @@ label.lib{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 .hist-ouvrir small{display:block;color:var(--dim);font-size:11.5px;margin-top:3px}
 .hist-ouvrir .hist-extrait{color:var(--accent-light);font-style:italic}
 .hist-item .btn-ic{margin-top:8px;border:none;background:none}
+
+/* ---------- lignes ajoutees / supprimees */
+pre.diff{margin:0;padding:6px 0;font:12.5px/1.55 var(--mono);overflow:auto;max-height:360px}
+.d-l{display:grid;grid-template-columns:38px 38px 18px 1fr;white-space:pre}
+.d-l i{font-style:normal;color:#555;text-align:right;padding-right:6px;user-select:none}
+.d-l b{font-weight:400;color:#777;user-select:none}
+.d-plus{background:rgba(74,222,128,.13)}
+.d-plus b{color:var(--green)}
+.d-moins{background:rgba(255,95,90,.14)}
+.d-moins b{color:var(--red)}
+.d-code{background:none;padding:0;font:inherit;white-space:pre}
+.d-moins .d-code{opacity:.8}
+.d-saut{display:block;color:var(--dim);padding:2px 12px;background:#0d0d0d}

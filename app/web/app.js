@@ -511,6 +511,29 @@ function sortieCommande(c) {
   if (etat.projet) choisirProjetSilencieux().catch(() => {});
 }
 
+/* ------------------------------------------------------------ envoyer un projet sur GitHub */
+async function envoyerSurGitHub(projet) {
+  if (!projet) return toast("Choisis d'abord un projet.");
+  if (!etat.params.github_utilisateur) { toast("Connecte d'abord ton jeton GitHub."); return allerA("github"); }
+  if (etat.modifie) await sauver(true);
+  const depot = prompt(`Envoyer « ${projet} » sur GitHub (${etat.params.github_utilisateur}).\nNom du dépôt :`, projet);
+  if (!depot) return;
+  const prive = confirm("Dépôt PRIVÉ ?\n\nOK = privé (seulement toi)\nAnnuler = public (tout le monde)");
+  const message = prompt("Message du commit (optionnel) :", "") || null;
+  toast("Envoi sur GitHub…");
+  try {
+    const r = await api("github/envoyer", { projet, depot, prive, message }, { flux: true });
+    await lireFlux(r, (o) => {
+      if (o.erreur) throw new Error(o.erreur);
+      if (o.etape) toast(o.etape + "…");
+      if (o.fini) {
+        toast((o.cree ? "Dépôt créé et projet envoyé ! " : "Projet envoyé ! ") + o.url);
+        window.open(o.url, "_blank", "noopener");
+      }
+    });
+  } catch (e) { toast("GitHub : " + e.message); }
+}
+
 /* ------------------------------------------------------------ projet du Codex */
 async function rendreCodexProjets() {
   await chargerListeProjets();
@@ -556,15 +579,32 @@ function carteFichier(zone, f) {
   const el = document.createElement("div");
   el.className = "carte-fichier";
   const verbe = f.action === "cree" ? "Créé" : "Modifié";
-  el.innerHTML = `${ic("dossier")}<span><b>${verbe}</b> <code>${esc(f.chemin)}</code> <span class="plus">+${f.plus}</span> <span class="moins">−${f.moins}</span></span>
+  el.innerHTML = `${ic("dossier")}<span><b>${verbe}</b> <code>${esc(f.chemin)}</code> <span class="plus">+${f.plus}</span> <span class="moins">−${f.moins}</span> <span class="tag vert" title="Écrit et vérifié sur la clé">✓ enregistré</span></span>
     <span class="espace" style="flex:1"></span>
+    <button class="btn petit" data-f-vue>Fichier complet</button>
     <button class="btn petit" data-f-ouvrir>Ouvrir</button><button class="btn petit danger" data-f-annuler>Annuler</button>`;
   const apercu = document.createElement("div");
   apercu.className = "bloc-code apercu-fichier";
-  apercu.innerHTML = `<pre><code>…</code></pre>`;
-  api("fichier?chemin=" + encodeURIComponent(f.chemin)).then((r) => {
-    $("code", apercu).innerHTML = TiCouleurs.colorer(r.contenu, TiCouleurs.langueDe(f.chemin));
-  }).catch(() => apercu.remove());
+  const lang = TiCouleurs.langueDe(f.chemin);
+  // Vue « changements » : lignes ajoutees en vert, supprimees en rouge, avec leurs numeros
+  const vueDiff = () => {
+    if (!f.diff || !f.diff.length) return null;
+    return `<div class="bc-tete">changements · <span class="plus">+${f.plus} ajoutées</span> · <span class="moins">−${f.moins} supprimées</span></div>` +
+      `<pre class="diff">${f.diff.map((x) => x.t === "…"
+        ? `<span class="d-saut">${esc(x.l || "⋯")}</span>`
+        : `<span class="d-l d-${x.t === "+" ? "plus" : x.t === "-" ? "moins" : "eq"}"><i>${x.t === "-" ? "" : x.n}</i><i>${x.t === "-" ? x.n : ""}</i><b>${x.t === " " ? " " : x.t}</b><code class="d-code">${TiCouleurs.colorer(x.l || "", lang) || " "}</code></span>`).join("")}</pre>`;
+  };
+  let complet = null;
+  const montrer = async (enComplet) => {
+    if (enComplet || !vueDiff()) {
+      if (complet === null) complet = await api("fichier?chemin=" + encodeURIComponent(f.chemin)).then((r) => r.contenu).catch(() => "");
+      apercu.innerHTML = `<pre><code>${TiCouleurs.colorer(complet, lang)}</code></pre>`;
+    } else apercu.innerHTML = vueDiff();
+    $("[data-f-vue]", el).textContent = enComplet ? "Changements" : "Fichier complet";
+  };
+  let vueComplete = false;
+  $("[data-f-vue]", el).onclick = () => { vueComplete = !vueComplete; montrer(vueComplete); };
+  montrer(false);
   setTimeout(() => el.after(apercu), 0);
   $("[data-f-ouvrir]", el).onclick = async () => {
     allerA("projets");
@@ -829,7 +869,14 @@ function synchroDefilement() {
   $("#numeros").scrollTop = t.scrollTop;
 }
 const ed = $("#editeur");
-ed.addEventListener("input", () => { marquerModifie(true); majNumeros(); });
+let minuteurAuto = null;
+ed.addEventListener("input", () => {
+  marquerModifie(true);
+  majNumeros();
+  // Enregistrement automatique sur la cle 1,2 s apres la derniere frappe
+  clearTimeout(minuteurAuto);
+  minuteurAuto = setTimeout(() => { if (etat.modifie && etat.fichier && !ed.readOnly) sauver(true); }, 1200);
+});
 ed.addEventListener("scroll", synchroDefilement);
 ed.addEventListener("keydown", (e) => {
   if (e.key === "Tab") {
@@ -840,10 +887,16 @@ ed.addEventListener("keydown", (e) => {
     majNumeros();
   }
 });
-async function sauver() {
+async function sauver(auto = false) {
   if (!etat.fichier) return;
-  try { await api("fichier", { chemin: etat.fichier, contenu: ed.value }); marquerModifie(false); toast("Enregistré sur la clé"); }
-  catch (e) { toast(e.message); }
+  const chemin = etat.fichier, contenu = ed.value;
+  try {
+    await api("fichier", { chemin, contenu });
+    if (etat.fichier === chemin && ed.value === contenu) marquerModifie(false);
+    const t = $("#etat-auto");
+    if (t) { t.textContent = "✓ enregistré " + new Date().toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit", second: "2-digit" }); t.hidden = false; }
+    if (!auto) toast("Enregistré sur la clé");
+  } catch (e) { toast("Pas enregistré : " + e.message); }
 }
 document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); sauver(); } });
 $("#bt-sauver").onclick = sauver;
@@ -1057,7 +1110,7 @@ async function rendreGitHub() {
       $$("[data-cl]").forEach((b) => (b.onclick = () => cloner(b.dataset.cl, b)));
     } catch (e) { $("#gh-depots").innerHTML = `<p class="vide">${esc(e.message)}</p>`; }
   } else {
-    box.innerHTML = `<label class="lib" for="gh-jeton">Ton jeton GitHub (Settings › Developer settings › Fine-grained tokens, accès « Contents: read »)</label>
+    box.innerHTML = `<label class="lib" for="gh-jeton">Ton jeton GitHub (Settings › Developer settings › Fine-grained tokens) — droits : « Contents : lecture et écriture » + « Administration : écriture » pour créer des dépôts</label>
       <div class="ligne"><input class="champ" type="password" id="gh-jeton" placeholder="github_pat_…" style="flex:1" autocomplete="off"><button class="btn prim" id="bt-gh-on">Connecter</button></div>
       <p class="sous" style="font-size:12px">Le jeton reste sur la clé (donnees\\parametres.json). Si tu perds la clé, révoque-le sur GitHub.</p>`;
     $("#bt-gh-on").onclick = async () => {
@@ -1137,6 +1190,8 @@ async function dessinerSchema() {
   });
   svg.innerHTML = liens + boites;
 }
+$("#bt-codex-github").onclick = () => envoyerSurGitHub($("#codex-projet").value || etat.projet);
+$("#bt-projet-github").onclick = () => envoyerSurGitHub(etat.projet);
 $("#bt-studio-codex").onclick = () => {
   const nom = $("#studio-projet").value;
   if (!nom) return;

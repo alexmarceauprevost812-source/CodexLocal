@@ -37,7 +37,7 @@
     <div class="points" aria-hidden="true"><span style="background:#FF5F3A"></span><span style="background:#FFB020"></span><span style="background:var(--green)"></span></div>
     <div class="logo">
       <svg class="ic" style="width:26px;height:26px;color:var(--accent)"><use href="#i-terminal"/></svg>
-      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v3.5</span><small>mon ti-univers · laboratoire de dev local</small>
+      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v3.6</span><small>mon ti-univers · laboratoire de dev local</small>
     </div>
     <div class="espace"></div>
     <span class="pastille" id="p-ia"><i class="pt"></i>IA : …</span>
@@ -102,9 +102,11 @@
             <div class="onglet">
               <span class="nom" id="nom-fichier">Aucun fichier ouvert</span>
               <span class="tag" id="etat-fichier" hidden>modifié</span>
+              <span class="tag vert" id="etat-auto" hidden></span>
               <div class="espace"></div>
               <button class="btn petit" id="bt-expliquer" disabled>Demander au Codex de l'expliquer</button>
               <button class="btn petit" id="bt-dossier" disabled>Ouvrir le dossier</button>
+              <button class="btn petit" id="bt-projet-github" title="Envoyer ce projet sur GitHub">⬆ GitHub</button>
               <button class="btn petit prim" id="bt-sauver" disabled>Enregistrer (Ctrl+S)</button>
             </div>
             <div class="editeur">
@@ -174,6 +176,7 @@
         <div class="barre-codex">
           <label class="sous" for="codex-projet" style="margin:0">Projet</label>
           <select class="champ" id="codex-projet" style="width:auto;min-width:180px"></select>
+          <button class="btn petit" id="bt-codex-github" title="Envoyer ce projet sur GitHub avec ton jeton">⬆ GitHub</button>
           <span class="contexte" id="codex-contexte">aucun fichier ouvert</span>
           <span class="espace" style="flex:1"></span>
           <input class="champ" id="trouve-q" placeholder="Trouve mes projets… (ex. scanner wifi)" aria-label="Retrouver un projet" style="max-width:280px">

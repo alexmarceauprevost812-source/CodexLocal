@@ -27,8 +27,7 @@ APP = os.path.dirname(os.path.abspath(__file__))
 RACINE = os.path.dirname(APP)                       # dossier TiLabo sur la cle
 WEB = os.path.join(APP, "web")
 OUTILS = os.path.join(RACINE, "outils")
-# Telephone : TILABO_PROJETS = TiLabo/projets du stockage partage (les memes projets que l'appli Ti-Labo)
-PROJETS = os.environ.get("TILABO_PROJETS") or os.path.join(RACINE, "projets")
+PROJETS = os.path.join(RACINE, "projets")
 DONNEES = os.path.join(RACINE, "donnees")
 MEMOIRE = os.path.join(DONNEES, "memoire")
 MODELES = os.path.join(RACINE, "ia", "modeles")
@@ -363,6 +362,88 @@ def executer(projet, commande):
 
 
 # ---------------------------------------------------------------- GitHub
+def envoyer_github(projet, nom_depot=None, prive=True, message=None, envoyer=lambda o: None):
+    """Envoie un projet de la cle sur GitHub avec le jeton enregistre.
+    Le jeton passe dans un en-tete temporaire : il n'est jamais ecrit dans le projet ni dans .git/config."""
+    import base64
+    p = lire_params()
+    jeton, login = p.get("github_token"), p.get("github_utilisateur")
+    if not jeton or not login:
+        raise ValueError("Connecte d'abord ton jeton dans GitHub > Connecter")
+    git = git_commande()
+    if not git:
+        raise ValueError("Git est absent de la cle — relance Installer-Ti-Labo.bat")
+    dossier = chemin_sur(nom_valide(projet))
+    depot = re.sub(r"[^A-Za-z0-9._-]+", "-", nom_depot or projet).strip("-.") or "projet"
+    entetes = {"Authorization": "Bearer " + jeton, "User-Agent": "Ti-Labo", "Accept": "application/vnd.github+json"}
+    drapeaux = 0x08000000 if WINDOWS else 0
+
+    def g(*args, verifier=True):
+        r = subprocess.run([git, "-C", dossier] + list(args), env=env_outils(), capture_output=True,
+                           timeout=900, creationflags=drapeaux)
+        sortie = masquer((r.stdout + r.stderr).decode("utf-8", "replace"), jeton)
+        if verifier and r.returncode != 0:
+            raise ValueError("git %s : %s" % (args[0], sortie.strip()[-800:]))
+        return sortie
+
+    # 1. .gitignore : les secrets et les dechets ne partent jamais
+    gi = os.path.join(dossier, ".gitignore")
+    actuel = open(gi, encoding="utf-8", errors="ignore").read() if os.path.isfile(gi) else ""
+    manque = [x for x in (".env", "__pycache__/", "node_modules/", "*.tilabo-tmp", ".venv/") if x not in actuel.split("\n")]
+    if manque:
+        with open(gi, "a", encoding="utf-8") as f:
+            f.write(("" if not actuel or actuel.endswith("\n") else "\n") + "\n".join(manque) + "\n")
+    # 2. depot local
+    envoyer({"etape": "Préparation du dépôt local"})
+    if not os.path.isdir(os.path.join(dossier, ".git")):
+        if "error" in g("init", "-b", "main", verifier=False).lower():
+            g("init")
+            g("checkout", "-b", "main", verifier=False)
+    g("config", "user.name", login)
+    g("config", "user.email", "%s@users.noreply.github.com" % login)
+    g("add", "-A")
+    if g("status", "--porcelain").strip():
+        g("commit", "-m", message or "Ti-Labo : mise a jour du %s" % time.strftime("%Y-%m-%d %H:%M"))
+    elif not g("rev-parse", "--verify", "HEAD", verifier=False).strip() or "fatal" in g("rev-parse", "--verify", "HEAD", verifier=False):
+        raise ValueError("Le projet est vide : rien a envoyer")
+    branche = g("rev-parse", "--abbrev-ref", "HEAD").strip() or "main"
+    # 3. depot GitHub : on le cree s'il n'existe pas
+    envoyer({"etape": "Vérification du dépôt %s/%s sur GitHub" % (login, depot)})
+    try:
+        info = http_json("https://api.github.com/repos/%s/%s" % (login, depot), entetes=entetes, delai=20)
+        cree = False
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise ValueError("GitHub refuse l'acces (%s) : verifie les droits du jeton" % e.code)
+        envoyer({"etape": "Création du dépôt %s (%s)" % (depot, "privé" if prive else "public")})
+        try:
+            info = http_json("https://api.github.com/user/repos", {"name": depot, "private": bool(prive),
+                             "description": "Envoye depuis le Ti-Labo"}, entetes=entetes, delai=30)
+        except urllib.error.HTTPError as e2:
+            raise ValueError("Impossible de creer le depot (%s). Ton jeton doit avoir le droit « Administration : "
+                             "ecriture » (ou « repo » pour un jeton classique)." % e2.code)
+        cree = True
+    url = info.get("clone_url") or "https://github.com/%s/%s.git" % (login, depot)
+    # 4. envoi : le jeton passe seulement dans un en-tete de cette commande
+    envoyer({"etape": "Envoi des fichiers sur GitHub"})
+    auth = base64.b64encode(("x-access-token:%s" % jeton).encode()).decode()
+    if "origin" not in g("remote").split():
+        g("remote", "add", "origin", url)
+    else:
+        g("remote", "set-url", "origin", url)
+    try:
+        g("-c", "http.extraHeader=Authorization: Basic " + auth, "push", "-u", "origin", "%s:%s" % (branche, branche))
+    except ValueError as e:
+        texte = str(e)
+        if "rejected" in texte or "fetch first" in texte or "non-fast-forward" in texte:
+            raise ValueError("GitHub a deja des changements que la cle n'a pas. Rien n'a ete ecrase. "
+                             "Recupere-les d'abord (git pull dans le terminal du projet), puis renvoie.")
+        if "403" in texte or "denied" in texte.lower():
+            raise ValueError("Acces refuse : ton jeton doit avoir le droit « Contents : ecriture » sur ce depot.")
+        raise
+    return {"url": info.get("html_url") or url.replace(".git", ""), "cree": cree, "branche": branche}
+
+
 def masquer(texte, jeton):
     return texte.replace(jeton, "********") if jeton else texte
 
@@ -621,7 +702,7 @@ OUTILS_IA = [
 
 def appeler_outil(nom, args, projet=None):
     try:
-        if nom in ("lister_fichiers", "lire_fichier", "ecrire_fichier", "modifier_fichier", "chercher_dans_fichiers"):
+        if nom in ("lister_fichiers", "lire_fichier", "ecrire_fichier", "modifier_fichier", "chercher_dans_fichiers", "remplacer_lignes"):
             return outil_fichier(nom, args, projet)
         if nom == "recherche_web":
             return recherche_web(args.get("requete", ""))
@@ -646,6 +727,7 @@ def etiquette_outil(nom, args):
             "lire_fichier": "Lit %s" % args.get("chemin", ""),
             "ecrire_fichier": "Ecrit %s" % args.get("chemin", ""),
             "modifier_fichier": "Modifie %s" % args.get("chemin", ""),
+            "remplacer_lignes": "Répare %s, lignes %s-%s" % (args.get("chemin", ""), args.get("debut", "?"), args.get("fin", "?")),
             "executer_commande": "Veut lancer : %s" % args.get("commande", "")}.get(nom, nom)
 
 
@@ -689,6 +771,17 @@ OUTILS_FICHIERS_ECRITURE = [
             "contenu": {"type": "string", "description": "le contenu complet du fichier"}},
             "required": ["chemin", "contenu"]}}},
     {"type": "function", "function": {
+        "name": "remplacer_lignes",
+        "description": "Moteur de reparation : remplace les lignes debut a fin d'un fichier (numeros vus avec "
+                       "lire_fichier) par un nouveau texte. nouveau vide = supprimer ces lignes. Pour inserer sans rien "
+                       "enlever avant la ligne N : debut=N, fin=N-1. Relis le fichier avant chaque reparation.",
+        "parameters": {"type": "object", "properties": {
+            "chemin": {"type": "string"},
+            "debut": {"type": "integer", "description": "premiere ligne a remplacer"},
+            "fin": {"type": "integer", "description": "derniere ligne a remplacer"},
+            "nouveau": {"type": "string", "description": "les nouvelles lignes (sans numeros)"}},
+            "required": ["chemin", "debut", "fin", "nouveau"]}}},
+    {"type": "function", "function": {
         "name": "modifier_fichier",
         "description": "Remplace un passage exact d'un fichier existant par un nouveau texte. Le passage doit etre copie "
                        "exactement du fichier (lis-le d'abord) et n'apparaitre qu'une seule fois.",
@@ -706,8 +799,9 @@ INVITE_FICHIERS = ("\n\nTu travailles dans le projet « %s ». Ecris DIRECTEMENT
                    "2. Trouve le bon endroit : chercher_dans_fichiers pour localiser fonctions et usages, puis "
                    "lire_fichier sur les fichiers concernes (jamais modifier sans avoir lu).\n"
                    "3. Fais le plus petit changement correct : modifier_fichier avec un passage copie EXACTEMENT "
-                   "(sans les numeros de ligne) et assez long pour etre unique. ecrire_fichier seulement pour un "
-                   "nouveau fichier ou une reecriture complete.\n"
+                   "(sans les numeros de ligne) et assez long pour etre unique, OU remplacer_lignes pour reparer des "
+                   "lignes precises (numeros de lire_fichier). ecrire_fichier seulement pour un nouveau fichier ou une "
+                   "reecriture complete. Chaque ecriture est enregistree tout de suite sur la cle.\n"
                    "4. Respecte le style existant (indentation, noms, langue des commentaires) et mets a jour les "
                    "imports et les autres fichiers touches par ton changement.\n"
                    "5. Lis le champ 'verification' apres chaque ecriture : s'il y a une erreur, corrige-la tout de suite.\n"
@@ -796,6 +890,47 @@ def sauvegarder(projet, rel, absolu):
     return ident, existait, ancien
 
 
+def ecrire_sur(p, contenu):
+    """Ecriture sure : on ecrit a cote, on force l'ecriture sur la cle, on relit, puis on remplace d'un coup.
+    Si la cle est debranchee en plein milieu, l'ancien fichier reste intact."""
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    tmp = p + ".tilabo-tmp"
+    donnees = contenu.encode("utf-8")
+    with open(tmp, "wb") as f:
+        f.write(donnees)
+        f.flush()
+        os.fsync(f.fileno())
+    with open(tmp, "rb") as f:
+        if f.read() != donnees:
+            os.remove(tmp)
+            raise ValueError("Ecriture verifiee incorrecte (cle pleine ou debranchee ?) : fichier original garde")
+    os.replace(tmp, p)
+
+
+def diff_lignes(ancien, nouveau, contexte=2, max_lignes=400):
+    """Lignes ajoutees (+) et supprimees (-) avec numeros, pour l'affichage dans le Codex."""
+    import difflib
+    a, n = ancien.split("\n"), nouveau.split("\n")
+    sortie = []
+    for groupe in difflib.SequenceMatcher(None, a, n).get_grouped_opcodes(contexte):
+        if sortie:
+            sortie.append({"t": "…"})
+        for op, i1, i2, j1, j2 in groupe:
+            if op == "equal":
+                sortie += [{"t": " ", "n": j1 + k + 1, "l": n[j1 + k]} for k in range(j2 - j1)]
+            if op in ("replace", "delete"):
+                sortie += [{"t": "-", "n": i1 + k + 1, "l": a[i1 + k]} for k in range(i2 - i1)]
+            if op in ("replace", "insert"):
+                sortie += [{"t": "+", "n": j1 + k + 1, "l": n[j1 + k]} for k in range(j2 - j1)]
+        if len(sortie) > max_lignes:
+            sortie = sortie[:max_lignes] + [{"t": "…", "l": "(diff coupe)"}]
+            break
+    for x in sortie:
+        if "l" in x:
+            x["l"] = x["l"][:300]
+    return sortie
+
+
 def compter_lignes(ancien, nouveau):
     a, n = ancien.splitlines(), nouveau.splitlines()
     import difflib
@@ -839,13 +974,11 @@ def outil_fichier(nom, args, projet):
         if not isinstance(contenu, str):
             return {"erreur": "Contenu manquant"}
         ident, existait, ancien = sauvegarder(projet, rel, p)
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        with open(p, "w", encoding="utf-8", newline="") as f:
-            f.write(contenu)
+        ecrire_sur(p, contenu)
         plus, moins = compter_lignes(ancien, contenu)
-        return {"ok": True, **verifier_code(rel, contenu),
+        return {"ok": True, "enregistre": True, **verifier_code(rel, contenu),
                 "_evenement": {"action": "modifie" if existait else "cree", "chemin": projet + "/" + rel,
-                               "sauvegarde": ident, "plus": plus, "moins": moins}}
+                               "sauvegarde": ident, "plus": plus, "moins": moins, "diff": diff_lignes(ancien, contenu)}}
     if nom == "modifier_fichier":
         if not os.path.isfile(p):
             return {"erreur": "Fichier introuvable : " + rel + " (utilise ecrire_fichier pour le creer)"}
@@ -869,12 +1002,36 @@ def outil_fichier(nom, args, projet):
             return {"erreur": "Passage trouve %d fois dans %s : ajoute des lignes autour pour qu'il soit unique." % (n, rel)}
         ident, _, ancien = sauvegarder(projet, rel, p)
         nouveau = contenu.replace(ancien_txt, nouveau_txt, 1)
-        with open(p, "w", encoding="utf-8", newline="") as f:
-            f.write(nouveau)
+        ecrire_sur(p, nouveau)
         plus, moins = compter_lignes(ancien, nouveau)
-        return {"ok": True, **verifier_code(rel, nouveau),
+        return {"ok": True, "enregistre": True, **verifier_code(rel, nouveau),
                 "_evenement": {"action": "modifie", "chemin": projet + "/" + rel,
-                               "sauvegarde": ident, "plus": plus, "moins": moins}}
+                               "sauvegarde": ident, "plus": plus, "moins": moins, "diff": diff_lignes(ancien, nouveau)}}
+    if nom == "remplacer_lignes":
+        # Moteur de reparation : remplace les lignes debut..fin (numeros vus avec lire_fichier)
+        if not os.path.isfile(p):
+            return {"erreur": "Fichier introuvable : " + rel}
+        with open(p, "r", encoding="utf-8", errors="replace") as f:
+            contenu = f.read()
+        lignes = contenu.split("\n")
+        try:
+            debut, fin = int(args.get("debut")), int(args.get("fin"))
+        except (TypeError, ValueError):
+            return {"erreur": "debut et fin doivent etre des numeros de ligne"}
+        if debut < 1 or debut > len(lignes) + 1 or fin < debut - 1 or fin > len(lignes):
+            return {"erreur": "Lignes %s-%s hors du fichier (%d lignes). Relis-le avec lire_fichier." % (debut, fin, len(lignes))}
+        nouveau_txt = args.get("nouveau") or ""
+        nouveau_txt = re.sub(r"(?m)^\s*\d+\| ", "", nouveau_txt) if re.search(r"(?m)^\s*\d+\| ", nouveau_txt) else nouveau_txt
+        remplace = [] if nouveau_txt == "" else nouveau_txt.split("\n")
+        ident, _, ancien = sauvegarder(projet, rel, p)
+        nouveau = "\n".join(lignes[:debut - 1] + remplace + lignes[fin:])
+        ecrire_sur(p, nouveau)
+        plus, moins = compter_lignes(ancien, nouveau)
+        return {"ok": True, "enregistre": True, **verifier_code(rel, nouveau),
+                "note": "Lignes %d-%d remplacees par %d ligne(s). Les numeros apres ont bouge : relis avant une autre "
+                        "reparation par lignes." % (debut, fin, len(remplace)),
+                "_evenement": {"action": "modifie", "chemin": projet + "/" + rel,
+                               "sauvegarde": ident, "plus": plus, "moins": moins, "diff": diff_lignes(ancien, nouveau)}}
     return {"erreur": "outil inconnu"}
 
 
@@ -1017,6 +1174,50 @@ def id_session(ident):
     if not re.fullmatch(r"[a-z0-9-]{8,40}", ident or ""):
         raise ValueError("Conversation invalide")
     return os.path.join(SESSIONS, ident + ".json")
+
+
+COFFRE = os.path.join(DONNEES, "coffre")
+os.makedirs(COFFRE, exist_ok=True)
+
+
+def coffre_chemin(projet):
+    return os.path.join(COFFRE, nom_valide(projet) + ".json")
+
+
+def coffre_lire(projet):
+    try:
+        with open(coffre_chemin(projet), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def coffre_ecrire(projet, cles):
+    with open(coffre_chemin(projet), "w", encoding="utf-8") as f:
+        json.dump(cles, f, ensure_ascii=False, indent=1)
+
+
+def masque(v):
+    return (v[:4] + "…" + v[-4:]) if len(v) > 12 else "••••"
+
+
+def coffre_vers_env(projet):
+    """Ecrit .env dans le projet et s'assure que .gitignore l'exclut (la cle ne part jamais sur GitHub)."""
+    cles = coffre_lire(projet)
+    base = chemin_sur(nom_valide(projet))
+    lignes = ["# Cles du Ti-Labo — ne jamais mettre ce fichier sur GitHub"]
+    lignes += ["%s=%s" % (n, v["valeur"]) for n, v in sorted(cles.items())]
+    with open(os.path.join(base, ".env"), "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lignes) + "\n")
+    gi = os.path.join(base, ".gitignore")
+    contenu = ""
+    if os.path.isfile(gi):
+        with open(gi, "r", encoding="utf-8", errors="ignore") as f:
+            contenu = f.read()
+    if not re.search(r"(?m)^\.env\s*$", contenu):
+        with open(gi, "a", encoding="utf-8") as f:
+            f.write(("" if not contenu or contenu.endswith("\n") else "\n") + ".env\n")
+    return len(cles)
 
 
 def annuler_changement(ident):
@@ -1240,6 +1441,8 @@ class Gestion(BaseHTTPRequestHandler):
             return self.envoyer(200, page, "text/html; charset=utf-8")
         if u.path.startswith("/web/"):
             return self.statique(u.path[5:])
+        if u.path.startswith("/apercu/"):
+            return self.apercu(urllib.parse.unquote(u.path[len("/apercu/"):]))
         if u.path.startswith("/images/"):
             if not secrets.compare_digest(q.get("t", ""), JETON):
                 return self.erreur("Acces refuse", 403)
@@ -1282,6 +1485,10 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, squelette_projet(q.get("projet", "")))
             if route == "conversations":
                 return self.envoyer(200, liste_sessions(q.get("mode"), q.get("q", "")))
+            if route == "coffre":
+                cles = coffre_lire(q.get("projet", ""))
+                return self.envoyer(200, [{"nom": n, "service": v.get("service", ""), "apercu": masque(v["valeur"]),
+                                           "date": v.get("date", 0)} for n, v in sorted(cles.items())])
             if route == "schemas":
                 return self.envoyer(200, sorted((f[:-4] for f in os.listdir(SCHEMAS) if f.endswith(".mmd")), key=str.lower))
             if route == "images":
@@ -1290,6 +1497,39 @@ class Gestion(BaseHTTPRequestHandler):
             return self.erreur("Route inconnue", 404)
         except Exception as e:
             return self.erreur(e)
+
+    def apercu(self, reste):
+        """Sert les fichiers d'un projet pour l'apercu en direct du Studio.
+        Isole : en-tete CSP « sandbox » (origine opaque), le projet ne peut pas toucher au Ti-Labo."""
+        morceaux = reste.split("/", 2)
+        if len(morceaux) < 2 or not secrets.compare_digest(morceaux[0], JETON):
+            return self.erreur("Acces refuse", 403)
+        projet = morceaux[1]
+        rel = morceaux[2] if len(morceaux) > 2 else ""
+        try:
+            base = chemin_sur(nom_valide(projet))
+            p = os.path.realpath(os.path.join(base, rel or "index.html"))
+            if os.path.isdir(p):
+                p = os.path.join(p, "index.html")
+            if not p.startswith(os.path.realpath(base) + os.sep) or not os.path.isfile(p):
+                return self.erreur("Introuvable", 404)
+            if any(seg in IGNORER or seg.startswith(".") for seg in os.path.relpath(p, base).split(os.sep)):
+                return self.erreur("Introuvable", 404)
+        except ValueError:
+            return self.erreur("Introuvable", 404)
+        import mimetypes
+        type_ = mimetypes.guess_type(p)[0] or "application/octet-stream"
+        if type_.startswith("text/") or type_ in ("application/javascript", "application/json"):
+            type_ += "; charset=utf-8"
+        with open(p, "rb") as f:
+            corps = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", type_)
+        self.send_header("Content-Length", str(len(corps)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-modals allow-popups")
+        self.end_headers()
+        self.wfile.write(corps)
 
     def statique(self, rel):
         p = os.path.realpath(os.path.join(WEB, rel))
@@ -1349,10 +1589,7 @@ class Gestion(BaseHTTPRequestHandler):
             if route == "images/creer":
                 return self.operation_flux(creer_image, d)
             if route == "fichier":
-                p = chemin_sur(d["chemin"])
-                os.makedirs(os.path.dirname(p), exist_ok=True)
-                with open(p, "w", encoding="utf-8", newline="") as f:
-                    f.write(d["contenu"])
+                ecrire_sur(chemin_sur(d["chemin"]), d["contenu"])
                 return self.envoyer(200, {"ok": True})
             if route == "projet/nouveau":
                 nom = nom_valide(d["nom"])
@@ -1394,6 +1631,11 @@ class Gestion(BaseHTTPRequestHandler):
             if route == "github/deconnecter":
                 ecrire_params({"github_token": "", "github_utilisateur": ""})
                 return self.envoyer(200, {"ok": True})
+            if route == "github/envoyer":
+                def tache(d2, envoyer):
+                    r = envoyer_github(d2["projet"], d2.get("depot"), d2.get("prive", True), d2.get("message"), envoyer)
+                    envoyer({"fini": True, **r})
+                return self.operation_flux(tache, d)
             if route == "github/cloner":
                 return self.envoyer(200, {"nom": cloner(d["url"], d.get("nom"))})
             if route == "memoire/indexer":
@@ -1405,6 +1647,30 @@ class Gestion(BaseHTTPRequestHandler):
             if route == "agent/autoriser":
                 repondre_autorisation(d.get("id"), d.get("ok"))
                 return self.envoyer(200, {"ok": True})
+            if route == "coffre/ajouter":
+                projet = d.get("projet", "")
+                nom = (d.get("nom") or "").strip().upper()
+                if not re.fullmatch(r"[A-Z][A-Z0-9_]{1,60}", nom):
+                    raise ValueError("Nom invalide : lettres, chiffres et _ (ex. VERCEL_TOKEN)")
+                valeur = (d.get("valeur") or "").strip()
+                if not valeur or "\n" in valeur or len(valeur) > 4000:
+                    raise ValueError("Valeur de cle invalide")
+                cles = coffre_lire(projet)
+                cles[nom] = {"valeur": valeur, "service": (d.get("service") or "")[:40], "date": time.time()}
+                coffre_ecrire(projet, cles)
+                return self.envoyer(200, {"ok": True})
+            if route == "coffre/valeur":
+                v = coffre_lire(d.get("projet", "")).get(d.get("nom", ""))
+                if not v:
+                    raise ValueError("Cle introuvable")
+                return self.envoyer(200, {"valeur": v["valeur"]})
+            if route == "coffre/supprimer":
+                cles = coffre_lire(d.get("projet", ""))
+                cles.pop(d.get("nom", ""), None)
+                coffre_ecrire(d.get("projet", ""), cles)
+                return self.envoyer(200, {"ok": True})
+            if route == "coffre/env":
+                return self.envoyer(200, {"nb": coffre_vers_env(d.get("projet", ""))})
             if route == "conversations/sauver":
                 chemin = id_session(d.get("id"))
                 msgs = []
@@ -1531,6 +1797,12 @@ class Gestion(BaseHTTPRequestHandler):
                             + ("\n- … (%d autres)" % (len(liste) - 200) if len(liste) > 200 else "")
                             + "\nModifie le fichier existant qui correspond a la demande ; cree un nouveau fichier "
                               "seulement s'il n'en existe aucun qui convient. Utilise toujours ces chemins exacts.")
+            cles = sorted(coffre_lire(projet).keys())
+            if cles:
+                systeme += ("\nCles API rangees dans le coffre du projet (valeurs secretes, jamais montrees) : %s. "
+                            "Dans le code, lis-les depuis les variables d'environnement / le fichier .env "
+                            "(ex. os.environ[\"%s\"] en Python, process.env.%s en JavaScript). N'ecris JAMAIS une "
+                            "cle en clair dans un fichier." % (", ".join(cles), cles[0], cles[0]))
             if (d.get("fichier") or "").startswith(projet + "/"):
                 systeme += "\nLe fichier ouvert dans l'editeur est « %s » : c'est probablement celui dont on parle." % d["fichier"][len(projet) + 1:]
         self._projet = projet
@@ -1633,7 +1905,7 @@ class Gestion(BaseHTTPRequestHandler):
             self.ligne({"commande": {"commande": cmd, "code": res["code"], "sortie": res["sortie"][-8000:]}})
             return {"code_sortie": res["code"], "sortie": res["sortie"][-12000:]}
         res = appeler_outil(nom, args, getattr(self, "_projet", None))
-        if isinstance(res, dict) and res.get("ok") and nom in ("ecrire_fichier", "modifier_fichier"):
+        if isinstance(res, dict) and res.get("ok") and nom in ("ecrire_fichier", "modifier_fichier", "remplacer_lignes"):
             try:
                 self.__dict__.setdefault("_lus", set()).add(chemin_projet(self._projet, args.get("chemin"))[1])
             except (ValueError, TypeError):
@@ -1645,7 +1917,7 @@ class Gestion(BaseHTTPRequestHandler):
     def garde_fichier(self, nom, args):
         """Garde-fous pour toujours ecrire dans le BON fichier."""
         projet = getattr(self, "_projet", None)
-        if not projet or nom not in ("ecrire_fichier", "modifier_fichier", "lire_fichier"):
+        if not projet or nom not in ("ecrire_fichier", "modifier_fichier", "lire_fichier", "remplacer_lignes"):
             return None
         try:
             p, rel = chemin_projet(projet, args.get("chemin"))
