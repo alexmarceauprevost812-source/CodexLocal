@@ -284,6 +284,7 @@ class ServeurLocal(private val ctx: Context) {
             "/logos.js" -> asset(out, "logos.js", "text/javascript; charset=utf-8")
             "/noel.js" -> asset(out, "noel.js", "text/javascript; charset=utf-8")
             "/yeux.js" -> asset(out, "yeux.js", "text/javascript; charset=utf-8")
+            "/halloween.js" -> asset(out, "halloween.js", "text/javascript; charset=utf-8")
             "/tilabo/memoire", "/tilabo/memoire/ajouter", "/tilabo/memoire/supprimer", "/tilabo/memoire/chercher" -> {
                 val d = JSONObject(String(r.corps, Charsets.UTF_8).ifBlank { "{}" })
                 try {

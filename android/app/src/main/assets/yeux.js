@@ -34,7 +34,7 @@
 
   const calme = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const visages = [];
-  let etat = "repos", minuterie = null;
+  let etat = "repos", minuterie = null, souris = 0; // souris : dernier moment ou les yeux ont suivi la souris
 
   function creer(grand) {
     const d = document.createElement("div");
@@ -57,7 +57,8 @@
     if (calme) return;
     const pas = () => {
       if (etat === "repos") {
-        if (Math.random() < .45) cligner();
+        // quand ils suivent la souris, les yeux ne regardent plus au hasard (ils clignent seulement)
+        if (Math.random() < .45 || Date.now() - souris < 2500) cligner();
         else regarder(Math.random() * 2 - 1, Math.random() * 1.4 - .7);
       } else if (etat === "pense") {
         regarder(Math.random() < .5 ? -.8 : .8, -.8);
@@ -84,6 +85,8 @@
       vivre();
     },
     get actuel() { return etat; },
+    /** Faire regarder les yeux vers un point (-1..1 sur chaque axe), ex. la souris. */
+    regarderVers(x, y) { souris = Date.now(); if (!calme && etat !== "parle" && etat !== "pense") regarder(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y))); },
   };
   vivre();
 })();
