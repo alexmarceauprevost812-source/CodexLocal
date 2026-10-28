@@ -191,18 +191,40 @@ function ouvrir(app){
   f.innerHTML = `<div class="tb"><span class="e">${app.e}</span><b>${echap(app.n)}</b><button title="Réduire" data-b="min">—</button><button title="Agrandir" data-b="max">▢</button><button class="x" title="Fermer" data-b="x">✕</button></div>
     <iframe src="${adresse(app)}" title="${echap(app.n)}"></iframe><div class="poignee"></div>`;
   document.body.appendChild(f);
-  fenetres.set(app.id, {f, app});
-  f.addEventListener("pointerdown", () => activer(app.id));
-  f.querySelector('[data-b="x"]').onclick = () => fermer(app.id);
+  // w.app peut changer : une appli peut en ouvrir une autre dans sa fenetre (Jasette -> Codex)
+  const w = {f, app};
+  fenetres.set(app.id, w);
+  f.addEventListener("pointerdown", () => activer(w.app.id));
+  const cadre = f.querySelector("iframe");
+  cadre.addEventListener("load", () => {
+    let doc, chemin;
+    try { doc = cadre.contentDocument; chemin = cadre.contentWindow.location.pathname; } catch (_) { return; }
+    // toucher ou ecrire dans le contenu de la fenetre la ramene devant (les clics dans une iframe ne remontent pas)
+    if (doc) {
+      doc.addEventListener("pointerdown", () => activer(w.app.id), true);
+      doc.addEventListener("focusin", () => { if (!w.f.classList.contains("active")) activer(w.app.id); }, true);
+    }
+    // la fenetre affiche maintenant une autre appli : on la renomme pour que les icones et la barre restent justes
+    const base = u => (u || "").split(/[?#]/)[0];
+    if (chemin === base(w.app.u)) return;
+    const autre = APPS.find(a => a.u && base(a.u) === chemin && !a.action);
+    if (!autre || autre.id === w.app.id) return;
+    if (fenetres.has(autre.id) && fenetres.get(autre.id) !== w) fermer(autre.id);
+    fenetres.delete(w.app.id); w.app = autre; fenetres.set(autre.id, w);
+    f.querySelector(".tb .e").textContent = autre.e; f.querySelector(".tb b").textContent = autre.n;
+    cadre.title = autre.n;
+    dessinerTaches();
+  });
+  f.querySelector('[data-b="x"]').onclick = () => fermer(w.app.id);
   f.querySelector('[data-b="min"]').onclick = e => { e.stopPropagation(); f.classList.add("min"); dessinerTaches(); };
   f.querySelector('[data-b="max"]').onclick = () => f.classList.toggle("max");
-  if (tel) { activer(app.id); return; }
+  if (tel) { activer(w.app.id); return; }
   glisser(f.querySelector(".tb"), (dx, dy, x0, y0) => { if (!f.classList.contains("max")) { f.style.left = (x0 + dx) + "px"; f.style.top = Math.max(0, y0 + dy) + "px"; } },
     () => [f.offsetLeft, f.offsetTop]);
   glisser(f.querySelector(".poignee"), (dx, dy, w0, h0) => { f.style.width = Math.max(320, w0 + dx) + "px"; f.style.height = Math.max(240, h0 + dy) + "px"; },
     () => [f.offsetWidth, f.offsetHeight]);
   f.querySelector(".tb").ondblclick = () => f.classList.toggle("max");
-  activer(app.id);
+  activer(w.app.id);
 }
 /** /jasette#ia -> /jasette?fenetre=1#ia (le ?fenetre=1 va avant le #) */
 function adresse(app){
