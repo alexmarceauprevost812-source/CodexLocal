@@ -46,6 +46,7 @@ import com.codexlocal.project.Projet
 import com.codexlocal.studio.StudioActivity
 import com.codexlocal.studio.MoteurApplication
 import com.codexlocal.usage.CompteurUsage
+import com.codexlocal.web.MoteurCrypto
 import com.codexlocal.web.RechercheWeb
 import com.codexlocal.web.ResultatWeb
 import com.codexlocal.rea.ReaClient
@@ -1111,9 +1112,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val baseConfig = prefs.config().forMode(mode)
-        val cfg = if (prefs.rechercheWebAuto) baseConfig.copy(
-            systemPrompt = baseConfig.systemPrompt + "\n\n" + RechercheWeb.CONSIGNE
-        ) else baseConfig
+        var consignes = baseConfig.systemPrompt
+        if (prefs.rechercheWebAuto) consignes += "\n\n" + RechercheWeb.CONSIGNE
+        if (mode == AssistantMode.CHAT) consignes += "\n\n" + CONSIGNE_CHAT_RICHE
+        val cfg = if (consignes != baseConfig.systemPrompt) baseConfig.copy(systemPrompt = consignes) else baseConfig
 
         binding.input.setText("")
         val user = Message.user(text)
@@ -1126,6 +1128,7 @@ class MainActivity : AppCompatActivity() {
         job = lifecycleScope.launch {
             val annulations = mutableListOf<Annulation>()
             var resultatWeb: ResultatWeb? = null
+            var cours: MoteurCrypto.Cours? = null
             try {
                 val requeteWeb = if (prefs.rechercheWebAuto) RechercheWeb.requete(text) else null
                 if (requeteWeb != null) {
@@ -1140,6 +1143,20 @@ class MainActivity : AppCompatActivity() {
                     user.envoi = user.content + "\n\n" + resultat.contexte()
                     resultatWeb = resultat
                 }
+                // Prix d'une crypto demandé : cours en direct + logo, donnés à l'IA et affichés en carte.
+                val idCrypto = if (prefs.rechercheWebAuto) MoteurCrypto.detecter(text) else null
+                if (idCrypto != null) {
+                    binding.status.text = getString(R.string.crypto_recherche)
+                    cours = try {
+                        MoteurCrypto.obtenir(idCrypto)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                    cours?.let { user.envoi = (user.envoi ?: user.content) + "\n\n" + it.contexte() }
+                }
+                binding.status.text = getString(R.string.ia_travaille)
                 if (mode == AssistantMode.EQUIPE) {
                     jouerEquipe(user, cfg, annulations)
                 } else {
@@ -1152,6 +1169,7 @@ class MainActivity : AppCompatActivity() {
             } finally {
                 val reponse = messages.lastOrNull()
                 if (reponse != null && !reponse.isUser) {
+                    cours?.annoter(reponse)
                     resultatWeb?.annoterReponse(reponse)
                     adapter.notifyItemChanged(messages.size - 1)
                 }
@@ -1682,3 +1700,9 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
+/** Mise en forme vivante du mode Chat : émojis, liens et logos dans les réponses. */
+private const val CONSIGNE_CHAT_RICHE =
+    "Mise en forme : ajoute quelques émojis pertinents (🙂🚀🔥) pour rendre tes réponses vivantes, sans exagérer. " +
+        "Pour un lien, écris [texte](https://adresse) ; donne seulement des adresses que tu connais avec certitude. " +
+        "Pour montrer le logo d'un site, d'une appli ou d'une marque, écris ![logo](logo:domaine.com) juste avant son nom, " +
+        "par exemple ![logo](logo:github.com) GitHub. Si un cours de crypto t'est fourni, utilise exactement ses chiffres."

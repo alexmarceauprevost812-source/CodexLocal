@@ -38,7 +38,11 @@ data class ResultatWeb(val requete: String, val sources: List<SourceWeb>, val in
     fun resume(): String = if (indisponible) {
         "Recherche Internet indisponible ; réponse avec les connaissances du modèle."
     } else {
-        "Sources Internet consultées :\n" + sources.joinToString("\n") { "- ${it.url}" }
+        "🔗 Sources Internet consultées :\n" + sources.joinToString("\n") { source ->
+            // Petit logo du site devant chaque lien (cliquable dans le chat).
+            val hote = runCatching { URI(source.url).host }.getOrNull()
+            if (hote != null) "- ![logo](logo:$hote) ${source.url}" else "- ${source.url}"
+        }
     }
 }
 
