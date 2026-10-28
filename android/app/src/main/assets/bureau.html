@@ -387,6 +387,23 @@ function changerFond(){
   localStorage.setItem("tilabo-fond", FONDS[i]); appliquerFond();
 }
 function appliquerFond(){ $("#fond").className = localStorage.getItem("tilabo-fond") || ""; }
+// La permission de position arrive dans la page du bureau : on la relaie aux fenetres (ex. Jasette qui attend la meteo)
+addEventListener("tl-position", e => document.querySelectorAll(".fen iframe").forEach(f => {
+  try { f.contentWindow.dispatchEvent(new CustomEvent("tl-position", {detail: e.detail})); } catch (_) {}
+}));
+// Mise a jour de l'APK Ti-Labo : une bulle sur le bureau quand une nouvelle version est disponible
+document.addEventListener("tl-maj", () => {
+  const r = window.TL && TL.maj;
+  if (!r || !r.disponible || TL.hote === "codexlocal" || document.querySelector(".bulleMaj")) return;
+  const b = document.createElement("div"); b.className = "bulleMaj"; b.setAttribute("role", "status");
+  b.innerHTML = "⬆️ <b>Ti-Labo " + echap(r.derniere) + "</b> est disponible" + (r.taille_mo ? " (" + r.taille_mo + " Mo)" : "") +
+    "<div style='display:flex;gap:8px;margin-top:8px'><button class='plein' style='background:var(--or);color:#000;border:0;border-radius:10px;min-height:36px;padding:0 12px;font-weight:700'>Installer</button>" +
+    "<button style='background:transparent;color:#ddd;border:1px solid #444;border-radius:10px;min-height:36px;padding:0 12px'>Plus tard</button></div>";
+  const [ok, non] = b.querySelectorAll("button");
+  ok.onclick = () => TL.installerMaj && TL.installerMaj(ok);
+  non.onclick = () => b.remove();
+  document.body.appendChild(b);
+});
 // fond change depuis Parametres (dans une fenetre) : le bureau ouvert suit tout de suite
 addEventListener("storage", e => { if (e.key === "tilabo-fond") appliquerFond(); });
 
