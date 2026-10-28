@@ -369,7 +369,8 @@ $("#bureau").addEventListener("contextmenu", (e) => {
   e.preventDefault();
   const m = $("#ctx");
   m.innerHTML = "<div data-c='rafr'>🔄 Actualiser</div><div data-c='fond'>🖼️ Changer le fond d'écran</div><div data-c='explo'>🗄️ Ouvrir le dossier des projets</div><div data-c='param'>⚙️ Paramètres</div>" +
-    (window.TiNoel ? "<div data-c='noel'>🎄 Thème de Noël : " + (TiNoel.actif() ? "désactiver" : "activer") + "</div>" : "");
+    (window.TiNoel ? "<div data-c='noel'>🎄 Thème de Noël : " + (TiNoel.actif() ? "désactiver" : "activer") + "</div>" : "") +
+    (window.TiHalloween ? "<div data-c='halloween'>🦇 Thème Halloween : " + (TiHalloween.actif() ? "désactiver" : "activer") + "</div>" : "");
   Object.assign(m.style, {display: "block", left: Math.min(e.clientX, innerWidth - 240) + "px", top: Math.min(e.clientY, innerHeight - 220) + "px"});
   m.onclick = (ev) => {
     const c = ev.target.dataset.c; m.style.display = "none";
@@ -378,6 +379,7 @@ $("#bureau").addEventListener("contextmenu", (e) => {
     if (c === "explo") lancer(app("explorateur"));
     if (c === "param") lancer(app("parametres"));
     if (c === "noel" && window.TiNoel) TiNoel.basculer();
+    if (c === "halloween" && window.TiHalloween) TiHalloween.basculer();
   };
 });
 const FONDS = ["", "radial-gradient(1000px 700px at 20% 85%,#4a1606,#050505 70%)", "linear-gradient(160deg,#0b1026,#050505 62%)", "radial-gradient(900px 700px at 70% 10%,#0f2a17,#050505 70%)", "linear-gradient(135deg,#1f2937,#0b0b0c 70%)"];
@@ -534,5 +536,7 @@ function verrouiller() {
 </script>
 <script src="/web/agenda.js"></script>
 <script src="/web/noel.js" data-barre="52px"></script>
+<script src="/web/yeux.js"></script>
+<script src="/web/halloween.js" data-barre="52px"></script>
 </body>
 </html>
