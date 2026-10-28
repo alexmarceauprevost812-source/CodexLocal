@@ -25,7 +25,19 @@
     box-shadow:0 0 calc(var(--t)*.16) rgba(239,16,16,.9),0 0 calc(var(--t)*.34) rgba(239,16,16,.45)!important}
   html.halloween .ti-yeux.cligne .ti-oeil{transform:none!important;background:#fff!important;
     box-shadow:0 0 calc(var(--t)*.2) #fff,0 0 calc(var(--t)*.4) rgba(255,255,255,.7)!important}
-  html.halloween .ti-yeux .points i{background:#ef1010!important}`;
+  html.halloween .ti-yeux .points i{background:#ef1010!important}
+  /* forme de yeux de demon : en biais, l'air fache, avec une pupille fendue */
+  html.halloween .ti-yeux .regard{gap:calc(var(--t)*.1)!important;
+    filter:drop-shadow(0 0 calc(var(--t)*.06) rgba(239,16,16,.95)) drop-shadow(0 0 calc(var(--t)*.14) rgba(239,16,16,.5))}
+  html.halloween .ti-yeux.cligne .regard{filter:drop-shadow(0 0 calc(var(--t)*.08) #fff)}
+  html.halloween .ti-oeil{width:calc(var(--t)*.32)!important;height:calc(var(--t)*.2)!important;border-radius:0!important;position:relative}
+  html.halloween .ti-oeil:first-child{clip-path:polygon(0 8%,100% 52%,88% 100%,22% 92%)}
+  html.halloween .ti-oeil:last-child{clip-path:polygon(0 52%,100% 8%,78% 92%,12% 100%)}
+  html.halloween .ti-oeil::after{content:"";position:absolute;left:50%;top:22%;width:12%;height:70%;transform:translateX(-50%);
+    border-radius:50%;background:#140000}
+  html.halloween .ti-yeux.cligne .ti-oeil::after{background:#ffd0d0}
+  html.halloween .ti-yeux.parle .ti-oeil,html.halloween .ti-yeux.pense .ti-oeil,html.halloween .ti-yeux.ecoute .ti-oeil,
+  html.halloween .ti-yeux.oups .ti-oeil{height:calc(var(--t)*.2)!important;transform:none}`;
 
   const cssBureau = `
   /* a gauche de la colonne des gadgets, pour ne rien cacher */
