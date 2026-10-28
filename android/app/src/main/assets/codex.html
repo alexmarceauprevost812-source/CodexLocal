@@ -676,7 +676,10 @@ $("#mode").onchange = () => { try { localStorage.setItem("tilabo-codex-mode", $(
 window.tlArrivee = async () => {
   try {
     const p = JSON.parse(localStorage.getItem("tilabo-projet") || "null");
-    if (p && (!projet || p.chemin !== projet.chemin)) { projet = p; $("#projetNom").innerHTML = "<b>" + echap(p.nom) + "</b> · " + echap(p.ou); await chargerArbre(); }
+    // autre projet : on repart a neuf (comme avant), pour qu'aucun bouton Annuler ni action en cours
+    // du projet precedent ne puisse ecrire dans le nouveau
+    if (p && projet && p.chemin !== projet.chemin) { location.reload(); return; }
+    if (p && !projet) { projet = p; $("#projetNom").innerHTML = "<b>" + echap(p.nom) + "</b> · " + echap(p.ou); await chargerArbre(); }
   } catch (_) {}
   await planRecu();
 };
