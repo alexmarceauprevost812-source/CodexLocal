@@ -12,7 +12,10 @@
       theme: "base",
       // htmlLabels:false = texte SVG pur, indispensable pour exporter en video/PNG
       htmlLabels: false,
-      flowchart: { htmlLabels: false, curve: "basis" },
+      flowchart: { htmlLabels: false, curve: "basis", padding: 14 },
+      // Coins arrondis : ce CSS est inclus DANS le schema, donc aussi dans la video et l'image
+      themeCSS: ".node rect, .node .label-container, rect.basic, .cluster rect, .actor, .note, rect.task { rx: 14px; ry: 14px; }" +
+        " .edgeLabel rect, .labelBkg { rx: 8px; ry: 8px; } .node polygon { stroke-linejoin: round; }",
       themeVariables: {
         darkMode: true, background: "#000000", fontFamily: "Segoe UI, system-ui, sans-serif", fontSize: "16px",
         primaryColor: "#1F1208", primaryBorderColor: "#FF7A1A", primaryTextColor: "#FFFFFF",
@@ -313,6 +316,7 @@
   // Dessine un schema dans n'importe quelle « carte » (element qui contient .schema-dessin)
   async function dessiner(carte, code, animation = true) {
     if (!initialiser()) throw new Error("Moteur de schémas absent");
+    if (window.TiArtefact && window.TiArtefact.preparer) code = window.TiArtefact.preparer(code); // couleurs + images
     let rendu;
     try {
       rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, code);

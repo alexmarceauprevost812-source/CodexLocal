@@ -194,7 +194,15 @@ function creerChat(conteneur, mode) {
       ${mode === "codex" ? "" : `<label class="interrupteur" title="L'IA répond avec un schéma animé (exportable en vidéo)"><input type="checkbox" data-o="schema"><span class="rail"></span>${ic("studio")}Schéma</label>`}
       <label class="interrupteur" title="Utiliser la mémoire de la clé"><input type="checkbox" data-o="memoire"><span class="rail"></span>${ic("memoire")}Mémoire</label>
       <span class="espace"></span>
-      <button class="btn petit" data-o="vider">Nouvelle jasette</button>
+      <button class="btn petit" data-o="historique" aria-expanded="false">🕘 Historique</button>
+      <button class="btn petit" data-o="vider">${mode === "codex" ? "Nouvelle session" : "Nouvelle jasette"}</button>
+    </div>
+    <div class="historique" hidden>
+      <div class="hist-tete">
+        <input class="champ" type="search" placeholder="Chercher dans toutes les conversations…" aria-label="Chercher dans l'historique">
+        <button class="btn-ic petit" data-h="fermer" aria-label="Fermer l'historique">✕</button>
+      </div>
+      <div class="hist-liste" role="list"></div>
     </div>
     <div class="fil" aria-live="polite"></div>
     <div class="composer">
@@ -222,7 +230,73 @@ function creerChat(conteneur, mode) {
   // Le Codex n'a pas de plan ni de schema : ca se fait dans la Jasette
   const choixPlan = $('[data-s="plan"]', conteneur) || { value: "direct", addEventListener() {} };
   const cleStock = "tilabo-" + mode;
-  let hist = [], images = [], controleur = null;
+  let hist = [], images = [], controleur = null, sessionId = null;
+  const nouvelId = () => Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  async function sauverSession() {
+    if (!hist.length) return;
+    sessionId = sessionId || nouvelId();
+    const premier = hist.find((m) => m.role === "user");
+    try {
+      await api("conversations/sauver", {
+        id: sessionId, mode, modele: sel.value, projet: mode === "codex" ? etat.projet : "",
+        titre: (premier?.content || "Conversation").replace(/^Réalise ce plan[^\n]*\n+/, "").slice(0, 80),
+        messages: hist,
+      });
+    } catch { /* l'historique ne doit jamais bloquer le chat */ }
+  }
+
+  // ---- historique : retrouver et rouvrir les conversations
+  const panHist = $(".historique", conteneur), listeHist = $(".hist-liste", conteneur), chercheHist = $('input[type="search"]', panHist);
+  const btHist = $('[data-o="historique"]', conteneur);
+  let minuteurHist = null;
+  const dateCourte = (t) => new Date(t * 1000).toLocaleString("fr-CA", { dateStyle: "medium", timeStyle: "short" });
+  async function remplirHistorique() {
+    let liste = [];
+    try { liste = await api("conversations?mode=" + mode + "&q=" + encodeURIComponent(chercheHist.value)); } catch {}
+    listeHist.innerHTML = liste.map((c) => `
+      <div class="hist-item ${c.id === sessionId ? "actif" : ""}" role="listitem">
+        <button class="hist-ouvrir" data-id="${esc(c.id)}"><b>${esc(c.titre)}</b>
+          <small>${dateCourte(c.date)} · ${c.nb} messages${c.projet ? " · " + esc(c.projet) : ""}${c.modele ? " · " + esc(c.modele) : ""}</small>
+          ${c.extrait ? `<small class="hist-extrait">… ${esc(c.extrait)} …</small>` : ""}</button>
+        <button class="btn-ic petit" data-sup="${esc(c.id)}" aria-label="Supprimer cette conversation">🗑</button>
+      </div>`).join("") || `<p class="vide">${chercheHist.value ? "Rien trouvé." : "Aucune conversation encore."}</p>`;
+    $$(".hist-ouvrir", listeHist).forEach((b) => (b.onclick = () => rouvrir(b.dataset.id)));
+    $$("[data-sup]", listeHist).forEach((b) => (b.onclick = async () => {
+      if (!confirm("Supprimer cette conversation ? (elle va dans donnees\\corbeille)")) return;
+      await api("conversations/supprimer", { id: b.dataset.sup }).catch((e) => toast(e.message));
+      if (b.dataset.sup === sessionId) sessionId = null;
+      remplirHistorique();
+    }));
+  }
+  function basculerHistorique(ouvrir = panHist.hidden) {
+    panHist.hidden = !ouvrir;
+    btHist.setAttribute("aria-expanded", String(ouvrir));
+    if (ouvrir) { remplirHistorique(); chercheHist.focus(); }
+  }
+  btHist.onclick = () => basculerHistorique();
+  $('[data-h="fermer"]', panHist).onclick = () => basculerHistorique(false);
+  chercheHist.addEventListener("input", () => { clearTimeout(minuteurHist); minuteurHist = setTimeout(remplirHistorique, 250); });
+  async function rouvrir(id) {
+    if (controleur) controleur.abort();
+    let c;
+    try { c = await api("conversations/lire", { id }); } catch (e) { return toast(e.message); }
+    sessionId = c.id;
+    hist = c.messages.map((m) => ({ role: m.role, content: m.content, images: m.images || [] }));
+    fil.innerHTML = "";
+    for (const m of hist) {
+      if (m.role === "user") { bulleUser(m.content, m.images || []); continue; }
+      const d = document.createElement("div");
+      d.className = "msg assistant";
+      d.innerHTML = `<div class="qui">${esc(c.modele || "")}</div><div class="contenu"></div>`;
+      $(".contenu", d).innerHTML = rendreMarkdown(m.content);
+      fil.appendChild(d);
+      if (window.TiSchemas && mode !== "codex") TiSchemas.activer($(".contenu", d)).catch(() => {});
+    }
+    if (mode === "codex" && c.projet && c.projet !== etat.projet) { await choisirProjet(c.projet).catch(() => {}); rendreCodexProjets?.(); }
+    fil.scrollTop = fil.scrollHeight;
+    basculerHistorique(false);
+    toast("Conversation rouverte : " + (c.titre || ""));
+  }
 
   cases.internet.checked = true;
   if (cases.ecriture) cases.ecriture.checked = true;
@@ -298,7 +372,7 @@ function creerChat(conteneur, mode) {
   zone.addEventListener("input", () => { zone.style.height = "auto"; zone.style.height = Math.min(zone.scrollHeight, 200) + "px"; });
   zone.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); envoyer(); } });
   btEnvoyer.onclick = () => (controleur ? controleur.abort() : envoyer());
-  $('[data-o="vider"]', conteneur).onclick = () => { if (controleur) controleur.abort(); hist = []; fil.innerHTML = ""; accueil(); };
+  $('[data-o="vider"]', conteneur).onclick = () => { if (controleur) controleur.abort(); hist = []; sessionId = null; fil.innerHTML = ""; accueil(); };
 
   function accueil() {
     fil.innerHTML = `<div class="vide">${mode === "codex"
@@ -352,6 +426,7 @@ function creerChat(conteneur, mode) {
         mode, modele: sel.value, messages: hist, plan,
         internet: cases.internet.checked, memoire: cases.memoire.checked, schema: !!cases.schema?.checked,
         schema_actuel: mode === "jasette" && window.TiArtefact ? TiArtefact.actuel() : null,
+        images_ids: mode === "jasette" && window.TiArtefact && imgs.length ? imgs.map((x) => TiArtefact.enregistrerImage(x)) : null,
         fichier: mode === "codex" ? etat.fichier : null, projet: etat.projet,
         ecriture: mode === "codex" && (!!cases.ecriture?.checked || !!cases.agent?.checked || !!cases.turbo?.checked),
         agent: mode === "codex" && (!!cases.agent?.checked || !!cases.turbo?.checked),
@@ -382,6 +457,7 @@ function creerChat(conteneur, mode) {
       btEnvoyer.setAttribute("aria-label", "Envoyer");
     }
     if (reponse) hist.push({ role: "assistant", content: reponse });
+    sauverSession();
     if (modifies.size) apresModifs(modifies);
     if (reponse && plan === "planifier" && facon === "auto" && !planForce) {
       // Plan puis code, sans attendre de validation

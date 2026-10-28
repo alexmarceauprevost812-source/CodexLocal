@@ -649,6 +649,8 @@ def etiquette_outil(nom, args):
 
 
 # ---------------------------------------------------------------- Codex : lire, creer et ecrire les fichiers du projet
+SESSIONS = os.path.join(DONNEES, "conversations")
+os.makedirs(SESSIONS, exist_ok=True)
 SCHEMAS = os.path.join(DONNEES, "schemas")
 os.makedirs(SCHEMAS, exist_ok=True)
 SAUVEGARDES = os.path.join(DONNEES, "sauvegardes")
@@ -934,6 +936,88 @@ def verifier_code(rel, contenu):
     return {"verification": "syntaxe OK"}
 
 
+def squelette_projet(projet):
+    """Fichiers du projet + liens entre eux (imports Python/JS, src/href HTML) pour le schema squelette."""
+    base = chemin_sur(nom_valide(projet))
+    fichiers = [os.path.relpath(os.path.join(b, f), base).replace("\\", "/")
+                for b, _, fs in marcher(base, limite=400) for f in fs][:150]
+    ensemble = set(fichiers)
+    par_module = {}
+    for f in fichiers:
+        sans_ext = os.path.splitext(f)[0]
+        par_module.setdefault(sans_ext.replace("/", "."), f)
+        par_module.setdefault(os.path.basename(sans_ext), f)
+    liens = set()
+    for f in fichiers:
+        p = os.path.join(base, f)
+        ext = os.path.splitext(f)[1].lower()
+        if ext not in (".py", ".js", ".mjs", ".ts", ".jsx", ".tsx", ".html", ".htm", ".css", ".vue") or os.path.getsize(p) > 400_000:
+            continue
+        try:
+            with open(p, "r", encoding="utf-8", errors="ignore") as fh:
+                texte = fh.read()
+        except OSError:
+            continue
+        cibles = []
+        if ext == ".py":
+            for m in re.finditer(r"^\s*(?:from\s+([.\w]+)\s+import|import\s+([\w.]+))", texte, re.M):
+                mod = (m.group(1) or m.group(2) or "").lstrip(".")
+                if mod:
+                    cibles.append(par_module.get(mod) or par_module.get(mod.split(".")[-1]))
+        else:
+            for m in re.finditer(r"""(?:import[^'"\n]*from\s*|import\s*\(?\s*|require\(\s*|src\s*=\s*|href\s*=\s*|@import\s+(?:url\()?)['"]([^'"#?]+)['"]""", texte):
+                ref = m.group(1)
+                if ref.startswith(("http:", "https:", "//", "data:", "mailto:")):
+                    continue
+                cand = os.path.normpath(os.path.join(os.path.dirname(f), ref)).replace("\\", "/").lstrip("./")
+                for essai in (cand, cand + ".js", cand + ".ts", cand + "/index.js"):
+                    if essai in ensemble:
+                        cibles.append(essai)
+                        break
+        for c in cibles:
+            if c and c != f:
+                liens.add((f, c))
+    return {"fichiers": fichiers, "liens": sorted(liens)[:200]}
+
+
+def liste_sessions(mode=None, recherche=""):
+    res = []
+    q = (recherche or "").strip().lower()
+    for f in os.listdir(SESSIONS):
+        if not f.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(SESSIONS, f), "r", encoding="utf-8") as fh:
+                s = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if mode and s.get("mode") != mode:
+            continue
+        extrait = ""
+        if q:
+            trouve = None
+            for m in s.get("messages", []):
+                t = m.get("content") or ""
+                i = t.lower().find(q)
+                if i >= 0:
+                    trouve = t[max(0, i - 40):i + 80].replace("\n", " ")
+                    break
+            if trouve is None and q not in (s.get("titre") or "").lower():
+                continue
+            extrait = trouve or ""
+        res.append({"id": s["id"], "mode": s.get("mode"), "titre": s.get("titre") or "Sans titre",
+                    "date": s.get("date", 0), "nb": len(s.get("messages", [])), "extrait": extrait,
+                    "modele": s.get("modele", ""), "projet": s.get("projet", "")})
+    res.sort(key=lambda x: -x["date"])
+    return res[:300]
+
+
+def id_session(ident):
+    if not re.fullmatch(r"[a-z0-9-]{8,40}", ident or ""):
+        raise ValueError("Conversation invalide")
+    return os.path.join(SESSIONS, ident + ".json")
+
+
 def annuler_changement(ident):
     if not re.fullmatch(r"[0-9-]+[0-9a-f]{6}", ident or ""):
         raise ValueError("Sauvegarde invalide")
@@ -1079,9 +1163,13 @@ INVITE_OUTILS = ("\n\nTu as des outils : recherche_web, lire_page, chercher_code
                  "sous « Sources : ».")
 INVITE_SCHEMA_TOUJOURS = ("\n\nSi on te demande un schema, un diagramme, une carte ou un plan visuel, reponds avec un bloc "
                           "```mermaid valide (flowchart TD, sequenceDiagram, mindmap, classDiagram, timeline...). Le Ti-Labo "
-                          "l'anime et peut en faire une video. Mets les textes des boites entre guillemets.")
+                          "l'anime et peut en faire une video. Mets les textes des boites entre guillemets et commence chaque "
+                          "texte par un emoji d'outil de travail qui correspond (🧠 IA, 💾 donnees, ⚙️ moteur, 🛠️ outil, "
+                          "📁 fichiers, 💻 code, 🧪 tests, 🔒 securite, 🌐 web, 📱 appli, 🚀 lancement, ✅ fini). Tu peux "
+                          "colorer avec classDef.")
 INVITE_SCHEMA = ("\n\nMODE SCHEMA : reponds avec UN schema clair dans un bloc ```mermaid (flowchart TD de preference), "
-                 "8 a 20 boites, textes courts entre guillemets, puis 2 ou 3 phrases d'explication.")
+                 "8 a 20 boites, textes courts entre guillemets qui commencent par un emoji d'outil de travail "
+                 "(🧠 ⚙️ 🛠️ 💾 📁 💻 🧪 🔒 🌐 📱 🚀 ✅), puis 2 ou 3 phrases d'explication.")
 INVITE_PLAN = ("\n\nMODE PLAN : n'ecris PAS encore de code. Fais d'abord un plan court et clair : "
                "1) ce que tu as compris du but, 2) les etapes numerotees, 3) les fichiers a creer ou modifier, "
                "4) les questions ou choix a confirmer. Termine par : « Je code quand tu approuves le plan. »")
@@ -1114,6 +1202,9 @@ class Gestion(BaseHTTPRequestHandler):
         self.envoyer(code, {"erreur": str(message)})
 
     def debut_flux(self):
+        if getattr(self, "_flux_ouvert", False):
+            return
+        self._flux_ouvert = True
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -1186,6 +1277,10 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, etat_stockage())
             if route == "polices":
                 return self.envoyer(200, polices_windows())
+            if route == "projet/squelette":
+                return self.envoyer(200, squelette_projet(q.get("projet", "")))
+            if route == "conversations":
+                return self.envoyer(200, liste_sessions(q.get("mode"), q.get("q", "")))
             if route == "schemas":
                 return self.envoyer(200, sorted((f[:-4] for f in os.listdir(SCHEMAS) if f.endswith(".mmd")), key=str.lower))
             if route == "images":
@@ -1309,15 +1404,51 @@ class Gestion(BaseHTTPRequestHandler):
             if route == "agent/autoriser":
                 repondre_autorisation(d.get("id"), d.get("ok"))
                 return self.envoyer(200, {"ok": True})
+            if route == "conversations/sauver":
+                chemin = id_session(d.get("id"))
+                msgs = []
+                for m in (d.get("messages") or [])[-200:]:
+                    if m.get("role") not in ("user", "assistant"):
+                        continue
+                    msgs.append({"role": m["role"], "content": str(m.get("content") or "")[:200000],
+                                 "images": [x for x in (m.get("images") or []) if isinstance(x, str)][:4]})
+                titre = re.sub(r"\s+", " ", str(d.get("titre") or ""))[:80]
+                with open(chemin, "w", encoding="utf-8") as f:
+                    json.dump({"id": d["id"], "mode": d.get("mode"), "titre": titre, "date": time.time(),
+                               "modele": d.get("modele", ""), "projet": d.get("projet") or "", "messages": msgs},
+                              f, ensure_ascii=False)
+                return self.envoyer(200, {"ok": True})
+            if route == "conversations/lire":
+                with open(id_session(d.get("id")), "r", encoding="utf-8") as f:
+                    return self.envoyer(200, json.load(f))
+            if route == "conversations/supprimer":
+                chemin = id_session(d.get("id"))
+                corbeille = os.path.join(DONNEES, "corbeille", "conversations")
+                os.makedirs(corbeille, exist_ok=True)
+                shutil.move(chemin, os.path.join(corbeille, os.path.basename(chemin)))
+                return self.envoyer(200, {"ok": True})
             if route == "schemas/enregistrer":
                 nom = nom_valide(re.sub(r"[^A-Za-z0-9_.\- ]", "-", d.get("nom") or "")[:60].strip("-. ") or "schema")
                 with open(os.path.join(SCHEMAS, nom + ".mmd"), "w", encoding="utf-8") as f:
                     f.write(d.get("code") or "")
+                imgs = {k: v for k, v in (d.get("images") or {}).items()
+                        if re.fullmatch(r"ti-image:\d{1,4}", k) and isinstance(v, str) and v.startswith("data:image/")}
+                chemin_imgs = os.path.join(SCHEMAS, nom + ".images.json")
+                if imgs:
+                    with open(chemin_imgs, "w", encoding="utf-8") as f:
+                        json.dump(imgs, f)
+                elif os.path.isfile(chemin_imgs):
+                    os.remove(chemin_imgs)
                 return self.envoyer(200, {"nom": nom})
             if route == "schemas/lire":
                 nom = nom_valide(d.get("nom") or "")
                 with open(os.path.join(SCHEMAS, nom + ".mmd"), "r", encoding="utf-8") as f:
-                    return self.envoyer(200, {"nom": nom, "code": f.read()})
+                    code = f.read()
+                imgs = {}
+                if os.path.isfile(os.path.join(SCHEMAS, nom + ".images.json")):
+                    with open(os.path.join(SCHEMAS, nom + ".images.json"), "r", encoding="utf-8") as f:
+                        imgs = json.load(f)
+                return self.envoyer(200, {"nom": nom, "code": code, "images": imgs})
             if route == "fichier/annuler":
                 return self.envoyer(200, {"chemin": annuler_changement(d.get("sauvegarde"))})
             if route == "ia/renommer":
@@ -1458,6 +1589,18 @@ class Gestion(BaseHTTPRequestHandler):
                 msg["images"] = imgs
             messages.append(msg)
 
+        # Images : si l'IA choisie ne voit pas, une IA « vision » de la cle les decrit pour elle
+        if any(m.get("images") for m in messages) and not modele.startswith("claude-") and not voit_images(modele, p):
+            self.relais_vision(messages, p)
+        if d.get("images_ids") and mode != "codex":
+            ids = [i for i in d["images_ids"] if re.fullmatch(r"ti-image:\d{1,4}", str(i))][:8]
+            if ids:
+                messages[0]["content"] += (
+                    "\n\nIMAGES DE L'UTILISATEUR utilisables dans un schema : %s. Pour mettre une image dans un "
+                    "schema flowchart, cree un noeud comme ceci (copie exactement) :\n"
+                    "IMG1@{ img: \"%s\", label: \"texte court\", pos: \"b\", w: 140, h: 140, constraint: \"on\" }\n"
+                    "puis relie-le avec des fleches comme une boite normale." % (", ".join(ids), ids[-1]))
+
         if modele.startswith("claude-"):
             return self.jasette_claude(modele, messages, sources, outils)
         if p["moteur"] == "openai":
@@ -1538,6 +1681,32 @@ class Gestion(BaseHTTPRequestHandler):
                                    "au lieu de creer « %s ». Si un nouveau fichier est vraiment voulu, refais le meme appel."
                                    % (ouvert, rel)}
         return None
+
+    def relais_vision(self, messages, p):
+        vision = choisir_modele_vision(p)
+        self.debut_flux()
+        if not vision:
+            self.ligne({"outil": "Cette IA ne voit pas les images — télécharge gemma3:4b (vision) dans IA locales"})
+            for m in messages:
+                if m.pop("images", None):
+                    m["content"] += "\n[Une image etait jointe, mais aucune IA capable de voir les images n'est installee.]"
+            return
+        for m in messages:
+            imgs = m.pop("images", None)
+            if not imgs:
+                continue
+            self.ligne({"outil": "Vision : %s regarde l'image" % vision})
+            try:
+                r = http_json(ollama_url("/api/chat"), {
+                    "model": vision, "stream": False, "keep_alive": "30m",
+                    "messages": [{"role": "user", "images": imgs, "content":
+                                  "Decris cette image en francais, de facon precise et utile : sujet, objets, texte "
+                                  "visible (recopie-le), couleurs, style, disposition. 4 a 10 lignes, sans introduction."}]},
+                    delai=600)
+                desc = (r.get("message") or {}).get("content", "").strip()
+            except Exception as e:
+                desc = "(impossible de decrire l'image : %s)" % e
+            m["content"] += "\n\n[Image jointe — description faite par %s :\n%s]" % (vision, desc)
 
     def options_ollama(self):
         # keep_alive : le modele reste en memoire -> plus de chargement de 10 a 60 s entre deux messages
@@ -2211,6 +2380,46 @@ MODELES_CLAUDE = [
 
 def cle_claude():
     return (lire_params().get("anthropic_key") or "").strip()
+
+
+_capacites = {}
+
+
+def capacites_modele(modele):
+    if modele in _capacites:
+        return _capacites[modele]
+    try:
+        r = http_json(ollama_url("/api/show"), {"model": modele}, delai=10)
+        cap = set(r.get("capabilities") or [])
+        if not cap:  # anciennes versions d'Ollama : on regarde la famille / le projecteur
+            infos = json.dumps(r.get("model_info", {})) + json.dumps(r.get("projector_info", {}))
+            if "vision" in infos or r.get("projector_info"):
+                cap.add("vision")
+    except Exception:
+        cap = set()
+    _capacites[modele] = cap
+    return cap
+
+
+def voit_images(modele, p):
+    if p.get("moteur") == "openai":
+        return True  # on ne peut pas le savoir : on essaie
+    return "vision" in capacites_modele(modele)
+
+
+def choisir_modele_vision(p):
+    if p.get("moteur") == "openai":
+        return None
+    try:
+        noms = [m["name"] for m in http_json(ollama_url("/api/tags"), delai=5).get("models", [])]
+    except Exception:
+        return None
+    prefere = ["gemma3", "qwen2.5vl", "qwen3-vl", "llava", "minicpm-v", "llama3.2-vision", "moondream"]
+    noms.sort(key=lambda n: next((i for i, x in enumerate(prefere) if n.startswith(x)), 99))
+    for n in noms:
+        if "vision" in capacites_modele(n):
+            return n
+    return None
 
 
 def outils_claude(outils=None):
