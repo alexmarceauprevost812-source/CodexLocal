@@ -3,82 +3,436 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ti-Labo</title>
+<title>Ti-Labo — Bureau</title>
 <style>
-:root{--orange:#FF7A1A;--bord:#262626;--doux:#B3B3B3}
+:root{--or:#FF7A1A;--or2:#ff9a4d;--bord:#262626;--doux:#a3a3a3;--barre:56px}
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif}
-header{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--bord)}
-header b{flex:1;color:var(--orange);font-size:17px}
-button{font:inherit;border-radius:10px;min-height:38px;padding:0 12px;background:#161616;color:var(--orange);border:1px solid var(--bord)}
-main{max-width:620px;margin:0 auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom))}
-.heros{text-align:center;margin:6px 0 10px}
-.heros img{width:min(250px,64vw);height:auto;filter:drop-shadow(0 0 24px rgba(255,90,0,.35))}
-.statut{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
-.statut div{background:#0d0d0d;border:1px solid var(--bord);border-radius:12px;padding:9px;font-size:12px;color:var(--doux);min-width:0}
-.statut b{display:block;color:#fff;font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.icones{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.icones a{display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;color:#E5E5E5;font-size:13px;text-align:center}
-.boite{width:100%;aspect-ratio:1;max-width:96px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:32px;
-  background:radial-gradient(circle at 30% 25%,var(--c2),var(--c1));box-shadow:0 6px 18px -6px var(--c1),inset 0 1px 0 rgba(255,255,255,.25);transition:transform .12s}
-.icones a:active .boite{transform:scale(.93)}
-.astuce{margin-top:18px;background:#120a03;border:1px solid #4a2408;border-radius:12px;padding:12px;color:#E5E5E5;font-size:14px;line-height:1.5}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-highlight-color:transparent;user-select:none}
+/* fond d'ecran */
+#fond{position:fixed;inset:0;z-index:0;background:var(--fond-img,radial-gradient(1200px 700px at 70% 20%,#3a1404 0%,#120602 45%,#000 75%))}
+#fond::after{content:"";position:absolute;left:50%;top:44%;width:min(460px,70vw);aspect-ratio:1;transform:translate(-50%,-50%);
+  background:url(/logo.png) center/contain no-repeat;opacity:var(--logo-op,.16);filter:drop-shadow(0 0 40px rgba(255,90,0,.4))}
+#fond.braise{--fond-img:radial-gradient(900px 600px at 20% 80%,#4a1606,#000 70%),#000}
+#fond.nuit{--fond-img:linear-gradient(160deg,#0b1026,#000 60%)}
+#fond.foret{--fond-img:radial-gradient(900px 700px at 70% 10%,#0f2a17,#000 70%)}
+/* icones du bureau (en colonnes, comme sur un PC) */
+#bureau{position:fixed;left:0;right:0;top:0;bottom:var(--barre);z-index:1;padding:12px 8px;display:grid;
+  grid-template-rows:repeat(auto-fill,96px);grid-auto-flow:column;grid-auto-columns:88px;gap:4px 6px;overflow-x:auto;overflow-y:hidden}
+.ico{display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 3px;border-radius:12px;cursor:pointer;text-align:center;border:1px solid transparent}
+.ico:hover,.ico:focus{background:rgba(255,122,26,.12);border-color:rgba(255,122,26,.35);outline:none}
+.ico:active{transform:scale(.95)}
+.ico .b{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:27px;
+  background:radial-gradient(circle at 30% 25%,var(--c2,#ff9a4d),var(--c1,#c2410c));box-shadow:0 6px 16px -6px var(--c1,#c2410c),inset 0 1px 0 rgba(255,255,255,.25)}
+.ico.dossier .b{background:linear-gradient(160deg,#ffc56b,#e98a13);border-radius:10px 14px 14px 14px}
+.ico .t{font-size:12px;line-height:1.2;max-width:84px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-shadow:0 1px 3px #000}
+.ico small{font-size:9.5px;color:var(--doux);margin-top:-3px}
+/* gadgets (horloge, meteo, agenda) */
+#gadgets{position:fixed;right:12px;top:12px;z-index:1;width:min(280px,calc(100vw - 120px));display:flex;flex-direction:column;gap:10px}
+.gad{background:rgba(12,12,12,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:12px 14px}
+.gad .heure{font-size:38px;font-weight:200;letter-spacing:-1px;line-height:1}
+.gad .date{color:var(--doux);font-size:13px;text-transform:capitalize;margin-top:4px}
+.gad h4{margin:0 0 6px;font-size:12px;color:var(--or);font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.gad .ev{font-size:13px;padding:4px 0;border-top:1px solid #1d1d1d;display:flex;gap:8px}
+.gad .ev:first-of-type{border-top:0}
+.gad .ev b{color:var(--or2);font-weight:600;min-width:42px}
+.gad .met{display:flex;align-items:center;gap:10px;font-size:14px}
+.gad .met .e{font-size:30px}
+@media (max-width:600px){#gadgets{display:none}}
+/* barre des taches */
+#barre{position:fixed;left:0;right:0;bottom:0;height:var(--barre);z-index:20;display:flex;align-items:center;gap:6px;padding:0 8px calc(env(safe-area-inset-bottom));
+  background:rgba(10,10,10,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,122,26,.25)}
+#demarrer{height:42px;min-width:42px;border-radius:12px;border:0;background:linear-gradient(145deg,var(--or2),var(--or));display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;color:#000;font-weight:800;font-size:14px;box-shadow:0 0 14px rgba(255,122,26,.45)}
+#demarrer img{width:26px;height:26px;object-fit:contain;filter:drop-shadow(0 0 2px #000)}
+#taches{flex:1;display:flex;gap:4px;overflow-x:auto;min-width:0}
+.tache{height:40px;min-width:40px;max-width:150px;border-radius:10px;border:1px solid transparent;background:transparent;color:#fff;display:flex;align-items:center;gap:6px;padding:0 9px;font-size:13px;white-space:nowrap;overflow:hidden;position:relative}
+.tache .e{font-size:19px}
+.tache.ouverte::after{content:"";position:absolute;left:30%;right:30%;bottom:3px;height:3px;border-radius:3px;background:var(--or)}
+.tache.active{background:rgba(255,122,26,.15);border-color:rgba(255,122,26,.3)}
+.tache .n{overflow:hidden;text-overflow:ellipsis}
+@media (max-width:600px){.tache .n{display:none}}
+#zoneEtat{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#ddd;white-space:nowrap}
+#zoneEtat .pt{width:8px;height:8px;border-radius:50%;background:#555;display:inline-block}
+#zoneEtat .pt.on{background:#4ade80;box-shadow:0 0 8px #4ade80}
+#horloge{text-align:right;line-height:1.15}
+#horloge small{display:block;color:var(--doux);font-size:11px}
+/* menu demarrer */
+#menu{position:fixed;left:8px;bottom:calc(var(--barre) + 8px);z-index:30;width:min(420px,calc(100vw - 16px));max-height:min(620px,calc(100vh - var(--barre) - 24px));
+  display:none;flex-direction:column;background:rgba(14,14,14,.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,122,26,.35);border-radius:18px;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;animation:monte .18s ease-out}
+#menu.ouvert{display:flex}
+@keyframes monte{from{transform:translateY(14px);opacity:0}}
+#menu .rech{padding:14px 14px 8px}
+#menu input{width:100%;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:24px;padding:11px 16px;color:#fff;font:inherit;outline:none}
+#menu input:focus{border-color:var(--or)}
+#menu .corps{overflow-y:auto;padding:4px 10px 10px}
+#menu h5{margin:10px 6px 6px;font-size:11.5px;color:var(--doux);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+#menu .grille{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}
+#menu .grille .ico .b{width:44px;height:44px;font-size:23px;border-radius:13px}
+#menu .ligne{display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:10px;cursor:pointer}
+#menu .ligne:hover{background:rgba(255,122,26,.1)}
+#menu .ligne .e{font-size:20px;width:26px;text-align:center}
+#menu .ligne small{color:var(--doux);display:block;font-size:11.5px}
+#menu .pied{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid #222;font-size:13px}
+#menu .pied button{background:#161616;border:1px solid #2a2a2a;color:var(--or);border-radius:10px;min-height:36px;padding:0 12px;font:inherit}
+/* fenetres (grand ecran, tablette, Samsung DeX) */
+.fen{position:fixed;z-index:10;display:flex;flex-direction:column;background:#000;border:1px solid #333;border-radius:12px;overflow:hidden;
+  box-shadow:0 18px 50px rgba(0,0,0,.65);min-width:320px;min-height:240px;animation:ouvre .16s ease-out}
+.fen.active{border-color:rgba(255,122,26,.6);box-shadow:0 18px 50px rgba(0,0,0,.7),0 0 0 1px rgba(255,122,26,.25)}
+@keyframes ouvre{from{transform:scale(.96);opacity:0}}
+.fen.max{left:0!important;top:0!important;width:100%!important;height:calc(100% - var(--barre))!important;border-radius:0}
+.fen.min{display:none}
+.fen .tb{height:36px;display:flex;align-items:center;gap:8px;padding:0 6px 0 12px;background:#121212;border-bottom:1px solid #222;cursor:move;touch-action:none}
+.fen .tb .e{font-size:16px}.fen .tb b{flex:1;font-size:13px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.fen .tb button{width:30px;height:26px;border:0;border-radius:6px;background:transparent;color:#ccc;font-size:14px}
+.fen .tb button:hover{background:#2a2a2a}.fen .tb button.x:hover{background:#c42b1c;color:#fff}
+.fen iframe{flex:1;border:0;width:100%;background:#000}
+.fen .poignee{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none}
+.fen .poignee::after{content:"";position:absolute;right:4px;bottom:4px;width:8px;height:8px;border-right:2px solid #555;border-bottom:2px solid #555}
+/* menu contextuel du bureau */
+#ctx{position:fixed;z-index:40;display:none;background:rgba(18,18,18,.96);border:1px solid #333;border-radius:12px;padding:6px;min-width:200px;box-shadow:0 12px 30px rgba(0,0,0,.6)}
+#ctx div{padding:9px 12px;border-radius:8px;font-size:14px;cursor:pointer}#ctx div:hover{background:rgba(255,122,26,.15)}
+/* telephone : les applis s'ouvrent dans des fenetres plein ecran, la barre des taches reste visible (comme Windows) */
+.fen.tel{border-radius:0;border:0;min-width:0;min-height:0;box-shadow:none;animation:ouvreTel .18s ease-out}
+.fen.tel .tb{cursor:default;height:34px}
+.fen.tel [data-b="max"],.fen.tel .poignee{display:none}
+@keyframes ouvreTel{from{transform:translateY(18px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.fen,.fen.tel,#menu{animation:none}}
+#chipMeteo{display:flex;align-items:center;gap:4px;height:36px;padding:0 8px;border-radius:10px;border:1px solid transparent;background:transparent;color:#fff;font:inherit;font-size:13px;cursor:pointer}
+#chipMeteo:hover,#chipMeteo:focus-visible{background:rgba(255,122,26,.15);border-color:rgba(255,122,26,.3);outline:none}
+#chipMeteo .e{font-size:18px}
+@media (max-width:420px){#demarrer span{display:none}#demarrer{padding:0 8px}#ptWeb{display:none}#horloge small{display:none}.tache{padding:0 7px;min-width:36px}}
+#menu .tag{font-size:10px;color:#5eead4;border:1px solid #134e4a;border-radius:6px;padding:0 5px;margin-left:6px;vertical-align:1px}
+.bulleMaj{position:fixed;right:12px;bottom:calc(var(--barre) + 10px);z-index:25;background:#1a0c02;border:1px solid var(--or);border-radius:14px;padding:10px 14px;font-size:13.5px;max-width:300px}
 </style>
 </head>
 <body>
-<header><b>Bureau</b></header>
-<main>
-  <div class="heros"><img src="/logo.png" alt="Ti-Labo"></div>
-  <div id="banniere"></div>
-  <div id="ajd"></div>
-  <div class="statut">
-    <div>🧠 IA<b id="sIA">…</b></div>
-    <div>🔌 Clé USB-C<b id="sCle">…</b></div>
-    <div>🌐 Internet<b id="sWeb">…</b></div>
-  </div>
-  <div class="icones">
-    <a href="/jasette"><span class="boite" style="--c1:#c2410c;--c2:#FF7A1A">💬</span>Jasette</a>
-    <a href="/codex"><span class="boite" style="--c1:#1d4ed8;--c2:#60a5fa">🧑‍💻</span>Codex</a>
-    <a href="/agenda"><span class="boite" style="--c1:#b45309;--c2:#fdba74">🗓️</span>Agenda</a>
-    <a href="/jasette#ia"><span class="boite" style="--c1:#7e22ce;--c2:#c084fc">🧠</span>IA locales</a>
-    <a href="/cle"><span class="boite" style="--c1:#15803d;--c2:#4ade80">🔌</span>Clé USB-C</a>
-    <a href="/github"><span class="boite" style="--c1:#334155;--c2:#94a3b8">🐙</span>GitHub</a>
-    <a href="#" id="complet"><span class="boite" style="--c1:#be123c;--c2:#fb7185">🎬</span>Studio, Mémoire…</a>
-  </div>
-  <div class="astuce" id="astuce">💡 Copie un projet de ta clé sur le téléphone (🔌 Clé USB-C), débranche la clé, code avec le Codex, puis rebranche-la et renvoie tes changements : tu continues sur le PC où tu étais rendu.</div>
-</main>
+<div id="fond"></div>
+<div id="bureau" aria-label="Bureau"></div>
+<div id="gadgets">
+  <div class="gad"><div class="heure" id="gHeure">--:--</div><div class="date" id="gDate"></div></div>
+  <div class="gad" id="gMeteo" hidden><h4>Météo</h4><div class="met"></div></div>
+  <div class="gad" id="gAgenda"><h4>🗓️ Aujourd'hui</h4><div id="gEvts" style="font-size:13px;color:#a3a3a3">…</div></div>
+  <div class="gad"><h4>🧠 IA du téléphone</h4><div id="gIA" style="font-size:13px">…</div></div>
+</div>
+
+<div id="menu">
+  <div class="rech"><input id="cherche" placeholder="🔎 Chercher une appli, un projet…" autocomplete="off"></div>
+  <div class="corps" id="menuCorps"></div>
+  <div class="pied"><span id="menuVersion" style="color:#a3a3a3">Ti-Labo</span><button id="menuParam">⚙️ Paramètres</button></div>
+</div>
+<div id="ctx"></div>
+
+<div id="barre">
+  <button id="demarrer" title="Démarrer"><img src="/logo.png" alt=""><span>Ti-Labo</span></button>
+  <div id="taches"></div>
+  <div id="zoneEtat"><button id="chipMeteo" title="Météo" hidden><span class="e">🌡️</span><span class="v">--°</span></button><span title="IA"><span class="pt" id="ptIA"></span></span><span id="ptWeb" title="Internet">🌐</span><div id="horloge"></div></div>
+</div>
+
 <script src="/menu.js"></script>
 <script>
-document.getElementById("complet").onclick = e => { e.preventDefault(); document.getElementById("tl-complet").click(); };
-async function maj(){
+"use strict";
+const $ = s => document.querySelector(s);
+const echap = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const DANS_CODEXLOCAL = () => (window.TL && TL.hote === "codexlocal" && !!window.TiLaboApp);
+const SUR_PC = !window.TiLaboApp;
+const APPS = [
+  {id: "jasette", e: "💬", n: "Jasette", u: "/jasette", c1: "#c2410c", c2: "#FF7A1A"},
+  {id: "codex", e: "🧑‍💻", n: "Codex", u: "/codex", c1: "#1d4ed8", c2: "#60a5fa"},
+  {id: "ecriture", e: "📝", n: "Écriture", u: "/ecriture", c1: "#57534e", c2: "#d6d3d1"},
+  {id: "meteo", e: "🌤️", n: "Météo", u: "/meteo", c1: "#1d4ed8", c2: "#7dd3fc"},
+  {id: "agenda", e: "🗓️", n: "Agenda", u: "/agenda", c1: "#b45309", c2: "#fdba74"},
+  {id: "cle", e: "🔌", n: "Clé USB-C", u: "/cle", c1: "#15803d", c2: "#4ade80"},
+  {id: "github", e: "🐙", n: "GitHub", u: "/github", c1: "#334155", c2: "#94a3b8"},
+  {id: "ia", e: "🤖", n: "IA locales", u: "/jasette#ia", c1: "#7e22ce", c2: "#c084fc"},
+  {id: "memoire", e: "🧠", n: "Mémoire", u: "/memoire", c1: "#9d174d", c2: "#f472b6"},
+  {id: "parametres", e: "⚙️", n: "Paramètres", u: "/parametres", c1: "#3f3f46", c2: "#a1a1aa"},
+  {id: "complet", e: "🎬", n: "Studio, Mémoire…", action: () => $("#tl-complet") && $("#tl-complet").click(), c1: "#be123c", c2: "#fb7185"},
+];
+const appCodexLocal = {id: "codexlocal", e: "↩️", n: "CodexLocal", action: () => window.TiLaboApp && TiLaboApp.retour && TiLaboApp.retour(), c1: "#0f766e", c2: "#5eead4"};
+// Les choix de CodexLocal (ActionBureau) : le bureau les renvoie a l'appli, qui fait l'action
+const actionCL = cle => () => { if (window.TiLaboApp && TiLaboApp.actionCodexLocal) TiLaboApp.actionCodexLocal(cle); };
+const APPS_CL = [
+  {id: "cl:codex", e: "💻", n: "Codex", cle: "codex", bureau: true},
+  {id: "cl:chat", e: "💬", n: "Chat", cle: "chat", bureau: true},
+  {id: "cl:equipe", e: "⛑️", n: "Équipe IA", cle: "equipe", bureau: true},
+  {id: "cl:studio", e: "🛠️", n: "Studio", cle: "studio", bureau: true},
+  {id: "cl:tester", e: "▶️", n: "Tester l'app", cle: "tester"},
+  {id: "cl:projets", e: "📁", n: "Projets", cle: "projets"},
+  {id: "cl:dossier", e: "📂", n: "Ouvrir un dossier", cle: "dossier"},
+  {id: "cl:nouvelle", e: "🆕", n: "Nouvelle session", cle: "nouvelle"},
+  {id: "cl:reglages", e: "🔧", n: "Réglages", cle: "reglages"},
+  {id: "cl:maj", e: "🔄", n: "Mises à jour", cle: "maj"},
+  {id: "cl:partager", e: "🔗", n: "Partager", cle: "partager"},
+].map(a => ({...a, sous: "CodexLocal", c1: "#0f766e", c2: "#5eead4", action: actionCL(a.cle)}));
+const AVEC_MENU_CL = () => DANS_CODEXLOCAL() && !!TiLaboApp.actionCodexLocal;
+let projets = [];
+
+// ------------------------------------------------------------ fenetres (grand ecran) ou plein ecran (telephone)
+const grandEcran = () => window.innerWidth >= 900 && window.matchMedia("(pointer:fine), (min-width:1100px)").matches;
+const fenetres = new Map(); let zMax = 10;
+function ouvrir(app){
+  fermerMenu();
+  if (app.action) return app.action();
+  const tel = !grandEcran();
+  if (fenetres.has(app.id)) {
+    const w = fenetres.get(app.id);
+    if (app.recharger) { w.f.querySelector("iframe").src = adresse(app); return activer(app.id); }
+    return activer(app.id, !tel);
+  }
+  // telephone : on garde au plus 4 applis ouvertes (la plus ancienne en arriere-plan se ferme)
+  if (tel && fenetres.size >= 4) {
+    const vieille = [...fenetres.values()].sort((a, b) => (+a.f.style.zIndex) - (+b.f.style.zIndex))[0];
+    if (vieille) fermer(vieille.app.id);
+  }
+  const n = fenetres.size;
+  const f = document.createElement("div"); f.className = "fen" + (tel ? " tel max" : "");
+  const L = Math.min(980, window.innerWidth - 140), H = Math.min(720, window.innerHeight - 140);
+  Object.assign(f.style, {left: (110 + n * 28) + "px", top: (30 + n * 24) + "px", width: L + "px", height: H + "px"});
+  f.innerHTML = `<div class="tb"><span class="e">${app.e}</span><b>${echap(app.n)}</b><button title="Réduire" data-b="min">—</button><button title="Agrandir" data-b="max">▢</button><button class="x" title="Fermer" data-b="x">✕</button></div>
+    <iframe src="${adresse(app)}" title="${echap(app.n)}"></iframe><div class="poignee"></div>`;
+  document.body.appendChild(f);
+  fenetres.set(app.id, {f, app});
+  f.addEventListener("pointerdown", () => activer(app.id));
+  f.querySelector('[data-b="x"]').onclick = () => fermer(app.id);
+  f.querySelector('[data-b="min"]').onclick = e => { e.stopPropagation(); f.classList.add("min"); dessinerTaches(); };
+  f.querySelector('[data-b="max"]').onclick = () => f.classList.toggle("max");
+  if (tel) { activer(app.id); return; }
+  glisser(f.querySelector(".tb"), (dx, dy, x0, y0) => { if (!f.classList.contains("max")) { f.style.left = (x0 + dx) + "px"; f.style.top = Math.max(0, y0 + dy) + "px"; } },
+    () => [f.offsetLeft, f.offsetTop]);
+  glisser(f.querySelector(".poignee"), (dx, dy, w0, h0) => { f.style.width = Math.max(320, w0 + dx) + "px"; f.style.height = Math.max(240, h0 + dy) + "px"; },
+    () => [f.offsetWidth, f.offsetHeight]);
+  f.querySelector(".tb").ondblclick = () => f.classList.toggle("max");
+  activer(app.id);
+}
+/** /jasette#ia -> /jasette?fenetre=1#ia (le ?fenetre=1 va avant le #) */
+function adresse(app){
+  const [base, diese] = app.u.split("#");
+  return base + (base.includes("?") ? "&" : "?") + "fenetre=1" + (diese ? "#" + diese : "");
+}
+function fermer(id){
+  const w = fenetres.get(id); if (!w) return;
+  w.f.remove(); fenetres.delete(id); dessinerTaches();
+}
+/** Bouton Retour du telephone : reduit la fenetre active (retour au bureau), comme Windows. */
+window.tlRetour = () => {
+  if ($("#menu").classList.contains("ouvert")) { fermerMenu(); return true; }
+  const actives = [...fenetres.values()].filter(w => !w.f.classList.contains("min"));
+  if (!actives.length) return false;
+  const haut = actives.sort((a, b) => (+b.f.style.zIndex) - (+a.f.style.zIndex))[0];
+  haut.f.classList.add("min"); haut.f.classList.remove("active"); dessinerTaches();
+  return true;
+};
+function glisser(el, bouger, depart){
+  el.addEventListener("pointerdown", e => {
+    if (e.target.closest("button")) return;
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    const [a, b] = depart(), x = e.clientX, y = e.clientY;
+    document.querySelectorAll(".fen iframe").forEach(i => i.style.pointerEvents = "none");
+    const mv = ev => bouger(ev.clientX - x, ev.clientY - y, a, b);
+    const fin = () => { el.removeEventListener("pointermove", mv); el.removeEventListener("pointerup", fin);
+      document.querySelectorAll(".fen iframe").forEach(i => i.style.pointerEvents = ""); };
+    el.addEventListener("pointermove", mv); el.addEventListener("pointerup", fin);
+  });
+}
+function activer(id, basculer){
+  const w = fenetres.get(id); if (!w) return;
+  if (basculer && w.f.classList.contains("active") && !w.f.classList.contains("min")) { w.f.classList.add("min"); dessinerTaches(); return; }
+  w.f.classList.remove("min");
+  fenetres.forEach(x => x.f.classList.remove("active"));
+  w.f.classList.add("active"); w.f.style.zIndex = ++zMax;
+  dessinerTaches();
+}
+function dessinerTaches(){
+  const epinglees = ["jasette", "codex", "ecriture", "agenda"];
+  const liste = [...new Set([...epinglees, ...fenetres.keys()])].map(id => APPS.find(a => a.id === id)).filter(Boolean);
+  $("#taches").innerHTML = "";
+  liste.forEach(a => {
+    const w = fenetres.get(a.id);
+    const b = document.createElement("button");
+    b.className = "tache" + (w ? " ouverte" : "") + (w && w.f.classList.contains("active") && !w.f.classList.contains("min") ? " active" : "");
+    b.innerHTML = `<span class="e">${a.e}</span><span class="n">${echap(a.n)}</span>`;
+    b.title = a.n;
+    b.onclick = () => w ? activer(a.id, true) : ouvrir(a);
+    $("#taches").appendChild(b);
+  });
+}
+
+// ------------------------------------------------------------ bureau : applis + projets
+function icone(a, extra){
+  const d = document.createElement("div"); d.className = "ico" + (extra || ""); d.tabIndex = 0;
+  d.innerHTML = `<span class="b" style="--c1:${a.c1 || ""};--c2:${a.c2 || ""}">${a.e}</span><span class="t">${echap(a.n)}</span>` + (a.sous ? `<small>${echap(a.sous)}</small>` : "");
+  d.onclick = () => ouvrir(a);
+  d.onkeydown = e => { if (e.key === "Enter") ouvrir(a); };
+  return d;
+}
+function ouvrirProjet(p){
+  localStorage.setItem("tilabo-projet", JSON.stringify({nom: p.nom, chemin: p.chemin, ou: p.ou}));
+  if (fenetres.has("codex")) { fenetres.get("codex").f.querySelector("iframe").contentWindow.location.reload(); activer("codex"); }
+  else ouvrir(APPS[1]);
+}
+const appsProjet = () => projets.map(p => ({id: "p:" + p.chemin, e: "📁", n: p.nom, sous: p.ou, action: () => ouvrirProjet(p), projet: p}));
+/** Partager un projet en .zip : feuille de partage sur le telephone, telechargement sur le PC. */
+function partagerProjet(p){
+  if (window.TiLaboApp && TiLaboApp.partager) TiLaboApp.partager(p.chemin, "");
+  else location.href = "/tilabo/telecharger?projet=" + encodeURIComponent(p.chemin);
+}
+function dessinerBureau(){
+  const B = $("#bureau"); B.innerHTML = "";
+  APPS.filter(a => !(SUR_PC && a.telephone)).forEach(a => B.appendChild(icone(a)));
+  if (DANS_CODEXLOCAL()) B.appendChild(icone(appCodexLocal));
+  if (AVEC_MENU_CL()) APPS_CL.filter(a => a.bureau).forEach(a => B.appendChild(icone(a)));
+  appsProjet().forEach(a => {
+    const d = icone(a, " dossier");
+    // clic droit / appui long : Ouvrir, Partager
+    d.addEventListener("contextmenu", e => {
+      e.preventDefault(); e.stopPropagation();
+      const m = $("#ctx");
+      const peutPartager = SUR_PC || (window.TiLaboApp && TiLaboApp.partager);
+      m.innerHTML = "<div data-c='o'>🧑‍💻 Ouvrir dans le Codex</div>" + (peutPartager ? "<div data-c='p'>📤 " + (SUR_PC ? "Télécharger (.zip)" : "Partager (.zip)") + "</div>" : "");
+      m.style.left = Math.min(e.clientX, innerWidth - 210) + "px"; m.style.top = Math.min(e.clientY, innerHeight - 120) + "px"; m.style.display = "block";
+      m.onclick = ev => { m.style.display = "none"; if (ev.target.dataset.c === "o") ouvrirProjet(a.projet); if (ev.target.dataset.c === "p") partagerProjet(a.projet); };
+    });
+    B.appendChild(d);
+  });
+}
+async function chargerProjets(){
+  try { projets = (await (await fetch("/tilabo/projets")).json()).projets || []; } catch (_) { projets = []; }
+  dessinerBureau();
+}
+
+// ------------------------------------------------------------ menu demarrer + recherche
+function dessinerMenu(q){
+  q = (q || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const ok = t => !q || t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(q);
+  const C = $("#menuCorps"); C.innerHTML = "";
+  const apps = [...APPS.filter(a => !(SUR_PC && a.telephone)), ...(DANS_CODEXLOCAL() ? [appCodexLocal] : [])].filter(a => ok(a.n));
+  if (apps.length) {
+    C.insertAdjacentHTML("beforeend", "<h5>Applis</h5>");
+    const g = document.createElement("div"); g.className = "grille"; apps.forEach(a => g.appendChild(icone(a))); C.appendChild(g);
+  }
+  const cl = AVEC_MENU_CL() ? APPS_CL.filter(a => ok(a.n) || ok("codexlocal")) : [];
+  if (cl.length) {
+    C.insertAdjacentHTML("beforeend", "<h5>CodexLocal</h5>");
+    cl.forEach(a => {
+      const l = document.createElement("div"); l.className = "ligne";
+      l.innerHTML = `<span class="e">${a.e}</span><span><b>${echap(a.n)}</b></span>`;
+      l.onclick = () => { fermerMenu(); a.action(); };
+      C.appendChild(l);
+    });
+  }
+  const ps = projets.filter(p => ok(p.nom) || ok(p.ou));
+  if (ps.length) {
+    C.insertAdjacentHTML("beforeend", "<h5>Projets (" + ps.length + ")</h5>");
+    ps.slice(0, 40).forEach(p => {
+      const l = document.createElement("div"); l.className = "ligne";
+      l.innerHTML = `<span class="e">📁</span><span><b>${echap(p.nom)}</b><small>${echap(p.ou)}</small></span>`;
+      l.onclick = () => { fermerMenu(); ouvrirProjet(p); };
+      C.appendChild(l);
+    });
+  }
+  if (q) {
+    C.insertAdjacentHTML("beforeend", "<h5>Demander</h5>");
+    const l = document.createElement("div"); l.className = "ligne";
+    l.innerHTML = `<span class="e">💬</span><span><b>Demander à la Jasette</b><small>« ${echap($("#cherche").value)} »</small></span>`;
+    l.onclick = () => { localStorage.setItem("tilabo-question", $("#cherche").value); fermerMenu(); ouvrir({...APPS[0], recharger: true}); };
+    C.appendChild(l);
+    // « Normandin », « météo Paris » : voir la météo de cette ville, cherchée sur le web
+    const ville = $("#cherche").value.replace(/^\s*(la\s+)?m[ée]t[ée]o\s*(à|a|de|du|au|pour)?\s*/i, "").trim();
+    if (ville && ville.length < 50) {
+      const m = document.createElement("div"); m.className = "ligne";
+      m.innerHTML = `<span class="e">🌤️</span><span><b>Météo à ${echap(ville)}</b><small>Cherchée sur le web</small></span>`;
+      m.onclick = () => { fermerMenu(); ouvrir({...APPS.find(a => a.id === "meteo"), u: "/meteo?ville=" + encodeURIComponent(ville), recharger: true}); };
+      C.appendChild(m);
+    }
+  }
+}
+function ouvrirMenu(){ $("#menu").classList.add("ouvert"); $("#cherche").value = ""; dessinerMenu(""); if (grandEcran()) setTimeout(() => $("#cherche").focus(), 50); }
+function fermerMenu(){ $("#menu").classList.remove("ouvert"); }
+$("#demarrer").onclick = e => { e.stopPropagation(); $("#menu").classList.contains("ouvert") ? fermerMenu() : ouvrirMenu(); };
+$("#cherche").oninput = e => dessinerMenu(e.target.value);
+$("#cherche").onkeydown = e => { if (e.key === "Enter") { const premier = $("#menuCorps .ico, #menuCorps .ligne"); if (premier) premier.click(); } if (e.key === "Escape") fermerMenu(); };
+$("#menuParam").onclick = () => ouvrir(APPS.find(a => a.id === "parametres"));
+document.addEventListener("pointerdown", e => {
+  if (!e.target.closest("#menu") && !e.target.closest("#demarrer")) fermerMenu();
+  if (!e.target.closest("#ctx")) $("#ctx").style.display = "none";
+});
+document.addEventListener("keydown", e => { if (e.key === "Meta" || (e.ctrlKey && e.key === "Escape")) ouvrirMenu(); });
+
+// menu contextuel (clic droit / appui long sur le bureau)
+$("#bureau").addEventListener("contextmenu", e => {
+  if (e.target.closest(".ico")) return;
+  e.preventDefault();
+  const m = $("#ctx");
+  m.innerHTML = "<div data-c='rafr'>🔄 Actualiser</div><div data-c='fond'>🖼️ Changer le fond d'écran</div><div data-c='nouveau'>📁 Nouveau projet</div><div data-c='param'>⚙️ Paramètres</div>" + (window.TiNoel ? "<div data-c='noel'>🎄 Thème de Noël : " + (TiNoel.actif() ? "désactiver" : "activer") + "</div>" : "");
+  m.style.left = Math.min(e.clientX, innerWidth - 210) + "px"; m.style.top = Math.min(e.clientY, innerHeight - 200) + "px"; m.style.display = "block";
+  m.onclick = async ev => {
+    const c = ev.target.dataset.c; m.style.display = "none";
+    if (c === "rafr") chargerProjets();
+    if (c === "fond") changerFond();
+    if (c === "param") ouvrir(APPS.find(a => a.id === "parametres"));
+    if (c === "noel" && window.TiNoel) TiNoel.basculer();
+    if (c === "nouveau") {
+      const nom = prompt("Nom du nouveau projet :"); if (!nom) return;
+      const r = await fetch("/tilabo/projets/creer", {method: "POST", body: JSON.stringify({nom})}); const j = await r.json();
+      if (!r.ok) return alert(j.error ? j.error.message : "Erreur");
+      chargerProjets();
+    }
+  };
+});
+const FONDS = ["", "braise", "nuit", "foret"];
+function changerFond(){
+  const i = (FONDS.indexOf(localStorage.getItem("tilabo-fond") || "") + 1) % FONDS.length;
+  localStorage.setItem("tilabo-fond", FONDS[i]); appliquerFond();
+}
+function appliquerFond(){ $("#fond").className = localStorage.getItem("tilabo-fond") || ""; }
+
+// ------------------------------------------------------------ horloge, gadgets
+function horloge(){
+  const d = new Date();
+  const h = d.toLocaleTimeString("fr-CA", {hour: "2-digit", minute: "2-digit"});
+  $("#horloge").innerHTML = h + "<small>" + d.toLocaleDateString("fr-CA", {day: "numeric", month: "short"}) + "</small>";
+  $("#gHeure").textContent = h;
+  $("#gDate").textContent = d.toLocaleDateString("fr-CA", {weekday: "long", day: "numeric", month: "long"});
+}
+async function gadgets(){
   try {
     const e = await (await fetch("/tilabo/etat")).json();
-    document.getElementById("sIA").textContent = e.chargement ? "chargement…" : (e.modele ? e.modele.replace(/\.gguf$/i, "") : "aucune");
-  } catch (_) { document.getElementById("sIA").textContent = "arrêtée"; }
+    $("#gIA").textContent = e.chargement ? "Chargement de " + e.chargement + "…" : (e.modele ? "✅ " + e.modele.replace(/\.gguf$/i, "") : "Aucune IA — ouvre 🧠 IA locales");
+    $("#ptIA").classList.toggle("on", !!e.modele);
+    $("#menuVersion").textContent = (DANS_CODEXLOCAL() ? "CodexLocal " : "Ti-Labo ") + (e.version || "");
+  } catch (_) {}
   try {
-    const c = await (await fetch("/tilabo/sync/cle", {method: "POST", body: "{}"})).json();
-    const lies = await (await fetch("/tilabo/sync/lies", {method: "POST", body: "{}"})).json();
-    const branchee = (c.projets || []).length > 0 || (lies.projets || []).some(p => p.branchee);
-    document.getElementById("sCle").textContent = branchee ? "branchée ✅" : "débranchée";
-  } catch (_) { document.getElementById("sCle").textContent = "?"; }
-  document.getElementById("sWeb").textContent = TL.internet ? "activé" : "désactivé";
+    const j = await (await fetch("/tilabo/agenda", {method: "POST", body: "{}"})).json();
+    const auj = new Date(), s = auj.getFullYear() + "-" + String(auj.getMonth() + 1).padStart(2, "0") + "-" + String(auj.getDate()).padStart(2, "0");
+    let l = (j.evenements || []).filter(e => e.debut.slice(0, 10) === s);
+    if (window.TiAgenda) l = (TiAgenda.occurrences(j.evenements || [], s, s)[s] || []).map(o => o.ev);
+    l.sort((a, b) => a.debut.localeCompare(b.debut));
+    $("#gEvts").innerHTML = l.length ? l.slice(0, 5).map(e => `<div class="ev"><b>${e.debut.length > 10 ? e.debut.slice(11, 16) : "Jour"}</b><span>${echap(e.titre)}</span></div>`).join("") : "Rien de prévu aujourd'hui ✨";
+  } catch (_) { $("#gEvts").textContent = "—"; }
+  if (window.TL && TL.internet && TL.meteo) {
+    try {
+      const m = await TL.meteo(null), x = TL.codeMeteo(m.actuel.weather_code, m.actuel.is_day);
+      $("#gMeteo").hidden = false;
+      $("#chipMeteo").hidden = false;
+      $("#chipMeteo .e").textContent = x.emoji;
+      $("#chipMeteo .v").textContent = Math.round(m.actuel.temperature_2m) + "°";
+      $("#chipMeteo").title = m.lieu.split(",")[0] + " · " + x.desc;
+      $("#gMeteo .met").innerHTML = `<span class="e">${x.emoji}</span><span><b style="font-size:20px">${Math.round(m.actuel.temperature_2m)}°C</b><br><span style="color:#a3a3a3;font-size:12px">${echap(m.lieu.split(",")[0])} · ${x.desc}</span></span>`;
+    } catch (_) {}
+  }
+  $("#ptWeb").style.opacity = window.TL && TL.internet ? 1 : .3;
 }
-document.addEventListener("tl-reglages", maj);
-document.addEventListener("tl-maj", () => {
-  const m = TL.maj; const b = document.getElementById("banniere");
-  if (!m || !m.disponible) { b.innerHTML = ""; return; }
-  b.innerHTML = "<div class='tl-banniere'><span>⬆️ <b>Ti-Labo " + m.derniere + "</b> est disponible.</span><button id='bInst'>Installer</button></div>";
-  document.getElementById("bInst").onclick = e => TL.installerMaj(e.currentTarget);
-});
-// Aujourd'hui dans l'agenda
-fetch("/tilabo/agenda", {method: "POST", body: "{}"}).then(r => r.json()).then(j => {
-  const auj = new Date(), s = auj.getFullYear() + "-" + String(auj.getMonth() + 1).padStart(2, "0") + "-" + String(auj.getDate()).padStart(2, "0");
-  const l = (j.evenements || []).filter(e => e.debut.slice(0, 10) === s).sort((a, b) => a.debut.localeCompare(b.debut));
-  if (!l.length) return;
-  document.getElementById("ajd").innerHTML = "<a href='/agenda' class='tl-banniere' style='text-decoration:none;background:#0d0d0d;border-color:#262626'><span>🗓️ <b>Aujourd'hui</b> : " +
-    l.slice(0, 3).map(e => (e.debut.length > 10 ? e.debut.slice(11, 16) + " " : "") + e.titre.replace(/</g, "&lt;")).join(" · ") + "</span></a>";
-}).catch(() => {});
-maj(); setInterval(maj, 6000);
+$("#gAgenda").onclick = () => ouvrir(APPS.find(a => a.id === "agenda"));
+$("#gMeteo").onclick = () => ouvrir(APPS.find(a => a.id === "meteo"));
+$("#chipMeteo").onclick = () => ouvrir(APPS.find(a => a.id === "meteo"));
+
+// l'ancien menu du Ti-Labo (☰) n'est pas utile sur le bureau : le bouton Démarrer le remplace
+document.querySelectorAll(".tl-burger").forEach(b => b.style.display = "none");
+document.addEventListener("tl-reglages", () => { dessinerBureau(); gadgets(); });
+appliquerFond(); horloge(); setInterval(horloge, 15000);
+dessinerTaches(); chargerProjets(); setTimeout(gadgets, 300); setInterval(gadgets, 60000);
 </script>
+<script src="/noel.js" data-barre="56px"></script>
+<script src="/agenda.js"></script>
 </body>
 </html>

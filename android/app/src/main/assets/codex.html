@@ -68,6 +68,9 @@ label.plan input{accent-color:var(--orange);width:18px;height:18px}
 form{display:flex;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--bord)}
 textarea{flex:1;resize:none;max-height:160px;min-height:44px;background:var(--carte);color:var(--texte);border:1px solid var(--bord);border-radius:12px;padding:11px 12px;font:inherit}
 textarea:focus{outline:none;border-color:var(--orange)}
+#bWeb{min-width:44px;font-size:18px;padding:0}
+#bWeb.on{background:#08131d;border-color:#7CC4FF;box-shadow:0 0 10px rgba(124,196,255,.35)}
+#bWeb.off{display:none}
 /* Ecran central : le code que le Codex ecrit */
 #ecran{position:fixed;left:8px;right:8px;top:96px;bottom:84px;display:none;flex-direction:column;background:#070707;border:1px solid var(--orange);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.55),0 0 30px rgba(255,122,26,.25);z-index:5}
 #ecran.ouvert{display:flex}
@@ -115,6 +118,7 @@ input[type=text]{width:100%;background:var(--carte);color:var(--texte);border:1p
 <div id="fil"><div class="vide" id="vide"><img src="/logo.png" alt=""><p>Le <b>Codex</b> du Ti-Labo écrit directement dans les fichiers de ton projet, avec ton IA .gguf. Mêmes dossiers <b>TiLabo/projets</b> que ta clé USB-C.</p></div></div>
 <div id="epingles"></div>
 <form id="f">
+  <button type="button" id="bWeb" title="Chercher des exemples de code sur Internet avant de coder">🌐</button>
   <textarea id="q" rows="1" placeholder="Qu'est-ce que le Codex doit coder ?"></textarea>
   <button class="plein" id="bEnv" type="submit">➤</button>
 </form>
@@ -149,7 +153,8 @@ input[type=text]{width:100%;background:var(--carte);color:var(--texte);border:1p
 
 <div class="voile" id="vFich"><div class="feuille">
   <h2>Fichiers</h2>
-  <p class="note">Touche un fichier pour le voir. 📎 = le donner au Codex comme contexte.</p>
+  <p class="note">Touche un fichier pour le voir. 📎 = le donner au Codex comme contexte. 📤 = partager.</p>
+  <button id="bPartProj" style="width:100%;margin-bottom:6px">📤 Partager tout le projet (.zip)</button>
   <div id="arbre"></div>
   <button style="width:100%;margin-top:8px" onclick="fermerV('vFich')">Fermer</button>
 </div></div>
@@ -198,6 +203,14 @@ async function voirFichier(chemin){
 
 // ---------------------------------------------------------------- lecture des reponses (meme format que CodexLocal)
 const RE_CHERCHER = /^\s*={2,}\s*CHERCHER\s*:\s*(.+?)\s*=*\s*$/im;
+// --- recherche de code sur Internet (bouton 🌐)
+let webCodex = localStorage.getItem("tilabo-web-codex") === "1";
+function majWebCodex(){ const b = $("#bWeb"); if (b) b.className = TL.internet ? (webCodex ? "on" : "") : "off"; }
+/** « fais un bouton qui copie dans le presse-papier » -> requete courte orientee code */
+function requeteCode(t){
+  const court = t.replace(/\s+/g, " ").trim().slice(0, 100);
+  return /\b(exemple|example|code|snippet)\b/i.test(court) ? court : court + " exemple code";
+}
 const RE_FICHIER = /^\s*={2,}\s*FICHIER\s*:\s*(.+?)\s*=*\s*$/i, RE_LIRE = /^\s*={2,}\s*LIRE\s*:\s*(.+?)\s*=*\s*$/i, RE_FIN = /^\s*={2,}\s*FIN\s*={2,}\s*$/i;
 const RE_NOM = /([\w.\-\/]+\.[A-Za-z0-9]{1,8})/;
 const RE_MODIFIER = /^\s*={2,}\s*MODIFIER\s*:\s*(.+?)\s*=*\s*$/i;
@@ -346,12 +359,20 @@ function dessinerArbre(){
     const d = document.createElement("div"); d.className = "ligne fich" + (epingles.has(f.chemin) ? " ep" : "") + (nouveaux.has(f.chemin) ? " nouveau" : "");
     d.innerHTML = "<span class='n'>" + echap(f.chemin) + "</span><small>" + (f.taille < 1024 ? f.taille + " o" : Math.round(f.taille / 1024) + " Ko") + "</small>";
     d.querySelector(".n").onclick = () => { fermerV("vFich"); voirFichier(f.chemin); };
+    const sh = document.createElement("button"); sh.textContent = window.TiLaboApp ? "📤" : "⬇️"; sh.title = "Partager ce fichier";
+    sh.onclick = () => partager(f.chemin); d.appendChild(sh);
     const b = document.createElement("button"); b.textContent = "📎";
     b.onclick = () => { epingles.has(f.chemin) ? epingles.delete(f.chemin) : epingles.add(f.chemin); dessinerArbre(); dessinerEpingles(); };
     d.appendChild(b); A.appendChild(d);
   });
 }
 function dessinerEpingles(){ $("#epingles").innerHTML = [...epingles].map(c => "<span>📎 " + echap(c) + "</span>").join(""); }
+/** Partager un fichier ou tout le projet (.zip) : feuille de partage du telephone, ou telechargement sur le PC. */
+function partager(chemin){
+  if (!projet) return;
+  if (window.TiLaboApp && TiLaboApp.partager) TiLaboApp.partager(projet.chemin, chemin || "");
+  else location.href = "/tilabo/telecharger?projet=" + encodeURIComponent(projet.chemin) + (chemin ? "&chemin=" + encodeURIComponent(chemin) : "");
+}
 function choisir(p){
   projet = p; localStorage.setItem("tilabo-projet", JSON.stringify(p));
   $("#projetNom").innerHTML = "<b>" + echap(p.nom) + "</b> · " + echap(p.ou);
@@ -547,6 +568,16 @@ async function envoyer(texte, force){
   const plan = force === "executer" ? false : (force === "planifier" || $("#mode").value === "valider");
   bulle("moi", echap(texte));
   let message = (await contexte()) + texte;
+  // 🌐 allume : on cherche des exemples de code sur Internet avant que le Codex ecrive
+  if (TL.internet && webCodex && force !== "executer") {
+    const q = requeteCode(texte);
+    const sortie = bulle("ia", TL.outil("🔎 Exemples de code : " + q));
+    const [res, imgs] = await Promise.all([TL.chercher(q).catch(() => []), TL.images(q).catch(() => [])]);
+    const page = res[0] ? await TL.page(res[0].url).catch(() => null) : null;
+    sortie.insertAdjacentHTML("beforeend", TL.galerie(imgs.slice(0, 4)) + TL.cartesSources(res));
+    if (res.length) message = TL.pourIA(q, res, page) + "Inspire-toi de ces exemples s'ils sont utiles (ne recopie rien d'incorrect).\n\n" + message;
+    else sortie.insertAdjacentHTML("beforeend", TL.outil("Rien trouvé, le Codex code avec ce qu'il sait."));
+  }
   if (plan) message += "\n\n(Mode plan : donne seulement un plan clair en etapes numerotees, avec les fichiers a creer, sans ecrire de fichier. J'approuverai ensuite.)";
   for (let n = 0; n <= MAX_TOURS; n++) {
     const sortie = bulle("ia", "<span class='pense'>…</span>");
@@ -625,6 +656,7 @@ $("#bProj").onclick = ouvrirProjets;
 $("#bFich").onclick = () => { $("#vFich").classList.add("ouvert"); chargerArbre(); };
 $("#bNouv").onclick = nouvelleSession;
 $("#bHist").onclick = ouvrirHist;
+$("#bPartProj").onclick = () => partager("");
 try { $("#mode").value = localStorage.getItem("tilabo-codex-mode") || "direct"; } catch (_) {}
 $("#mode").onchange = () => { try { localStorage.setItem("tilabo-codex-mode", $("#mode").value); } catch (_) {} };
 
@@ -634,6 +666,8 @@ $("#mode").onchange = () => { try { localStorage.setItem("tilabo-codex-mode", $(
   await planRecu();
   if (!projet && !localStorage.getItem("tilabo-plan-codex")) ouvrirProjets();
 })();
+$("#bWeb").onclick = () => { webCodex = !webCodex; try { localStorage.setItem("tilabo-web-codex", webCodex ? "1" : "0"); } catch (_) {} majWebCodex(); };
+document.addEventListener("tl-reglages", majWebCodex); majWebCodex();
 </script>
 </body>
 </html>

@@ -72,6 +72,8 @@ textarea:focus{outline:none;border-color:var(--orange)}
 <script src="/mermaid.min.js"></script>
 <script src="/schemas.js"></script>
 <script src="/agenda.js"></script>
+<script src="/logos.js"></script>
+<script src="/yeux.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const colorer = TL.colorer;
@@ -157,6 +159,7 @@ const CONSIGNE = "Tu es l'IA locale du Ti-Labo, un laboratoire de developpeur qu
   "Si on te donne des resultats Internet, appuie-toi dessus et cite les sources [titre](adresse).";
 const CONSIGNE_WEB = " Si tu as besoin d'une information recente ou que tu ne connais pas, ecris seul sur une ligne : " +
   "=== CHERCHER: mots-cles === puis arrete ta reponse : tu recevras les resultats.";
+const QUESTION_CODE = /\b(code|coder|fonction|function|script|python|javascript|js|html|css|kotlin|java|react|bash|sql|api|erreur|error|bug|class|méthode|methode|librairie|biblioth[eè]que|npm|pip)\b/i;
 const QUESTION_PLAN = /\b(plan|sch[ée]ma|diagramme|organigramme|flowchart|architecture|[ée]tapes)\b/i;
 const QUESTION_AGENDA = /agenda|rendez-vous|\brdv\b|qu.est-ce que j.ai|ai-je (quelque chose|des)|mon horaire|ma semaine|cette semaine|mon calendrier|suis-je libre|occup[ée]/i;
 const CONSIGNE_PLAN = "\n\nOn te demande un PLAN. Reponds ainsi : une phrase d'intro avec un emoji, le plan en etapes numerotees " +
@@ -183,6 +186,7 @@ async function tour(message, entete){
   const zone = document.createElement("div"); zone.innerHTML = "<span class='pense'>…</span>"; sortie.appendChild(zone);
   let rep = "";
   ctrl = new AbortController(); $("#bEnv").textContent = "■";
+  if (window.TiYeux) TiYeux.etat("pense");
   try {
     const sys = CONSIGNE + (TL.internet ? CONSIGNE_WEB : "") + (modePlan ? CONSIGNE_PLAN : "");
     const r = await fetch("/v1/chat/completions", {method: "POST", signal: ctrl.signal,
@@ -200,14 +204,18 @@ async function tour(message, entete){
       }
       const enBas = $("#fil").scrollHeight - $("#fil").scrollTop - $("#fil").clientHeight < 80;
       zone.innerHTML = rendu(rep);
+      if (rep && window.TiYeux && TiYeux.actuel !== "parle") TiYeux.etat("parle");
       if (enBas) $("#fil").scrollTop = $("#fil").scrollHeight;
     }
   } catch (e) {
-    if (e.name !== "AbortError") rep += (rep ? "\n\n" : "") + "⚠ " + e.message;
+    if (e.name !== "AbortError") { rep += (rep ? "\n\n" : "") + "⚠ " + e.message; if (window.TiYeux) TiYeux.etat("oups"); }
   }
   zone.innerHTML = rendu(rep || "(arrêté)");
+  if (window.TiYeux) setTimeout(() => TiYeux.etat("repos"), TiYeux.actuel === "oups" ? 2500 : 900);
   // Moteur de schemas de la cle : les blocs mermaid deviennent des schemas animes (Rejouer, Video MP4, Image)
   if (window.TiSchemas) TiSchemas.activer(zone).catch(() => {});
+  // Petits logos (crypto, langages, marques) ou image du sujet, comme des emojis
+  if (rep && window.TiLogos) TiLogos.activer(zone, derniereQuestion, TL.internet && web).catch(() => {});
   if (rep && (modePlan || /```mermaid/i.test(rep))) actionsPlan(sortie, rep);
   historique.push({role: "assistant", content: rep});
   ctrl = null; $("#bEnv").textContent = "➤";
@@ -227,7 +235,17 @@ function actionsPlan(sortie, rep){
   sortie.appendChild(a);
 }
 
+let derniereQuestion = "";
 async function envoyer(texte){
+  derniereQuestion = texte;
+  // « retiens que… » : on le garde dans la Memoire
+  const ret = texte.match(/^\s*(?:retiens|souviens[- ]toi|rappelle[- ]toi|n'oublie pas|note)\s+(?:que\s+|bien\s+que\s+|ça\s*:?\s*)?(.+)/i);
+  if (ret) {
+    bulle("moi", echap(texte));
+    try { await fetch("/tilabo/memoire/ajouter", {method: "POST", body: JSON.stringify({texte: ret[1]})}); bulle("ia", "🧠 C'est noté ! Je m'en souviendrai. <span class='pense'>(Menu › Mémoire pour voir tout ce que je retiens)</span>"); }
+    catch (e) { bulle("ia", "⚠ " + echap(e.message)); }
+    return;
+  }
   if (!modele) { await etat(); if (!modele) { ouvrirIA(); return; } }
   bulle("moi", echap(texte));
   let message = texte, entete = null;
@@ -265,9 +283,23 @@ async function envoyer(texte){
     }
   } else if (TL.internet && web) {
     entete = document.createElement("div");
-    const ctx = await rechercher(texte.slice(0, 120), entete);
+    // question de code : on vise les exemples de code (docs, Stack Overflow, MDN…)
+    const q = QUESTION_CODE.test(texte) && !/\b(exemple|example|code)\b/i.test(texte) ? texte.slice(0, 100) + " exemple code" : texte.slice(0, 120);
+    const ctx = await rechercher(q, entete);
     message = ctx + "Question : " + texte;
   }
+  // Memoire : souvenirs et extraits de projets utiles a la question
+  try {
+    const m = await (await fetch("/tilabo/memoire/chercher", {method: "POST", body: JSON.stringify({requete: texte})})).json();
+    let ctx = "";
+    if (m.souvenirs && m.souvenirs.length) ctx += "Ce que tu sais sur moi (ma memoire) :\n" + m.souvenirs.map(x => "- " + x).join("\n") + "\n\n";
+    const ex = (m.extraits || []).filter(x => x.score > 3).slice(0, 2);
+    if (ex.length) {
+      ctx += "Extraits de mes projets qui peuvent aider :\n" + ex.map(x => "[" + x.projet + "/" + x.chemin + " ligne " + x.ligne + "]\n" + x.texte).join("\n\n") + "\n\n";
+      (entete = entete || document.createElement("div")).insertAdjacentHTML("beforeend", TL.outil("🧠 Mémoire : " + ex.map(x => x.projet + "/" + x.chemin).join(", ")));
+    }
+    if (ctx) message = ctx + (message === texte ? "Question : " + texte : message);
+  } catch (_) {}
   for (let n = 0; n < 3; n++) {
     const {rep, sortie} = await tour(message, entete);
     const m = TL.internet && rep.match(/^\s*={2,}\s*CHERCHER\s*:\s*(.+?)\s*=*\s*$/im);
@@ -284,12 +316,24 @@ $("#f").onsubmit = e => {
   $("#q").value = ""; $("#q").style.height = "";
   envoyer(t);
 };
-$("#q").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; });
+$("#q").addEventListener("input", e => {
+  e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px";
+  // Le visage regarde ce que tu ecris (sauf pendant que l'IA travaille)
+  if (window.TiYeux && !ctrl) TiYeux.etat(e.target.value.trim() ? "ecoute" : "repos");
+});
+$("#q").addEventListener("blur", () => { if (window.TiYeux && !ctrl && TiYeux.actuel === "ecoute") TiYeux.etat("repos"); });
+// Le visage de l'IA : petit dans l'en-tete, grand quand la jasette est vide
+if (window.TiYeux) { TiYeux.remplacer(document.querySelector("header img"), false); TiYeux.remplacer(document.querySelector("#vide img"), true); }
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && window.innerWidth > 700) { e.preventDefault(); $("#f").requestSubmit(); } });
 $("#bIA").onclick = ouvrirIA;
 $("#bNouv").onclick = () => { if (ctrl) ctrl.abort(); historique = []; $("#fil").innerHTML = ""; bulle("ia", "<span class='pense'>Nouvelle jasette.</span>"); };
 $("#panneau").onclick = e => { if (e.target.id === "panneau") fermer(); };
-etat().then(r => { if (location.hash === "#ia" || (r && !r.modele && !r.chargement)) ouvrirIA(); });
+etat().then(r => {
+  if (location.hash === "#ia" || (r && !r.modele && !r.chargement)) ouvrirIA();
+  // question tapee dans la recherche du bureau (ou meteo du bureau)
+  const q = localStorage.getItem("tilabo-question");
+  if (q) { localStorage.removeItem("tilabo-question"); if (r && r.modele) envoyer(q); else $("#q").value = q; }
+});
 window.addEventListener("hashchange", () => { if (location.hash === "#ia") ouvrirIA(); });
 setInterval(etat, 5000);
 </script>

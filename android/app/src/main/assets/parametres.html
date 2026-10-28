@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo — Paramètres</title>
+<style>
+:root{--or:#FF7A1A;--bord:#232323;--doux:#a3a3a3}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #1a1a1a}
+header b{flex:1;color:var(--or);font-size:17px}
+button{font:inherit;border-radius:10px;min-height:40px;padding:0 14px;background:#161616;color:var(--or);border:1px solid #2a2a2a}
+button.plein{background:var(--or);color:#000;font-weight:700;border:0}
+main{max-width:640px;margin:0 auto;padding:10px 14px calc(30px + env(safe-area-inset-bottom))}
+h2{font-size:12.5px;color:var(--doux);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:22px 4px 8px}
+.groupe{background:#0d0d0d;border:1px solid var(--bord);border-radius:16px;overflow:hidden}
+.ligne{display:flex;align-items:center;gap:12px;padding:13px 14px;border-top:1px solid #171717}
+.ligne:first-child{border-top:0}
+.ligne .e{font-size:20px;width:26px;text-align:center}
+.ligne .t{flex:1;min-width:0}
+.ligne .t b{display:block;font-size:15px;font-weight:500}
+.ligne .t small{display:block;color:var(--doux);font-size:12.5px;margin-top:2px;line-height:1.35}
+.ligne input[type=text],.ligne input[type=password],.ligne select{width:100%;margin-top:8px;background:#000;border:1px solid #2a2a2a;border-radius:10px;padding:10px;color:#fff;font:inherit;outline:none}
+.ligne input:focus{border-color:var(--or)}
+.inter{position:relative;width:48px;height:28px;flex:0 0 48px}
+.inter input{opacity:0;width:0;height:0}
+.inter i{position:absolute;inset:0;border-radius:28px;background:#333;transition:.15s}
+.inter i::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.15s}
+.inter input:checked + i{background:var(--or)}
+.inter input:checked + i::after{transform:translateX(20px)}
+.fonds{display:flex;gap:8px;margin-top:8px}
+.fonds button{flex:1;height:54px;border-radius:12px;padding:0;border:2px solid transparent}
+.fonds button.on{border-color:var(--or)}
+code{background:#151515;border:1px solid #262626;border-radius:6px;padding:1px 6px;font-size:12.5px}
+.ok{color:#4ade80}.ko{color:#f87171}
+</style>
+</head>
+<body>
+<header><b>⚙️ Paramètres</b></header>
+<main>
+  <h2 id="pc">💻 Ouvrir le bureau sur mon PC</h2>
+  <div class="groupe">
+    <div class="ligne"><span class="e">🔗</span><div class="t"><b>Bureau Ti-Labo sur l'ordinateur</b><small>Le PC et le téléphone sur le même Wi-Fi. Le téléphone fait rouler l'IA, le PC affiche le bureau.</small></div><label class="inter"><input type="checkbox" id="pPC"><i></i></label></div>
+    <div class="ligne" id="pcInfo" hidden><div class="t" style="text-align:center">
+      <img id="pcQR" alt="Code QR" style="width:200px;height:200px;border-radius:12px;background:#fff;padding:6px;margin:6px auto;display:block">
+      <b id="pcLien" style="word-break:break-all;font-family:ui-monospace,monospace;font-size:14px"></b>
+      <small>Sur le PC : ouvre ce lien dans Chrome ou Edge, ou va à <b id="pcAdr"></b> et écris le code <b id="pcCode" style="color:#FF7A1A;letter-spacing:1px"></b></small>
+      <p style="margin:10px 0 0"><button id="pcCopier">📋 Copier le lien</button></p></div></div>
+  </div>
+
+  <h2>Intelligence artificielle</h2>
+  <div class="groupe">
+    <div class="ligne"><span class="e">🧠</span><div class="t"><b>IA chargée</b><small id="pIA">…</small></div><button id="bIA">Changer</button></div>
+    <div class="ligne"><span class="e">🌐</span><div class="t"><b>Internet pour l'IA</b><small>Recherche web, images, météo, sources cliquables</small></div><label class="inter"><input type="checkbox" id="pWeb"><i></i></label></div>
+    <div class="ligne"><span class="e">🧹</span><div class="t"><b>Libérer la mémoire</b><small>Décharge l'IA du Ti-Labo (CodexLocal la reprend au besoin)</small></div><button id="bDecharger">Décharger</button></div>
+  </div>
+
+  <h2>Météo et agenda</h2>
+  <div class="groupe">
+    <div class="ligne"><span class="e">📍</span><div class="t"><b>Ville par défaut</b><small>Utilisée quand tu demandes la météo sans nommer de ville</small><input type="text" id="pVille" placeholder="ex. Normandin"></div></div>
+    <div class="ligne"><span class="e">🗓️</span><div class="t"><b>Agenda</b><small id="pAgenda">Se synchronise avec la clé USB-C quand elle est branchée</small></div><button id="bAgenda">Synchroniser</button></div>
+  </div>
+
+  <h2>Bureau</h2>
+  <div class="groupe">
+    <div class="ligne"><span class="e">🖼️</span><div class="t"><b>Fond d'écran</b>
+      <div class="fonds">
+        <button data-f="" style="background:radial-gradient(circle at 70% 20%,#3a1404,#000 75%)"></button>
+        <button data-f="braise" style="background:radial-gradient(circle at 20% 80%,#4a1606,#000 70%)"></button>
+        <button data-f="nuit" style="background:linear-gradient(160deg,#0b1026,#000 60%)"></button>
+        <button data-f="foret" style="background:radial-gradient(circle at 70% 10%,#0f2a17,#000 70%)"></button>
+      </div></div></div>
+  </div>
+
+  <h2>Comptes</h2>
+  <div class="groupe">
+    <div class="ligne"><span class="e">🐙</span><div class="t"><b>Jeton GitHub</b><small id="pJeton">…</small><input type="password" id="pJetonVal" placeholder="github_pat_…" autocomplete="off"></div></div>
+  </div>
+
+  <h2>Fichiers et clé USB-C</h2>
+  <div class="groupe">
+    <div class="ligne"><span class="e">📂</span><div class="t"><b>Accès « Tous les fichiers »</b><small id="pAcces">…</small></div><button id="bAcces">Ouvrir</button></div>
+    <div class="ligne"><span class="e">🔌</span><div class="t"><b>Clé USB-C</b><small>Projets et agenda partagés avec le Ti-Labo de la clé (dossier <code>TiLabo</code>)</small></div><button onclick="location.href='/cle'">Ouvrir</button></div>
+    <div class="ligne"><span class="e">🐧</span><div class="t"><b>Ti-Labo complet (Termux)</b><small>Studio, Mémoire… Une fois dans Termux :<br><code>bash ~/TiLabo/demarrer-telephone.sh</code></small></div></div>
+  </div>
+
+  <h2>À propos</h2>
+  <div class="groupe">
+    <div class="ligne"><span class="e">🔥</span><div class="t"><b id="pVersion">Ti-Labo</b><small>Produit du Québec · moteur llama.cpp sur le téléphone</small></div></div>
+  </div>
+  <p style="text-align:center;margin-top:18px"><button class="plein" id="bSauver">Enregistrer</button></p>
+</main>
+<script src="/menu.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+async function post(c, corps){
+  const r = await fetch(c, {method: "POST", body: JSON.stringify(corps || {})});
+  const j = await r.json(); if (!r.ok) throw new Error(j.error ? j.error.message : r.status); return j;
+}
+async function charger(){
+  const r = await post("/tilabo/reglages");
+  $("#pWeb").checked = r.internet; $("#pVille").value = r.ville || "";
+  $("#pJeton").textContent = r.github_token_present ? "✅ Enregistré (" + r.github_token_fin + ") — écris-en un nouveau pour le remplacer" : "Aucun : seulement les dépôts publics";
+  try {
+    const e = await (await fetch("/tilabo/etat")).json();
+    $("#pIA").textContent = e.chargement ? "Chargement de " + e.chargement + "…" : (e.modele || "Aucune");
+    $("#pAcces").innerHTML = e.acces_fichiers ? "<span class='ok'>✅ Donné</span>" : "<span class='ko'>Pas encore : nécessaire pour la clé USB-C et Téléchargements</span>";
+    $("#pVersion").textContent = (e.hote === "codexlocal" ? "CodexLocal + Ti-Labo " : "Ti-Labo ") + (e.version || "");
+  } catch (_) {}
+  const f = localStorage.getItem("tilabo-fond") || "";
+  document.querySelectorAll("[data-f]").forEach(b => b.classList.toggle("on", b.dataset.f === f));
+}
+document.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { localStorage.setItem("tilabo-fond", b.dataset.f); charger(); });
+$("#pWeb").onchange = async () => { await post("/tilabo/reglages", {internet: $("#pWeb").checked}); TL.chargerReglages(); };
+$("#bIA").onclick = () => location.href = "/jasette#ia";
+$("#bDecharger").onclick = async () => { await post("/tilabo/decharger"); charger(); };
+$("#bAgenda").onclick = async () => {
+  try { const r = await post("/tilabo/agenda/synchro"); $("#pAgenda").textContent = "✅ Synchronisé (" + r.total + " événements)"; }
+  catch (e) { $("#pAgenda").textContent = "⚠ " + e.message; }
+};
+$("#bAcces").onclick = () => { if (window.TiLaboApp && TiLaboApp.ouvrirAcces) TiLaboApp.ouvrirAcces(); };
+$("#bSauver").onclick = async () => {
+  const d = {ville: $("#pVille").value, internet: $("#pWeb").checked};
+  if ($("#pJetonVal").value.trim()) d.github_token = $("#pJetonVal").value.trim();
+  await post("/tilabo/reglages", d); $("#pJetonVal").value = "";
+  $("#bSauver").textContent = "✅ Enregistré"; setTimeout(() => $("#bSauver").textContent = "Enregistrer", 1500);
+  TL.chargerReglages(); charger();
+};
+async function pc(actif){
+  try {
+    const e = actif === undefined ? await (await fetch("/tilabo/pc/etat")).json() : await post("/tilabo/pc/activer", {actif});
+    $("#pPC").checked = e.actif; $("#pcInfo").hidden = !e.actif;
+    if (e.actif) {
+      $("#pcLien").textContent = e.lien; $("#pcAdr").textContent = e.adresse; $("#pcCode").textContent = e.code;
+      $("#pcQR").src = "/tilabo/pc/qr.png?t=" + Date.now();
+      $("#pcCopier").onclick = () => navigator.clipboard.writeText(e.lien).then(() => $("#pcCopier").textContent = "✅ Copié");
+    }
+  } catch (err) { $("#pPC").checked = false; alert("⚠ " + err.message); }
+}
+$("#pPC").onchange = () => pc($("#pPC").checked);
+// Sur le PC lui-meme, cette section ne sert a rien
+// Sur le PC lui-meme, ou dans une appli sans pont PC (APK Ti-Labo perso), cette section est cachee
+const cacherPC = () => document.querySelectorAll("#pc, #pc + .groupe").forEach(x => x.style.display = "none");
+if (!window.TiLaboApp) cacherPC();
+else fetch("/tilabo/pc/etat").then(r => r.ok ? pc() : cacherPC()).catch(cacherPC);
+charger();
+</script>
+</body>
+</html>

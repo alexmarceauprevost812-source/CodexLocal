@@ -68,19 +68,22 @@
 
   const ICI = location.pathname;
   const choix = [
-    ["/", "🏠", "Bureau"],
+    ["/", "🖥️", "Bureau"],
     ["/jasette", "💬", "Jasette"],
     ["/codex", "🧑‍💻", "Codex"],
     ["/agenda", "🗓️", "Agenda"],
     ["/jasette#ia", "🧠", "IA locales"],
     ["/cle", "🔌", "Clé USB-C"],
     ["/github", "🐙", "GitHub"],
+    ["/memoire", "🧠", "Mémoire"],
+    ["/parametres", "⚙️", "Paramètres"],
   ];
   const p = document.createElement("nav"); p.id = "tl-panneau";
-  p.innerHTML = `<div class="tl-tete"><img src="/logo.png" alt=""><div><b>Ti-Labo</b><small>Moteur gguf sur le téléphone</small></div></div>` +
+  p.innerHTML = `<div class="tl-tete"><img src="/logo.png" alt=""><div><b>Ti-Labo</b><small id="tl-sous">Mon labo d'IA perso</small></div></div>` +
     choix.map(([h, e, n]) => `<a href="${h}" class="${(h === ICI && !h.includes("#")) ? "actif" : ""}"><span class="e">${e}</span>${n}</a>`).join("") +
     `<a href="#" id="tl-complet"><span class="e">🎬</span>Studio, Mémoire…<small>Ti-Labo complet</small></a>` +
     `<div class="tl-sep"></div><label><input type="checkbox" id="tl-internet"> 🌐 Internet pour l'IA</label>` +
+    `<a href="#" id="tl-retour" hidden><span class="e">↩️</span>Retour à CodexLocal</a>` +
     `<a href="#" id="tl-maj"><span class="e">⬆️</span>Mise à jour<small id="tl-version"></small></a>`;
   const v = document.createElement("div"); v.id = "tl-voile";
   document.body.append(v, p);
@@ -90,8 +93,10 @@
     if (window.TiLaboApp && TiLaboApp.complet) TiLaboApp.complet();
     else alert("Le Ti-Labo complet roule dans Termux : bash ~/TiLabo/demarrer-telephone.sh");
   };
+  // Dans une fenetre du bureau : pas de menu ☰ (le bouton Demarrer du bureau le remplace)
+  const enFenetre = window.top !== window || new URLSearchParams(location.search).has("fenetre");
   const h = document.querySelector("header");
-  if (h) {
+  if (h && !enFenetre) {
     const b = document.createElement("button"); b.className = "tl-burger"; b.textContent = "☰"; b.title = "Menu";
     b.onclick = () => document.body.classList.add("tl-ouvert");
     h.prepend(b);
@@ -101,7 +106,13 @@
   const TL = window.TL = {internet: true};
   const caseInternet = p.querySelector("#tl-internet");
   TL.chargerReglages = async () => {
-    try { const r = await (await fetch("/tilabo/reglages")).json(); TL.internet = r.internet; caseInternet.checked = r.internet; TL.reglages = r; }
+    try { const r = await (await fetch("/tilabo/reglages")).json(); TL.internet = r.internet; TL.hote = r.hote || "tilabo"; caseInternet.checked = r.internet; TL.reglages = r;
+      // Dans CodexLocal : « Retour à CodexLocal », et c'est CodexLocal qui se met a jour.
+      // Dans l'APK Ti-Labo (perso) : le Ti-Labo se met a jour lui-meme.
+      const dansCL = TL.hote === "codexlocal";
+      p.querySelector("#tl-sous").textContent = dansCL ? "dans CodexLocal" : "Mon labo d'IA perso";
+      p.querySelector("#tl-retour").hidden = !(dansCL && window.TiLaboApp && TiLaboApp.retour);
+      p.querySelector("#tl-maj").hidden = dansCL; }
     catch (_) {}
     document.dispatchEvent(new Event("tl-reglages"));
   };
@@ -227,7 +238,8 @@
   };
 
 
-  // --- mise a jour de l'appli (Releases GitHub)
+  p.querySelector("#tl-retour").onclick = e => { e.preventDefault(); if (window.TiLaboApp && TiLaboApp.retour) TiLaboApp.retour(); else history.back(); };
+  // --- mise a jour : dans CodexLocal, c'est CodexLocal qui se met a jour (une seule APK)
   const bMaj = p.querySelector("#tl-maj");
   TL.verifierMaj = async () => {
     try {
@@ -260,12 +272,57 @@
     if (!r.disponible) return alert("✅ Ti-Labo est à jour (v" + r.actuelle + ").");
     if (confirm("⬆️ Ti-Labo " + r.derniere + " est disponible (" + r.taille_mo + " Mo).\nL'installer maintenant ? Rien ne sera perdu.")) TL.installerMaj();
   };
-  // une verification par jour au plus
+  const vraieVerif = TL.verifierMaj;
+  TL.verifierMaj = async () => { await TL.pret; return TL.hote === "codexlocal" ? null : vraieVerif(); };
+  // une verification par jour au plus (desactivee dans CodexLocal)
   try {
     const der = Number(localStorage.getItem("tilabo-maj-verif") || 0);
     if (Date.now() - der > 6 * 3600e3) { localStorage.setItem("tilabo-maj-verif", String(Date.now())); setTimeout(TL.verifierMaj, 1500); }
     else setTimeout(TL.verifierMaj, 4000);
   } catch (_) { setTimeout(TL.verifierMaj, 2000); }
 
-  TL.chargerReglages();
+  TL.pret = TL.chargerReglages();
+})();
+
+// IA en mémoire : pastille « ⚡ prête / ⏳ chargement… / 💤 charger » dans la Jasette et le Codex.
+// L'IA se charge toute seule quand on ouvre le Ti-Labo ; la pastille montre où elle en est.
+(function () {
+  const p = location.pathname.replace(/\/$/, "") || "/";
+  if (!["/", "/jasette", "/codex"].includes(p)) return;
+  const tete = document.querySelector("header");
+  if (!tete) return;
+  const st = document.createElement("style");
+  st.textContent = `.tl-charge{border:1px solid #262626;background:#0d0d0d;color:#B3B3B3;border-radius:999px;padding:6px 10px;font-size:12.5px;white-space:nowrap;min-height:34px}
+  .tl-charge.prete{color:#4ade80;border-color:#14532d;background:#06180c}
+  .tl-charge.charge{color:#facc15;border-color:#713f12;background:#1a1204}
+  .tl-charge.dort{color:#FF9A4D;border-color:#7A3A0E}`;
+  document.head.appendChild(st);
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "tl-charge"; b.hidden = true;
+  const avant = tete.querySelector("#bNouv");
+  avant ? tete.insertBefore(b, avant) : tete.appendChild(b);
+  let suivi = null, dernier = null;
+  async function maj() {
+    let e;
+    try { e = await (await fetch("/tilabo/etat")).json(); } catch (_) { b.hidden = true; return false; }
+    dernier = e.dernier;
+    b.hidden = !e.chargement && !e.pret && !e.dernier;
+    if (e.chargement) { b.className = "tl-charge charge"; b.textContent = "⏳ chargement…"; b.title = "L'IA se charge en mémoire (une seule fois) : " + e.chargement; }
+    else if (e.pret) { b.className = "tl-charge prete"; b.textContent = "⚡ prête"; b.title = "L'IA est en mémoire : les réponses partent tout de suite"; }
+    else { b.className = "tl-charge dort"; b.textContent = "💤 charger"; b.title = "Charger l'IA en mémoire pour des réponses rapides"; }
+    return !!e.chargement;
+  }
+  function suivre() {
+    clearInterval(suivi);
+    suivi = setInterval(async () => { if (!(await maj())) { clearInterval(suivi); suivi = null; } }, 1500);
+  }
+  b.onclick = async () => {
+    if (b.classList.contains("prete") || !dernier) return;
+    try { await fetch("/tilabo/precharger", { method: "POST", body: "{}" }); } catch (_) {}
+    b.className = "tl-charge charge"; b.textContent = "⏳ chargement…";
+    suivre();
+  };
+  maj().then((enCours) => { if (enCours) suivre(); });
+  setInterval(maj, 20000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) maj().then((x) => x && suivre()); });
 })();
