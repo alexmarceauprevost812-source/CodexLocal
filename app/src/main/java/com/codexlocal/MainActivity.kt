@@ -261,6 +261,11 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         intent.getStringExtra(EXTRA_MESSAGE)?.let { binding.input.setText(it) }
+        // Un choix du menu CodexLocal touche sur le bureau du Ti-Labo
+        ActionBureau.depuisCle(intent.getStringExtra(BureauActivity.EXTRA_ACTION))?.let {
+            intent.removeExtra(BureauActivity.EXTRA_ACTION)
+            executerBureau(it)
+        }
     }
 
     // ------------------------------------------------------------------ UI
@@ -893,10 +898,18 @@ class MainActivity : AppCompatActivity() {
         contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
             ?.use { if (it.moveToFirst()) it.getString(0) else null }
 
+    /**
+     * Le menu de CodexLocal = le bureau du Ti-Labo (facon Windows : icones, barre des taches, fenetres).
+     * Ses icones CodexLocal (Codex, Chat, Studio…) reviennent ici par onNewIntent.
+     */
     private fun ouvrirBureau() {
         binding.drawerLayout.closeDrawer(binding.tiroir)
-        bureau.launch(Intent(this, BureauActivity::class.java))
+        startActivity(Intent(this, com.codexlocal.tilabo.TiLaboActivity::class.java).putExtra("page", ""))
     }
+
+    /** L'ancien Bureau en grille, garde en secours. */
+    @Suppress("unused")
+    private fun ouvrirAncienBureau() = bureau.launch(Intent(this, BureauActivity::class.java))
 
     /** Execute le choix fait dans le Bureau (memes actions que le menu « ⋮ » et le tiroir). */
     private fun executerBureau(action: ActionBureau) {

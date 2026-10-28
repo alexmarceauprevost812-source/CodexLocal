@@ -328,6 +328,8 @@ class ServeurLocal(private val ctx: Context) {
             "/jasette" -> asset(out, "jasette.html", "text/html; charset=utf-8")
             "/cle" -> asset(out, "cle.html", "text/html; charset=utf-8")
             "/github" -> asset(out, "github.html", "text/html; charset=utf-8")
+            "/ecriture" -> asset(out, "ecriture.html", "text/html; charset=utf-8")
+            "/meteo" -> asset(out, "meteo.html", "text/html; charset=utf-8")
             "/menu.js" -> asset(out, "menu.js", "text/javascript; charset=utf-8")
             "/", "/index.html" -> asset(out, "bureau.html", "text/html; charset=utf-8")
             "/logo.png" -> asset(out, "logo.png", "image/png")
