@@ -87,6 +87,76 @@ object RechercheWeb {
         return if (recent.containsMatchIn(texte)) "$sujet latest version official documentation" else documentation.getValue(sujet)
     }
 
+    // ---------------------------------------------------------------- recherche Internet generale
+    // Seulement quand on la demande clairement (« cherche sur le web… », « exemple de code… »).
+    // On envoie une requete courte tiree de la demande, jamais le code ni la conversation,
+    // et les cles / jetons sont retires avant l'envoi.
+    private val demandeWeb = Regex(
+        "\\b(cherche|recherche|trouve|regarde|v[ée]rifie)\\w*\\s+(?:[\\w'’ ]{0,40}?\\s)?(?:sur|dans|avec)\\s+(?:le\\s+|l['’]\\s*)?(web|internet|net|google)\\b" +
+            "|^\\s*(🌐|web\\s*:|google\\s*:|cherche\\s*:|recherche\\s*:)" +
+            "|\\b(exemples?\\s+de\\s+code|code\\s+d['’]exemple|snippet)\\b" +
+            "|\\b(actualit[ée]s?|nouvelles\\s+d['’]aujourd['’]hui|prix\\s+(?:du|de\\s+la|des)|cours\\s+(?:du|de\\s+la)|score\\s+du)\\b",
+        RegexOption.IGNORE_CASE
+    )
+    private val mots = Regex(
+        "^\\s*(🌐|web\\s*:|google\\s*:|cherche\\s*:|recherche\\s*:)\\s*" +
+            "|\\b(peux[- ]tu|pourrais[- ]tu|stp|svp|s['’]il te pla[iî]t)\\b" +
+            "|\\b(cherche|recherche|trouve|regarde|v[ée]rifie)\\w*\\s+(?:moi\\s+)?(?:sur|dans|avec)\\s+(?:le\\s+|l['’]\\s*)?(web|internet|net|google)\\b",
+        RegexOption.IGNORE_CASE
+    )
+    private val secrets = Regex(
+        "\\b(sk-[\\w-]{8,}|gh[pousr]_\\w{8,}|github_pat_\\w+|AIza[\\w-]{20,}|xox[abp]-[\\w-]+|eyJ[\\w-]{10,}\\.[\\w-]+\\.[\\w-]+|[A-Fa-f0-9]{32,}|[A-Za-z0-9+/=_-]{40,})\\b" +
+            "|[\\w.+-]+@[\\w-]+\\.[\\w.]+"
+    )
+
+    /** La requete a envoyer au moteur de recherche, ou null si on ne l'a pas demande clairement. */
+    fun requeteGenerale(message: String): String? {
+        val texte = message.trim()
+        if (Regex("\\b(sans internet|hors ligne|sans recherche|pas de recherche|offline)\\b", RegexOption.IGNORE_CASE).containsMatchIn(texte)) return null
+        if (!demandeWeb.containsMatchIn(texte)) return null
+        // Seulement la premiere ligne / phrase : jamais un bloc de code colle dans le message
+        val premiere = texte.substringBefore("```").lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
+        val q = premiere.replace(secrets, " ").replace(mots, " ")
+            .replace(Regex("[\\s?!.,;:]+"), " ").trim().take(120).trim()
+        return q.takeIf { it.length >= 3 }
+    }
+
+    /** Une adresse publique en https (pas le telephone lui-meme ni le reseau de la maison). */
+    fun urlPublique(url: String): Boolean = runCatching {
+        val uri = URI(url)
+        val hote = uri.host?.lowercase(Locale.ROOT) ?: return false
+        uri.scheme == "https" && uri.userInfo == null && uri.port in listOf(-1, 443) &&
+            hote != "localhost" && !hote.endsWith(".local") && !hote.endsWith(".lan") &&
+            !Regex("^(127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[01])\\.|169\\.254\\.|0\\.|\\[|::1)").containsMatchIn(hote) &&
+            hote.contains('.')
+    }.getOrDefault(false)
+
+    /** Cherche sur le web (DuckDuckGo, comme le Ti-Labo) et lit le premier resultat pour avoir du vrai contenu. */
+    suspend fun rechercherGeneral(
+        requete: String,
+        chercher: (String) -> List<SourceWeb> = ::duckduckgo,
+        lire: (String) -> String = { url -> com.codexlocal.tilabo.Web.lirePage(url, 3500).optString("texte") }
+    ): ResultatWeb = withContext(Dispatchers.IO) {
+        currentCoroutineContext().ensureActive()
+        val trouves = chercher(requete).filter { urlPublique(it.url) }.distinctBy { it.url }.take(5)
+        require(trouves.isNotEmpty()) { "Aucun résultat" }
+        currentCoroutineContext().ensureActive()
+        // Le premier resultat est lu en entier (exemples de code, details) ; les autres gardent leur extrait
+        val premier = trouves.first()
+        val page = runCatching { lire(premier.url) }.getOrNull()?.trim().orEmpty()
+        val sources = listOf(premier.copy(extrait = (premier.extrait + if (page.isNotEmpty()) "\n\n" + page else "").take(4000))) +
+            trouves.drop(1).map { it.copy(extrait = it.extrait.take(500)) }
+        ResultatWeb(requete, sources)
+    }
+
+    private fun duckduckgo(requete: String): List<SourceWeb> {
+        val r = com.codexlocal.tilabo.Web.chercher(requete, 6)
+        return (0 until r.length()).mapNotNull { i ->
+            val o = r.optJSONObject(i) ?: return@mapNotNull null
+            SourceWeb(o.optString("url"), (o.optString("titre") + " — " + o.optString("extrait")).trim(' ', '—'))
+        }
+    }
+
     fun urlAutorisee(url: String): Boolean = runCatching {
         val uri = URI(url)
         uri.scheme == "https" && uri.host?.lowercase(Locale.ROOT) in domaines &&

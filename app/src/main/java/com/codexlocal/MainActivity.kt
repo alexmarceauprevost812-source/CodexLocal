@@ -1179,11 +1179,15 @@ class MainActivity : AppCompatActivity() {
             val annulations = mutableListOf<Annulation>()
             var resultatWeb: ResultatWeb? = null
             try {
-                val requeteWeb = if (prefs.rechercheWebAuto) RechercheWeb.requete(text) else null
+                // 1) documentation officielle d'une technologie connue ; 2) sinon, recherche web
+                // generale quand on la demande (« cherche sur le web… », « exemple de code… »)
+                val requeteDoc = if (prefs.rechercheWebAuto) RechercheWeb.requete(text) else null
+                val requeteGen = if (prefs.rechercheWebAuto && requeteDoc == null) RechercheWeb.requeteGenerale(text) else null
+                val requeteWeb = requeteDoc ?: requeteGen
                 if (requeteWeb != null) {
-                    binding.status.text = getString(R.string.web_recherche)
+                    binding.status.text = if (requeteGen != null) "🔎 Recherche sur le web : $requeteGen" else getString(R.string.web_recherche)
                     val resultat = try {
-                        RechercheWeb.rechercher(requeteWeb)
+                        if (requeteGen != null) RechercheWeb.rechercherGeneral(requeteGen) else RechercheWeb.rechercher(requeteWeb)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {

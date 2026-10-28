@@ -72,6 +72,7 @@ textarea:focus{outline:none;border-color:var(--orange)}
 <script src="/mermaid.min.js"></script>
 <script src="/schemas.js"></script>
 <script src="/agenda.js"></script>
+<script src="/logos.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const colorer = TL.colorer;
@@ -209,6 +210,8 @@ async function tour(message, entete){
   zone.innerHTML = rendu(rep || "(arrêté)");
   // Moteur de schemas de la cle : les blocs mermaid deviennent des schemas animes (Rejouer, Video MP4, Image)
   if (window.TiSchemas) TiSchemas.activer(zone).catch(() => {});
+  // Petits logos (crypto, langages, marques) ou image du sujet, comme des emojis
+  if (rep && window.TiLogos) TiLogos.activer(zone, derniereQuestion, TL.internet && web).catch(() => {});
   if (rep && (modePlan || /```mermaid/i.test(rep))) actionsPlan(sortie, rep);
   historique.push({role: "assistant", content: rep});
   ctrl = null; $("#bEnv").textContent = "➤";
@@ -228,7 +231,9 @@ function actionsPlan(sortie, rep){
   sortie.appendChild(a);
 }
 
+let derniereQuestion = "";
 async function envoyer(texte){
+  derniereQuestion = texte;
   // « retiens que… » : on le garde dans la Memoire
   const ret = texte.match(/^\s*(?:retiens|souviens[- ]toi|rappelle[- ]toi|n'oublie pas|note)\s+(?:que\s+|bien\s+que\s+|ça\s*:?\s*)?(.+)/i);
   if (ret) {
