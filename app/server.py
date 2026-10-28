@@ -71,7 +71,8 @@ PARAMS_DEFAUT = {
     "internet": True,                         # l'IA locale peut aller chercher sur Internet
     "anthropic_key": "",                      # cle API Claude (optionnelle)
     "mot_de_passe": "",                       # empreinte PBKDF2 du mot de passe d'entree
-    "garder_eveillee": True,                  # l'IA reste chargee et le PC ne dort pas tant que le Ti-Labo est ouvert
+    "garder_eveillee": True,
+    "contexte_ia": 8192,                      # memoire de conversation, la meme pour toutes les demandes                  # l'IA reste chargee et le PC ne dort pas tant que le Ti-Labo est ouvert
     "interface": "",                          # "bureau" (facon Windows), "classique" ou "" (on demande au demarrage)
 }
 
@@ -147,8 +148,9 @@ def env_outils():
         env.setdefault("OLLAMA_FLASH_ATTENTION", "1")
         env.setdefault("OLLAMA_KV_CACHE_TYPE", "q8_0")
         env.setdefault("OLLAMA_NUM_PARALLEL", "1")
-        env.setdefault("OLLAMA_MAX_LOADED_MODELS", "2")
+        env.setdefault("OLLAMA_MAX_LOADED_MODELS", "2")  # l'IA choisie + la petite IA de la Memoire
         env.setdefault("OLLAMA_KEEP_ALIVE", "-1")
+        env.setdefault("OLLAMA_CONTEXT_LENGTH", str(contexte_ia()))
     env["PYTHONIOENCODING"] = "utf-8"
     env["GIT_TERMINAL_PROMPT"] = "0"
     return env
@@ -168,6 +170,16 @@ PORT_OLLAMA_PC = 11434  # l'Ollama installe sur le PC (ex. qwen3-coder:30b)
 # Une fois chargee, l'IA reste en memoire tant que le Ti-Labo est ouvert (-1 = pas de limite) :
 # plus d'attente de 10 a 60 s pour relire le modele sur la cle entre deux messages.
 GARDER_EN_MEMOIRE = -1
+# Toujours la MEME taille de memoire de conversation : si elle change d'une demande a l'autre
+# (ex. Turbo 16 384, puis normal 4 096), Ollama recharge tout le modele a chaque fois.
+CONTEXTE_IA = 8192
+
+
+def contexte_ia():
+    try:
+        return max(2048, min(32768, int(lire_params().get("contexte_ia") or CONTEXTE_IA)))
+    except (TypeError, ValueError):
+        return CONTEXTE_IA
 
 
 def ollama_url(chemin, cle=False):
@@ -208,7 +220,8 @@ def prechauffer(nom):
         return
     _prechauffe_en_cours.add(nom)
     try:
-        http_json(ollama_url("/api/generate"), {"model": nom, "keep_alive": GARDER_EN_MEMOIRE}, delai=900)
+        http_json(ollama_url("/api/generate"), {"model": nom, "keep_alive": GARDER_EN_MEMOIRE,
+                                                "options": {"num_ctx": contexte_ia()}}, delai=900)
     except Exception:
         pass
     finally:
@@ -2076,6 +2089,9 @@ class Gestion(BaseHTTPRequestHandler):
         modele = d.get("modele") or p["modele_codex" if mode == "codex" else "modele_jasette"]
         if not modele:
             raise ValueError("Choisis un modele d'IA (IA locales sur la cle)")
+        global DERNIERE_IA
+        if not str(modele).startswith("claude"):
+            DERNIERE_IA = modele
         systeme = INVITE_CODEX if mode == "codex" else INVITE_DEVOIR if mode == "devoir" else INVITE_JASETTE
         systeme += contexte_tilabo(modele, p)
         if mode == "devoir":
@@ -2305,7 +2321,7 @@ class Gestion(BaseHTTPRequestHandler):
             self.ligne({"outil": "Vision : %s regarde l'image" % vision})
             try:
                 r = http_json(ollama_url("/api/chat"), {
-                    "model": vision, "stream": False, "keep_alive": GARDER_EN_MEMOIRE,
+                    "model": vision, "stream": False, "keep_alive": GARDER_EN_MEMOIRE, "options": {"num_ctx": contexte_ia()},
                     "messages": [{"role": "user", "images": imgs, "content":
                                   "Decris cette image en francais, de facon precise et utile : sujet, objets, texte "
                                   "visible (recopie-le), couleurs, style, disposition. 4 a 10 lignes, sans introduction."}]},
@@ -2317,9 +2333,10 @@ class Gestion(BaseHTTPRequestHandler):
 
     def options_ollama(self):
         # keep_alive : le modele reste en memoire -> plus de chargement de 10 a 60 s entre deux messages
-        o = {"keep_alive": GARDER_EN_MEMOIRE}
+        # num_ctx identique pour toutes les demandes (sinon Ollama recharge le modele)
+        o = {"keep_alive": GARDER_EN_MEMOIRE, "options": {"num_ctx": contexte_ia()}}
         if getattr(self, "_turbo", False):
-            o["options"] = {"num_ctx": 16384, "temperature": 0.2, "top_p": 0.9}
+            o["options"].update({"temperature": 0.2, "top_p": 0.9})
         return o
 
     # -- Ollama : boucle d'outils puis reponse en flux
@@ -3728,9 +3745,20 @@ def demarrer_et_charger():
     p = lire_params()
     if p.get("moteur") != "ollama":
         return
-    for nom in dict.fromkeys([p.get("modele_codex"), p.get("modele_jasette")]):
-        if nom and not nom.startswith("claude"):
-            prechauffer(nom)
+    nom = ia_a_garder(p)
+    if nom:
+        prechauffer(nom)
+
+
+DERNIERE_IA = None  # la derniere IA locale utilisee (Codex ou Jasette)
+
+
+def ia_a_garder(p):
+    """UNE seule IA a garder en memoire : la derniere utilisee, sinon celle du Codex.
+    En garder deux grosses en meme temps ferait deborder la memoire, et elles se
+    chasseraient l'une l'autre : rechargement a chaque question."""
+    nom = DERNIERE_IA or p.get("modele_codex") or p.get("modele_jasette")
+    return nom if nom and not nom.startswith("claude") else None
 
 
 def garder_eveillee():
@@ -3745,12 +3773,10 @@ def garder_eveillee():
                 continue
             if not ollama_vivant(cle=True):
                 demarrer_ollama()
-            voulues = [n for n in dict.fromkeys([p.get("modele_codex"), p.get("modele_jasette")]) if n and not n.startswith("claude")]
+            nom = ia_a_garder(p)
             charges = {c["nom"] for c in ia_chargees().get("chargees", [])}
-            for nom in voulues:
-                if nom not in charges and nom + ":latest" not in charges:
-                    prechauffer(nom)
-                    break  # une a la fois : on ne remplit pas la memoire d'un coup
+            if nom and nom not in charges and nom + ":latest" not in charges and not _prechauffe_en_cours:
+                prechauffer(nom)
         except Exception:
             pass
 

@@ -216,7 +216,18 @@ async function majCharge() {
       : "Clique pour charger l'IA en mémoire : la première réponse sera rapide.";
   });
   if ($("#v-ia")?.classList.contains("actif")) rendreChargeesIA();
+  conseilsVitesse();
   return etat.enChargement.size;
+}
+// Conseils (une fois par session) quand l'IA ne peut pas être rapide
+const conseilsVus = new Set();
+function conseilsVitesse() {
+  const dire = (cle, texte) => { if (!conseilsVus.has(cle)) { conseilsVus.add(cle); toast(texte); } };
+  const lourde = etat.chargees.find((c) => c.gpu_pct < 60 && c.taille_go > 3 && !/embed/.test(c.nom));
+  if (lourde) dire("lourde:" + lourde.nom, `⚠ ${lourde.nom} (${lourde.taille_go} Go) est trop grosse pour ta carte graphique : elle roule surtout sur le processeur, donc lentement. Pour des réponses rapides, prends une IA de 7 à 8 milliards de paramètres (ex. qwen2.5-coder:7b).`);
+  const p = etat.params || {}, loc = (n) => n && !/^claude/.test(n);
+  if (loc(p.modele_codex) && loc(p.modele_jasette) && p.modele_codex !== p.modele_jasette)
+    dire("deux", "💡 Ta Jasette et ton Codex utilisent deux IA différentes : en passant de l'une à l'autre, l'IA doit se recharger. Pour des réponses toujours rapides, choisis la même (IA locales › Utiliser).");
 }
 function suivreCharge() {
   clearInterval(minuterieCharge);
