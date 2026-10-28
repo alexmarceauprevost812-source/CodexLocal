@@ -341,6 +341,12 @@ etat().then(r => {
   if (q) { localStorage.removeItem("tilabo-question"); if (r && r.modele) envoyer(q); else $("#q").value = q; }
 });
 window.addEventListener("hashchange", () => { if (location.hash === "#ia") ouvrirIA(); });
+// le bureau nous envoie ce qu'une autre fenetre voulait nous donner (sans recharger cette jasette)
+window.tlArrivee = hash => {
+  if (hash === "#ia") ouvrirIA();
+  const q = localStorage.getItem("tilabo-question");
+  if (q) { localStorage.removeItem("tilabo-question"); etat().then(r => { if (r && r.modele && !ctrl) envoyer(q); else $("#q").value = q; }); }
+};
 setInterval(etat, 5000);
 </script>
 </body>

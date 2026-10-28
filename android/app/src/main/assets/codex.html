@@ -671,6 +671,15 @@ $("#mode").onchange = () => { try { localStorage.setItem("tilabo-codex-mode", $(
   await planRecu();
   if (!projet && !localStorage.getItem("tilabo-plan-codex")) ouvrirProjets();
 })();
+// le bureau nous envoie un plan ou un projet venu d'une autre fenetre : on le prend sans recharger
+// (le brouillon et les boutons Annuler des actions restent)
+window.tlArrivee = async () => {
+  try {
+    const p = JSON.parse(localStorage.getItem("tilabo-projet") || "null");
+    if (p && (!projet || p.chemin !== projet.chemin)) { projet = p; $("#projetNom").innerHTML = "<b>" + echap(p.nom) + "</b> · " + echap(p.ou); await chargerArbre(); }
+  } catch (_) {}
+  await planRecu();
+};
 $("#bWeb").onclick = () => { webCodex = !webCodex; try { localStorage.setItem("tilabo-web-codex", webCodex ? "1" : "0"); } catch (_) {} majWebCodex(); };
 document.addEventListener("tl-reglages", majWebCodex); majWebCodex();
 </script>

@@ -209,7 +209,16 @@ function ouvrir(app){
     if (chemin === base(w.app.u)) return;
     const autre = APPS.find(a => a.u && base(a.u) === chemin && !a.action);
     if (!autre || autre.id === w.app.id) return;
-    if (fenetres.has(autre.id) && fenetres.get(autre.id) !== w) fermer(autre.id);
+    // l'appli demandee a deja sa fenetre : on la garde intacte (brouillon, boutons Annuler…), on lui passe
+    // ce qui arrive (plan, question) et cette fenetre-ci revient a son appli
+    if (fenetres.has(autre.id) && fenetres.get(autre.id) !== w) {
+      const dest = fenetres.get(autre.id).f.querySelector("iframe");
+      const hash = cadre.contentWindow.location.hash;
+      try { cadre.contentWindow.history.back(); } catch (_) { cadre.src = w.app.u; }
+      try { dest.contentWindow.tlArrivee && dest.contentWindow.tlArrivee(hash); } catch (_) {}
+      activer(autre.id);
+      return;
+    }
     fenetres.delete(w.app.id); w.app = autre; fenetres.set(autre.id, w);
     f.querySelector(".tb .e").textContent = autre.e; f.querySelector(".tb b").textContent = autre.n;
     cadre.title = autre.n;
