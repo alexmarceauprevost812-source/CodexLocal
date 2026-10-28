@@ -227,7 +227,9 @@ class MainActivity : AppCompatActivity() {
     private fun appliquerFond() {
         val opacite = prefs.fondOpacite
         FondEcran.appliquer(this, binding.fondEcran, opacite)
-        binding.logoAccueil.isVisible = FondEcran.estPersonnalise(this) || opacite == 0
+        // Les yeux de démon sont toujours à l'accueil : pas de logo en double derrière eux.
+        if (!FondEcran.estPersonnalise(this)) binding.fondEcran.setImageDrawable(null)
+        binding.logoAccueil.isVisible = true
     }
 
     /** Appele quand l'editeur de code renvoie un fichier a analyser. */
@@ -458,6 +460,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun setGenerating(on: Boolean) {
         isGenerating = on
+        // Les yeux plissent et brillent plus fort pendant que l'IA travaille.
+        binding.yeuxBarre.setPensee(on)
+        binding.logoAccueil.setPensee(on)
         updateSendIcon()
         binding.input.isEnabled = !on
         boutonChat.isEnabled = !on

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de l'appli : les yeux de démon orange, dans la zone sûre de l'icône adaptative -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="29" android:translateY="44" android:scaleX="0.3333" android:scaleY="0.3333">
+        <path android:fillColor="#FFFF7A00"
+            android:pathData="M4,10 L68,30 C64,46 50,54 34,52 C16,50 6,36 4,10 Z" />
+        <path android:fillColor="#FFFF7A00"
+            android:pathData="M146,10 L82,30 C86,46 100,54 116,52 C134,50 144,36 146,10 Z" />
+    </group>
+</vector>
