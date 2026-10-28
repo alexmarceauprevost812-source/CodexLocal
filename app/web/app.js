@@ -75,6 +75,11 @@ function toast(msg) {
 /* ------------------------------------------------------------ markdown minimal */
 function rendreMarkdown(texte, avecActions = true) {
   const blocs = [];
+  // Blocs du Codex (« === FICHIER: x === … === FIN === ») : code en couleur, même pendant qu'il s'écrit
+  texte = texte.replace(/^=== (FICHIER|MODIFIER): *(.+?) *===[ \t]*\n?([\s\S]*?)(?:^=== FIN ===[ \t]*$|(?![\s\S]))/gm, (_, sorte, chemin, code) => {
+    blocs.push({ lang: chemin.split("/").pop(), code: code.replace(/\n$/, ""), titre: (sorte === "FICHIER" ? "📄 " : "✏️ ") + chemin.trim() });
+    return `\u0000${blocs.length - 1}\u0000`;
+  });
   texte = texte.replace(/```([\w.+-]*)\n?([\s\S]*?)(```|$)/g, (_, lang, code) => {
     blocs.push({ lang, code });
     return `\u0000${blocs.length - 1}\u0000`;
@@ -93,7 +98,7 @@ function rendreMarkdown(texte, avecActions = true) {
     const actions = avecActions
       ? `<button class="btn petit" data-act="copier">Copier</button><button class="btn petit" data-act="inserer">Mettre dans l'éditeur</button>`
       : "";
-    return `<div class="bloc-code" data-lang="${esc((b.lang || "").toLowerCase())}"><div class="bc-tete">${esc(b.lang || "code")}<span class="espace"></span>${actions}</div><pre><code>${window.TiCouleurs ? TiCouleurs.colorer(b.code.replace(/\n$/, ""), TiCouleurs.langueDe(b.lang)) : esc(b.code.replace(/\n$/, ""))}</code></pre></div>`;
+    return `<div class="bloc-code" data-lang="${esc((b.lang || "").toLowerCase())}"><div class="bc-tete">${esc(b.titre || b.lang || "code")}<span class="espace"></span>${actions}</div><pre><code>${window.TiCouleurs ? TiCouleurs.colorer(b.code.replace(/\n$/, ""), TiCouleurs.langueDe(b.lang)) : esc(b.code.replace(/\n$/, ""))}</code></pre></div>`;
   });
 }
 
@@ -137,32 +142,47 @@ function reduireImage(fichier, max = 1280) {
 
 /* ------------------------------------------------------------ écriture fluide (machine à écrire) */
 function machineAEcrire(el, apres) {
+  // L'affichage suit la vitesse réelle de l'IA choisie : une IA rapide écrit vite, une IA lente écrit
+  // doucement, mais toujours lettre par lettre, sans à-coups. S'il prend du retard, il rattrape en douceur.
   let cible = "", montre = 0, boucle = null, erreurs = "", fin = null, dernierRendu = 0;
-  const vitesse = () => {
-    const reste = cible.length - montre;
-    // rattrape vite quand l'IA écrit plus vite que l'affichage, doux sinon
-    return Math.max(1, Math.ceil(reste / 10));
-  };
+  let avant = 0, reserve = 0, debit = 60, dernierAjout = 0; // debit : caractères par seconde reçus de l'IA
   function rendre(force) {
     const t = performance.now();
-    if (!force && t - dernierRendu < 16) return;
+    if (!force && t - dernierRendu < 33) return; // ~30 images/s : fluide sans faire chauffer le PC
     dernierRendu = t;
-    el.innerHTML = rendreMarkdown(cible.slice(0, montre)) + erreurs;
+    el.innerHTML = rendreMarkdown(cible.slice(0, Math.floor(montre))) + erreurs;
     apres();
   }
-  function pas() {
-    if (montre < cible.length) {
-      montre = Math.min(cible.length, montre + vitesse());
-      rendre();
+  function pas(t) {
+    const dt = Math.min(100, avant ? t - avant : 16);
+    avant = t;
+    const reste = cible.length - montre;
+    if (reste > 0) {
+      let vitesse = Math.max(45, debit * 1.08);           // un peu plus vite que l'IA pour ne pas traîner
+      const retard = reste / vitesse;                      // secondes de retard
+      if (retard > 1.2) vitesse *= retard / 1.2;           // rattrapage progressif
+      if (fin) vitesse = Math.max(vitesse, reste * 2.5);   // l'IA a fini : on termine en moins d'une demi-seconde
+      reserve += (vitesse * dt) / 1000;
+      const n = Math.floor(reserve);
+      if (n > 0) { reserve -= n; montre = Math.min(cible.length, montre + n); rendre(); }
       boucle = requestAnimationFrame(pas);
     } else {
-      boucle = null;
+      boucle = null; avant = 0; reserve = 0;
       rendre(true);
       if (fin) { fin(); fin = null; }
     }
   }
   return {
-    ajouter(t) { cible += t; if (!boucle) boucle = requestAnimationFrame(pas); },
+    ajouter(t) {
+      const maintenant = performance.now();
+      if (dernierAjout) {
+        const ecart = Math.max(8, maintenant - dernierAjout);
+        debit = debit * 0.8 + ((t.length * 1000) / ecart) * 0.2; // moyenne glissante du débit de l'IA
+      }
+      dernierAjout = maintenant;
+      cible += t;
+      if (!boucle) boucle = requestAnimationFrame(pas);
+    },
     erreur(m) { erreurs += `<p style="color:var(--red)">${esc(m)}</p>`; rendre(true); },
     terminer() {
       if (document.hidden) { montre = cible.length; rendre(true); return Promise.resolve(); }
@@ -806,6 +826,8 @@ function allerA(vue) {
   if (vue === "agenda" && window.TiAgenda) TiAgenda.rendre();
   if (vue === "bureau") rendreBureau();
   if (vue === "codex") { rendreCodexProjets(); setTimeout(() => codex.zone.focus(), 30); }
+  let plein = false; try { plein = vue === "codex" && localStorage.getItem("tilabo-codex-plein") === "1"; } catch (_) {}
+  if ($("#bt-codex-plein")) codexPlein(plein);
 }
 $$(".nav").forEach((n) => (n.onclick = () => allerA(n.dataset.vue)));
 // Changer de bureau : on retient le choix sur la cle, puis on ouvre le bureau facon Windows
@@ -1305,8 +1327,51 @@ async function rendreStudio() {
   const garde = sel.value || etat.projet || etat.projets[0]?.nom;
   sel.innerHTML = etat.projets.map((p) => `<option ${p.nom === garde ? "selected" : ""}>${esc(p.nom)}</option>`).join("");
   sel.onchange = dessinerSchema;
-  dessinerSchema();
+  if (!$("#studio-schema").hidden) dessinerSchema();
+  rendreVitrine();
 }
+// onglets du Studio : la vitrine des applis ou le schéma
+$$(".studio-onglet").forEach((b) => (b.onclick = () => {
+  $$(".studio-onglet").forEach((x) => { x.classList.toggle("actif", x === b); x.setAttribute("aria-selected", String(x === b)); });
+  $("#studio-applis").hidden = b.dataset.studio !== "applis";
+  $("#studio-schema").hidden = b.dataset.studio !== "schema";
+  if (b.dataset.studio === "schema") dessinerSchema();
+}));
+const urlAppli = (nom) => "/apercu/" + encodeURIComponent(window.TILABO_JETON || "") + "/" + encodeURIComponent(nom) + "/";
+// La vitrine : chaque projet qui a une page index.html est une appli qu'on lance d'un clic
+function rendreVitrine() {
+  const V = $("#vitrine");
+  const projets = [...etat.projets].sort((a, b) => (b.web === true) - (a.web === true) || b.modifie - a.modifie);
+  if (!projets.length) { V.innerHTML = `<p class="sous">Aucun projet pour l'instant. Demande au Codex de te créer une appli, elle apparaîtra ici.</p>`; return; }
+  V.innerHTML = "";
+  projets.forEach((p) => {
+    const c = document.createElement("article");
+    c.className = "appli";
+    const date = new Date(p.modifie * 1000).toLocaleDateString("fr-CA", { day: "numeric", month: "short" });
+    c.innerHTML = (p.web
+      ? `<div class="ecran" title="Lancer l'appli"><iframe loading="lazy" tabindex="-1" sandbox="allow-scripts" src="${urlAppli(p.nom)}" title=""></iframe><div class="jouer">▶</div></div>`
+      : `<div class="ecran code" title="Pas de page web à lancer">${p.langage === "Python" ? "🐍" : "🧩"}</div>`) +
+      `<div class="infos"><b>${esc(p.nom)}</b><p>${esc(p.resume || (p.web ? "Appli web" : "Projet " + (p.langage || "")))}</p>
+        <span class="sous" style="font-size:12px">${esc(p.langage || "—")} · ${p.fichiers} fichiers · modifié le ${date}</span></div>
+      <div class="actions">${p.web ? `<button class="btn petit prim" data-lancer>▶ Lancer</button>` : ""}<button class="btn petit" data-codex>🧑‍💻 Codex</button><button class="btn petit" data-ouvrir>📁 Fichiers</button></div>`;
+    const lancer = () => lancerAppli(p.nom);
+    if (p.web) { $(".ecran", c).onclick = lancer; $("[data-lancer]", c).onclick = lancer; }
+    $("[data-codex]", c).onclick = async () => { await choisirProjet(p.nom).catch(() => {}); allerA("codex"); };
+    $("[data-ouvrir]", c).onclick = async () => { await choisirProjet(p.nom).catch(() => {}); allerA("projets"); };
+    V.appendChild(c);
+  });
+}
+function lancerAppli(nom) {
+  $("#lanceur-titre").textContent = "▶ " + nom;
+  $("#lanceur-cadre").src = urlAppli(nom);
+  $("#lanceur").hidden = false;
+  $("#lanceur-recharger").onclick = () => { $("#lanceur-cadre").src = urlAppli(nom) + "?t=" + Date.now(); };
+  $("#lanceur-onglet").onclick = () => window.open(urlAppli(nom), "_blank", "noopener");
+  $("#lanceur-codex").onclick = async () => { fermerLanceur(); await choisirProjet(nom).catch(() => {}); allerA("codex"); };
+}
+function fermerLanceur() { $("#lanceur").hidden = true; $("#lanceur-cadre").src = "about:blank"; }
+$("#lanceur-fermer").onclick = fermerLanceur;
+addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#lanceur").hidden) fermerLanceur(); });
 async function dessinerSchema() {
   const svg = $("#schema"), nom = $("#studio-projet").value;
   if (!nom) { svg.innerHTML = `<text x="40" y="60">Aucun projet</text>`; return; }
@@ -1338,6 +1403,15 @@ async function dessinerSchema() {
   svg.innerHTML = liens + boites;
 }
 $("#bt-codex-github").onclick = () => envoyerSurGitHub($("#codex-projet").value || etat.projet);
+// Codex plein écran : le code s'écrit sur toute la page
+function codexPlein(oui) {
+  document.documentElement.classList.toggle("codex-plein", oui);
+  $("#bt-codex-plein").setAttribute("aria-pressed", String(oui));
+  $("#bt-codex-plein").textContent = oui ? "⤡ Quitter le plein écran" : "⛶ Plein écran";
+  try { localStorage.setItem("tilabo-codex-plein", oui ? "1" : ""); } catch (_) {}
+}
+$("#bt-codex-plein").onclick = () => codexPlein(!document.documentElement.classList.contains("codex-plein"));
+addEventListener("keydown", (e) => { if (e.key === "Escape" && document.documentElement.classList.contains("codex-plein")) codexPlein(false); });
 $("#bt-projet-github").onclick = () => envoyerSurGitHub(etat.projet);
 $("#bt-studio-codex").onclick = () => {
   const nom = $("#studio-projet").value;

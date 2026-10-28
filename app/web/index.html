@@ -204,6 +204,7 @@
           <span class="espace" style="flex:1"></span>
           <input class="champ" id="trouve-q" placeholder="Trouve mes projets… (ex. scanner wifi)" aria-label="Retrouver un projet" style="max-width:280px">
           <button class="btn petit" id="bt-trouve" aria-label="Chercher dans mes projets"><svg class="ic"><use href="#i-loupe"/></svg></button>
+          <button class="btn petit" id="bt-codex-plein" aria-pressed="false" title="Le Codex sur toute la page (Échap pour revenir)">⛶ Plein écran</button>
         </div>
         <div class="resultats-trouve" id="trouve-res"></div>
         <div class="chat" id="chat-codex"></div>
@@ -212,12 +213,31 @@
       <!-- Studio -->
       <section class="vue" id="v-studio" aria-label="Studio">
         <div class="entete">
-          <div><h1>Studio</h1><p class="sous">Le schéma animé de tes projets.</p></div>
+          <div><h1>Studio</h1><p class="sous">La vitrine de tes applis, et le schéma animé de tes projets.</p></div>
           <div class="espace"></div>
-          <select class="champ" id="studio-projet" style="width:auto" aria-label="Projet à afficher"></select>
-          <button class="btn" id="bt-studio-codex">Demander au Codex de l'expliquer</button>
+          <div class="studio-onglets" role="tablist" aria-label="Studio">
+            <button class="studio-onglet actif" data-studio="applis" role="tab" aria-selected="true">📱 Mes applis</button>
+            <button class="studio-onglet" data-studio="schema" role="tab" aria-selected="false">🧬 Schéma</button>
+          </div>
         </div>
-        <svg id="schema" role="img" aria-label="Schéma du projet"></svg>
+        <div id="studio-applis">
+          <div class="vitrine" id="vitrine"></div>
+        </div>
+        <div id="studio-schema" hidden>
+          <div class="ligne" style="margin-bottom:12px;gap:10px">
+            <select class="champ" id="studio-projet" style="width:auto" aria-label="Projet à afficher"></select>
+            <button class="btn" id="bt-studio-codex">Demander au Codex de l'expliquer</button>
+          </div>
+          <svg id="schema" role="img" aria-label="Schéma du projet"></svg>
+        </div>
+        <div id="lanceur" hidden>
+          <div class="lanceur-tete"><b id="lanceur-titre"></b><span class="espace" style="flex:1"></span>
+            <button class="btn petit" id="lanceur-recharger">⟳ Recharger</button>
+            <button class="btn petit" id="lanceur-codex">🧑‍💻 Modifier avec le Codex</button>
+            <button class="btn petit" id="lanceur-onglet">↗ Nouvel onglet</button>
+            <button class="btn petit" id="lanceur-fermer">✕ Fermer</button></div>
+          <iframe id="lanceur-cadre" title="Aperçu de l'appli" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe>
+        </div>
       </section>
 
       <!-- Images -->

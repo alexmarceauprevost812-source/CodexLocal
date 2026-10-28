@@ -261,6 +261,8 @@ def liste_projets():
             "git": os.path.isdir(os.path.join(p, ".git")),
             "modifie": os.path.getmtime(p),
             "indexe": os.path.isfile(os.path.join(MEMOIRE, nom + ".json")),
+            # une appli qu'on peut lancer dans le Studio (page web du projet)
+            "web": os.path.isfile(os.path.join(p, "index.html")),
         })
     res.sort(key=lambda x: -x["modifie"])
     return res
