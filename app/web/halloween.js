@@ -1,13 +1,14 @@
 // Thème Halloween : juste les yeux — rouges, ils clignent en blanc et suivent la souris.
 // S'active tout seul du 15 octobre au 2 novembre.
 // localStorage « tilabo-halloween » : "oui" = toujours, "non" = jamais, absent = automatique.
-// <script src="/web/halloween.js" data-barre="52px"></script>  (bureau)
+// <script src="/web/halloween.js" data-barre="52px"></script>  (bureau ; data-droite = place des grands yeux)
 // <script src="/web/halloween.js" data-mode="yeux"></script>     (Jasette : seulement les yeux qui brillent)
 (function () {
   "use strict";
   const script = document.currentScript;
   const BARRE = (script && script.dataset.barre) || "52px";
   const SEULEMENT_YEUX = script && script.dataset.mode === "yeux";
+  const DROITE = (script && script.dataset.droite) || "calc(min(400px,36vw) + 36px)"; // a gauche des gadgets
   const CLE = "tilabo-halloween";
 
   function enSaison(d) {
@@ -49,8 +50,9 @@
 
   const cssBureau = `
   /* a gauche de la colonne des gadgets, pour ne rien cacher */
-  .hw-yeux{position:fixed;right:calc(min(400px,36vw) + 36px);bottom:calc(${BARRE} + 22px);z-index:1;pointer-events:none}
-  @media (max-width:600px){.hw-yeux{display:none}}`;
+  .hw-yeux{position:fixed;right:${DROITE};bottom:calc(${BARRE} + 22px);z-index:1;pointer-events:none}
+  /* telephone : plus petits, en bas a droite (les gadgets sont caches) */
+  @media (max-width:600px){.hw-yeux{right:14px;bottom:calc(${BARRE} + 14px)}.hw-yeux .ti-yeux.grand{--t:96px}}`;
 
   let elements = [], suivre = null;
   function allumer() {
