@@ -592,6 +592,7 @@ function creerChat(conteneur, mode) {
         ecriture: mode === "codex" && (!!cases.ecriture?.checked || !!cases.agent?.checked || !!cases.turbo?.checked),
         agent: mode === "codex" && (!!cases.agent?.checked || !!cases.turbo?.checked),
         turbo: mode === "codex" && !!cases.turbo?.checked,
+        ville_meteo: (() => { try { return localStorage.getItem("tilabo-ville") || ""; } catch (_) { return ""; } })(),
       }, { flux: true, signal: controleur.signal });
       await lireFlux(r, (o) => {
         if (o.texte) { reponse += o.texte; ecrivain.ajouter(o.texte); if (yeux && TiYeux.actuel !== "parle") TiYeux.etat("parle"); }
@@ -606,6 +607,7 @@ function creerChat(conteneur, mode) {
           if (deja) { deja.lu = deja.lu || lien.lu; return; }
           sources.push(lien);
         });
+        if (o.meteo && window.TiMeteo) etapes.insertAdjacentHTML("beforeend", TiMeteo.carte(o.meteo));
         if (o.sources) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic("memoire")}Mémoire : ${esc(o.sources.join(", "))}</div>`);
         if (o.erreur) { ecrivain.erreur(o.erreur); if (yeux) TiYeux.etat("oups"); }
         if (o.jetons_s) $(".qui", d).insertAdjacentHTML("beforeend", `<span>· ${o.jetons_s} jetons/s</span>`);
