@@ -111,8 +111,7 @@ async function chercher(ville){
       `<div class="note">Mis à jour à ${new Date().toLocaleTimeString("fr-CA", {hour: "2-digit", minute: "2-digit"})} · Open-Meteo</div>`;
     $("#bAct").onclick = () => chercher(ville);
     $("#bJas").onclick = () => {
-      try { localStorage.setItem("tilabo-question", "Quelle est la météo à " + (ville || m.lieu.split(",")[0]) + " ?"); } catch (_) {}
-      TL.ouvrirAppli("jasette");
+      TL.ouvrirAppli("jasette", "Quelle est la météo à " + (ville || m.lieu.split(",")[0]) + " ?");
     };
   } catch (e) {
     if (e.code === "position") {

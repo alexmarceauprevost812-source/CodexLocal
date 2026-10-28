@@ -423,7 +423,18 @@ async function meteo() {
 $("#meteoCorps").style.cursor = "pointer";
 $("#meteoCorps").onclick = () => lancer(app("meteo"));
 // Les applis dans les fenetres peuvent en ouvrir une autre (ex. Meteo -> Jasette)
-window.tlOuvrir = (id) => { const a = app(id); if (a) lancer(a); };
+// Avec une question : la Jasette la recoit et l'envoie (fenetre deja ouverte ou nouvelle)
+window.tlOuvrir = (id, question) => {
+  const a = app(id); if (!a) return;
+  const deja = question && fenetres.find((f) => f.cle === id);
+  if (deja) {
+    deja.el.classList.remove("min"); activer(deja);
+    const fr = deja.el.querySelector("iframe");
+    if (fr) fr.contentWindow.postMessage({tlQuestion: question}, location.origin);
+    return;
+  }
+  lancer(a, question ? {src: "/index.html?cadre=1&vue=" + encodeURIComponent(id) + "&question=" + encodeURIComponent(question)} : {});
+};
 $("#btVille").onclick = () => {
   const v = prompt("Ville pour la météo :", ville());
   if (v && v.trim()) { try { localStorage.setItem("tilabo-ville", v.trim()); } catch (_) {} meteo(); }

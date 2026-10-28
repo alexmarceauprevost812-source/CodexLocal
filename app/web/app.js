@@ -2125,7 +2125,15 @@ function deverrouiller() {
   if (qCadre.get("vue")) {
     if (qCadre.get("projet")) { try { await choisirProjet(qCadre.get("projet")); } catch (_) {} }
     allerA(qCadre.get("vue"));
+    // Question envoyee par une autre appli du bureau (ex. Meteo -> « Demander a la Jasette »)
+    if (qCadre.get("question") && qCadre.get("vue") === "jasette") jasette.envoyer(qCadre.get("question"));
   }
+  // Meme chose quand la fenetre Jasette est deja ouverte : le bureau lui envoie la question
+  window.addEventListener("message", (e) => {
+    if (e.origin !== location.origin || !e.data || typeof e.data.tlQuestion !== "string") return;
+    allerA("jasette");
+    jasette.envoyer(e.data.tlQuestion.slice(0, 500));
+  });
   codex.prechauffer(); // l'IA du Codex est prete avant le premier message
   majCharge().then((n) => { if (n) suivreCharge(); });
   setInterval(majCharge, 30000);

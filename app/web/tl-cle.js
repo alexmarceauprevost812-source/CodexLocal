@@ -130,5 +130,8 @@
       `<div class="jours">${jours}</div></div>`;
   };
   /** Ouvre une autre appli du bureau (Jasette…) quand on est dans une fenetre. */
-  TL.ouvrirAppli = id => { try { if (window.parent !== window && window.parent.tlOuvrir) return window.parent.tlOuvrir(id); } catch (_) {} location.href = "/index.html?vue=" + encodeURIComponent(id); };
+  TL.ouvrirAppli = (id, question) => {
+    try { if (window.parent !== window && window.parent.tlOuvrir) return window.parent.tlOuvrir(id, question); } catch (_) {}
+    location.href = "/index.html?vue=" + encodeURIComponent(id) + (question ? "&question=" + encodeURIComponent(question) : "");
+  };
 })();
