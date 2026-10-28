@@ -4,3 +4,5 @@
 *.sh  text eol=lf
 *.apk binary
 *.png binary
+*.cmd text eol=crlf
+*.inf text eol=crlf
