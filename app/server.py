@@ -723,6 +723,19 @@ INVITE_AGENT = ("\n\nMODE AGENT : tu travailles de facon autonome jusqu'a ce que
                 "executer_commande, 4) si ca plante, lis l'erreur, corrige et reteste, 5) termine par un court resume "
                 "de ce qui a ete fait et de comment l'utiliser. Une commande refusee par l'utilisateur ne doit pas "
                 "etre redemandee telle quelle.")
+INVITE_TURBO = ("\n\nMODE TURBO : va droit au but et enchaine les etapes sans t'arreter pour demander. "
+                "Lis plusieurs fichiers d'un coup quand c'est utile, ecris tout le code necessaire, teste avec "
+                "executer_commande (python fichier.py, pytest, node fichier.js, npm test...), corrige jusqu'a ce que ca "
+                "marche. Ne t'arrete que quand la tache est finie et verifiee.")
+# Commandes de test qui ne modifient rien hors du projet : lancees sans demander en Turbo
+_SANS_DANGER = re.compile(r"^(python3?|py)(\s+-3)?\s+(-m\s+(pytest|unittest|py_compile)\b[^|&;><`$]*|[\w./\\-]+\.py(\s+[\w./=-]+)*)$"
+                          r"|^(pytest|node\s+[\w./\\-]+\.m?js|npm\s+(test|run\s+(test|build|lint))|git\s+(status|diff|log)(\s+[\w./-]+)*)$", re.I)
+
+
+def commande_sans_danger(cmd):
+    return bool(_SANS_DANGER.match(cmd.strip()))
+
+
 _attentes = {}
 _attentes_verrou = threading.Lock()
 
@@ -1267,6 +1280,11 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, {"ok": True})
             if route == "ia/telecharger":
                 return self.flux_ollama("/api/pull", {"model": d["nom"], "stream": True}, brut=True)
+            if route == "ia/prechauffer":
+                # charge le modele en memoire tout de suite (requete vide)
+                threading.Thread(target=lambda: http_json(ollama_url("/api/generate"),
+                                 {"model": d.get("nom"), "keep_alive": "30m"}, delai=600), daemon=True).start()
+                return self.envoyer(200, {"ok": True})
             if route == "ia/demarrer":
                 return self.envoyer(200, {"ok": demarrer_ollama(), "version": ollama_vivant()})
             if route == "jasette":
@@ -1375,10 +1393,15 @@ class Gestion(BaseHTTPRequestHandler):
         f_ouvert = d.get("fichier") or ""
         self._fichier_ouvert = f_ouvert[len(projet) + 1:] if projet and f_ouvert.startswith(projet + "/") else None
         self._tours = 6
+        self._turbo = bool(d.get("turbo")) and mode == "codex"
+        if self._turbo and projet:
+            d["agent"] = True
         if projet and d.get("agent") and d.get("plan") != "planifier":
             outils += OUTILS_COMMANDE
             systeme += INVITE_AGENT
-            self._tours = 30
+            self._tours = 40 if self._turbo else 30
+            if self._turbo:
+                systeme += INVITE_TURBO
         if mode == "codex":
             d["plan"] = None if d.get("plan") != "executer" else "executer"
         else:
@@ -1436,8 +1459,12 @@ class Gestion(BaseHTTPRequestHandler):
             if not cmd or not projet:
                 return {"erreur": "Commande vide ou aucun projet ouvert"}
             ident = secrets.token_hex(8)
-            self.ligne({"autorisation": {"id": ident, "commande": cmd, "projet": projet}})
-            if not attendre_autorisation(ident):
+            auto = getattr(self, "_turbo", False) and commande_sans_danger(cmd)
+            if auto:
+                self.ligne({"outil": "Turbo : lance %s" % cmd})
+            else:
+                self.ligne({"autorisation": {"id": ident, "commande": cmd, "projet": projet}})
+            if not auto and not attendre_autorisation(ident):
                 self.ligne({"commande": {"commande": cmd, "refusee": True}})
                 return {"refuse": True, "message": "L'utilisateur a refuse cette commande."}
             res = executer(projet, cmd)
@@ -1494,6 +1521,13 @@ class Gestion(BaseHTTPRequestHandler):
                                    % (ouvert, rel)}
         return None
 
+    def options_ollama(self):
+        # keep_alive : le modele reste en memoire -> plus de chargement de 10 a 60 s entre deux messages
+        o = {"keep_alive": "30m"}
+        if getattr(self, "_turbo", False):
+            o["options"] = {"num_ctx": 16384, "temperature": 0.2, "top_p": 0.9}
+        return o
+
     # -- Ollama : boucle d'outils puis reponse en flux
     def jasette_ollama(self, modele, messages, sources, outils):
         self.debut_flux()
@@ -1505,7 +1539,8 @@ class Gestion(BaseHTTPRequestHandler):
             for _ in range(getattr(self, "_tours", 6)):
                 req = urllib.request.Request(ollama_url("/api/chat"), headers={"Content-Type": "application/json"},
                                              data=json.dumps({"model": modele, "messages": messages,
-                                                              "tools": outils, "stream": True}).encode())
+                                                              "tools": outils, "stream": True,
+                                                              **self.options_ollama()}).encode())
                 try:
                     r = urllib.request.urlopen(req, timeout=3600)
                 except urllib.error.HTTPError as e:
@@ -1581,7 +1616,8 @@ class Gestion(BaseHTTPRequestHandler):
                 if texte:
                     self.ligne({"texte": "\n\n"})
         req = urllib.request.Request(ollama_url("/api/chat"),
-                                     data=json.dumps({"model": modele, "messages": messages, "stream": True}).encode(),
+                                     data=json.dumps({"model": modele, "messages": messages, "stream": True,
+                                                      **self.options_ollama()}).encode(),
                                      headers={"Content-Type": "application/json"})
         try:
             r = urllib.request.urlopen(req, timeout=3600)

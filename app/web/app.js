@@ -188,7 +188,8 @@ function creerChat(conteneur, mode) {
         <option value="valider">Plan à valider</option>
       </select>`}
       ${mode === "codex" ? `<label class="interrupteur" title="Le Codex crée et modifie les fichiers du projet ouvert"><input type="checkbox" data-o="ecriture"><span class="rail"></span>${ic("dossier")}Écrire les fichiers</label>
-      <label class="interrupteur" title="Agent : travaille seul jusqu'au bout, teste son code avec des commandes (tu autorises chaque commande)"><input type="checkbox" data-o="agent"><span class="rail"></span>${ic("terminal")}Agent</label>` : ""}
+      <label class="interrupteur" title="Agent : travaille seul jusqu'au bout, teste son code avec des commandes (tu autorises chaque commande)"><input type="checkbox" data-o="agent"><span class="rail"></span>${ic("terminal")}Agent</label>
+      <label class="interrupteur turbo" title="Turbo : agent jusqu'à 40 étapes, IA gardée en mémoire, plus de contexte. Les commandes de test (python fichier.py, pytest, node, npm test, git status) se lancent sans demander ; les autres demandent toujours."><input type="checkbox" data-o="turbo"><span class="rail"></span>⚡ Turbo</label>` : ""}
       <label class="interrupteur" title="L'IA peut chercher sur Internet si elle en a besoin"><input type="checkbox" data-o="internet"><span class="rail"></span>${ic("globe")}Internet</label>
       ${mode === "codex" ? "" : `<label class="interrupteur" title="L'IA répond avec un schéma animé (exportable en vidéo)"><input type="checkbox" data-o="schema"><span class="rail"></span>${ic("studio")}Schéma</label>`}
       <label class="interrupteur" title="Utiliser la mémoire de la clé"><input type="checkbox" data-o="memoire"><span class="rail"></span>${ic("memoire")}Mémoire</label>
@@ -232,11 +233,12 @@ function creerChat(conteneur, mode) {
     cases.memoire.checked = !!s.memoire;
     if (cases.ecriture) cases.ecriture.checked = s.ecriture ?? true;
     if (cases.agent) cases.agent.checked = !!s.agent;
+    if (cases.turbo) cases.turbo.checked = !!s.turbo;
   } catch { /* stockage indisponible : valeurs par defaut */ }
   const garderOptions = () => {
     try {
       localStorage.setItem(cleStock + "-opts2", JSON.stringify({ plan: choixPlan.value, internet: cases.internet.checked,
-        memoire: cases.memoire.checked, ecriture: cases.ecriture?.checked, agent: cases.agent?.checked }));
+        memoire: cases.memoire.checked, ecriture: cases.ecriture?.checked, agent: cases.agent?.checked, turbo: cases.turbo?.checked }));
     } catch {}
   };
   [...Object.values(cases), choixPlan].forEach((c) => c.addEventListener("change", garderOptions));
@@ -256,6 +258,11 @@ function creerChat(conteneur, mode) {
       : `<option value="">${etat.params.moteur === "ollama_pc" ? "IA du PC introuvable (Ollama est-il ouvert ?)" : "Aucune IA — va dans IA locales"}</option>`;
     if (sel.value && sel.value !== choisi) api("parametres", { [cle]: sel.value }).then((p) => Object.assign(etat.params, p)).catch(() => {});
   }
+  const prechauffer = () => {
+    const m = etat.modeles.find((x) => x.nom === sel.value);
+    if (m && !m.nuage) api("ia/prechauffer", { nom: m.nom }).catch(() => {});
+  };
+  sel.addEventListener("change", prechauffer);
   sel.addEventListener("change", () => {
     const cle = mode === "codex" ? "modele_codex" : "modele_jasette";
     api("parametres", { [cle]: sel.value }).then((p) => Object.assign(etat.params, p)).catch((e) => toast(e.message));
@@ -342,8 +349,9 @@ function creerChat(conteneur, mode) {
         mode, modele: sel.value, messages: hist, plan,
         internet: cases.internet.checked, memoire: cases.memoire.checked, schema: !!cases.schema?.checked,
         fichier: mode === "codex" ? etat.fichier : null, projet: etat.projet,
-        ecriture: mode === "codex" && (!!cases.ecriture?.checked || !!cases.agent?.checked),
-        agent: mode === "codex" && !!cases.agent?.checked,
+        ecriture: mode === "codex" && (!!cases.ecriture?.checked || !!cases.agent?.checked || !!cases.turbo?.checked),
+        agent: mode === "codex" && (!!cases.agent?.checked || !!cases.turbo?.checked),
+        turbo: mode === "codex" && !!cases.turbo?.checked,
       }, { flux: true, signal: controleur.signal });
       await lireFlux(r, (o) => {
         if (o.texte) { reponse += o.texte; ecrivain.ajouter(o.texte); }
@@ -389,7 +397,7 @@ function creerChat(conteneur, mode) {
     coller();
   }
 
-  return { majModeles, envoyer: (t) => envoyer(t), zone };
+  return { majModeles, envoyer: (t) => envoyer(t), zone, prechauffer };
 }
 
 /* ------------------------------------------------------------ agent : commandes autorisees une par une */
@@ -1246,6 +1254,7 @@ function deverrouiller() {
   await deverrouiller();
   await rafraichirEtat();
   rendreBureau();
+  codex.prechauffer(); // l'IA du Codex est prete avant le premier message
   // Le moteur peut prendre quelques secondes à démarrer : on revérifie.
   let essais = 0;
   const t = setInterval(async () => {
