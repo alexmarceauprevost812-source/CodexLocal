@@ -155,13 +155,19 @@ def git_commande():
 _proc_ollama = None
 
 
-def ollama_url(chemin):
+PORT_OLLAMA_PC = 11434  # l'Ollama installe sur le PC (ex. qwen3-coder:30b)
+
+
+def ollama_url(chemin, cle=False):
+    """Moteur choisi : les IA de la cle (par defaut) ou celles du PC."""
+    if not cle and not ANDROID and lire_params().get("moteur") == "ollama_pc":
+        return "http://127.0.0.1:%d%s" % (PORT_OLLAMA_PC, chemin)
     return "http://%s:%d%s" % (HOTE_OLLAMA, PORT_OLLAMA, chemin)
 
 
-def ollama_vivant():
+def ollama_vivant(cle=False):
     try:
-        with urllib.request.urlopen(ollama_url("/api/version"), timeout=2) as r:
+        with urllib.request.urlopen(ollama_url("/api/version", cle), timeout=2) as r:
             return json.loads(r.read().decode()).get("version", "?")
     except Exception:
         return None
@@ -169,7 +175,7 @@ def ollama_vivant():
 
 def demarrer_ollama():
     global _proc_ollama
-    if ollama_vivant():
+    if ollama_vivant(cle=True):
         return True
     exe = OLLAMA_EXE if os.path.isfile(OLLAMA_EXE) else shutil.which("ollama")
     if not exe:
@@ -180,7 +186,7 @@ def demarrer_ollama():
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=drapeaux,
     )
     for _ in range(40):
-        if ollama_vivant():
+        if ollama_vivant(cle=True):
             return True
         time.sleep(0.25)
     return False
@@ -614,7 +620,7 @@ OUTILS_IA = [
 
 def appeler_outil(nom, args, projet=None):
     try:
-        if nom in ("lister_fichiers", "lire_fichier", "ecrire_fichier", "modifier_fichier"):
+        if nom in ("lister_fichiers", "lire_fichier", "ecrire_fichier", "modifier_fichier", "chercher_dans_fichiers"):
             return outil_fichier(nom, args, projet)
         if nom == "recherche_web":
             return recherche_web(args.get("requete", ""))
@@ -635,6 +641,7 @@ def etiquette_outil(nom, args):
             "chercher_code_github": "Code GitHub : %s" % args.get("requete", ""),
             "chercher_mes_projets": "Mes projets : %s" % args.get("requete", ""),
             "lister_fichiers": "Regarde les fichiers du projet",
+            "chercher_dans_fichiers": "Cherche « %s » dans le code" % args.get("motif", ""),
             "lire_fichier": "Lit %s" % args.get("chemin", ""),
             "ecrire_fichier": "Ecrit %s" % args.get("chemin", ""),
             "modifier_fichier": "Modifie %s" % args.get("chemin", ""),
@@ -652,9 +659,21 @@ OUTILS_FICHIERS_LECTURE = [
         "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {
         "name": "lire_fichier",
-        "description": "Lit le contenu complet d'un fichier du projet. Lis toujours un fichier avant de le modifier.",
-        "parameters": {"type": "object", "properties": {"chemin": {"type": "string", "description": "ex. main.py ou src/app.js"}},
-                       "required": ["chemin"]}}},
+        "description": "Lit un fichier du projet, avec les numeros de ligne. Lis toujours un fichier avant de le modifier. "
+                       "Pour un gros fichier, donne debut et fin (numeros de ligne).",
+        "parameters": {"type": "object", "properties": {
+            "chemin": {"type": "string", "description": "ex. main.py ou src/app.js"},
+            "debut": {"type": "integer", "description": "premiere ligne (optionnel)"},
+            "fin": {"type": "integer", "description": "derniere ligne (optionnel)"}},
+            "required": ["chemin"]}}},
+    {"type": "function", "function": {
+        "name": "chercher_dans_fichiers",
+        "description": "Cherche un mot ou une expression reguliere dans tous les fichiers du projet. Donne chaque "
+                       "fichier:ligne:texte trouve. Utilise-le pour trouver ou une fonction est definie ou utilisee.",
+        "parameters": {"type": "object", "properties": {
+            "motif": {"type": "string", "description": "texte ou regex, ex. def calculer|calculer\\("},
+            "fichiers": {"type": "string", "description": "filtre optionnel sur le nom, ex. .py"}},
+            "required": ["motif"]}}},
 ]
 OUTILS_FICHIERS_ECRITURE = [
     {"type": "function", "function": {
@@ -675,12 +694,20 @@ OUTILS_FICHIERS_ECRITURE = [
             "required": ["chemin", "ancien", "nouveau"]}}},
 ]
 
-INVITE_FICHIERS = ("\n\nTu travailles dans le projet « %s » sur la cle. Tu as des outils pour lister_fichiers, "
-                   "lire_fichier, ecrire_fichier (creer ou remplacer un fichier) et modifier_fichier (remplacer un passage). "
-                   "Quand on te demande de coder, ECRIS directement dans les bons fichiers avec ces outils au lieu de "
-                   "seulement afficher le code : lis d'abord les fichiers concernes, garde le style existant, puis "
-                   "termine par UNE ligne qui nomme les fichiers changes. Le code s'affiche deja a l'utilisateur : NE recopie "
-                   "PAS le code dans ta reponse.")
+INVITE_FICHIERS = ("\n\nTu travailles dans le projet « %s ». Ecris DIRECTEMENT dans les fichiers avec tes outils, "
+                   "ne te contente jamais d'afficher du code.\n"
+                   "METHODE (comme un developpeur senior) :\n"
+                   "1. Comprends la demande exacte. Si un fichier est ouvert, c'est probablement lui.\n"
+                   "2. Trouve le bon endroit : chercher_dans_fichiers pour localiser fonctions et usages, puis "
+                   "lire_fichier sur les fichiers concernes (jamais modifier sans avoir lu).\n"
+                   "3. Fais le plus petit changement correct : modifier_fichier avec un passage copie EXACTEMENT "
+                   "(sans les numeros de ligne) et assez long pour etre unique. ecrire_fichier seulement pour un "
+                   "nouveau fichier ou une reecriture complete.\n"
+                   "4. Respecte le style existant (indentation, noms, langue des commentaires) et mets a jour les "
+                   "imports et les autres fichiers touches par ton changement.\n"
+                   "5. Lis le champ 'verification' apres chaque ecriture : s'il y a une erreur, corrige-la tout de suite.\n"
+                   "6. Code complet et fonctionnel : pas de « ... », pas de TODO, pas de code invente qui n'existe pas.\n"
+                   "7. Termine par UNE ligne qui nomme les fichiers changes. NE recopie PAS le code dans ta reponse.")
 OUTILS_COMMANDE = [
     {"type": "function", "function": {
         "name": "executer_commande",
@@ -768,11 +795,23 @@ def outil_fichier(nom, args, projet):
         base = chemin_sur(projet)
         return [os.path.relpath(os.path.join(b, f), base).replace("\\", "/")
                 for b, _, fs in marcher(base, limite=800) for f in fs][:800]
+    if nom == "chercher_dans_fichiers":
+        return chercher_dans_projet(projet, args.get("motif") or "", args.get("fichiers") or "")
     p, rel = chemin_projet(projet, args.get("chemin"))
     if nom == "lire_fichier":
         if not os.path.isfile(p):
             return {"erreur": "Fichier introuvable : " + rel}
-        return {"chemin": rel, "contenu": lire_fichier(projet + "/" + rel)[:60000]}
+        lignes = lire_fichier(projet + "/" + rel).split("\n")
+        debut = max(1, int(args.get("debut") or 1))
+        fin = min(len(lignes), int(args.get("fin") or len(lignes)))
+        if fin - debut > 1500:
+            fin = debut + 1500
+        texte = "\n".join("%5d| %s" % (i, lignes[i - 1]) for i in range(debut, fin + 1))
+        info = {"chemin": rel, "lignes_total": len(lignes), "contenu": texte}
+        if fin < len(lignes):
+            info["note"] = "Fichier coupe a la ligne %d : relis avec debut=%d pour la suite." % (fin, fin + 1)
+        info["rappel"] = "Les numeros '12| ' ne font PAS partie du fichier : ne les recopie jamais."
+        return info
     if not est_texte(rel) and os.path.splitext(rel)[1]:
         return {"erreur": "Type de fichier non modifiable ici : " + rel}
     if nom == "ecrire_fichier":
@@ -784,17 +823,28 @@ def outil_fichier(nom, args, projet):
         with open(p, "w", encoding="utf-8", newline="") as f:
             f.write(contenu)
         plus, moins = compter_lignes(ancien, contenu)
-        return {"ok": True, "_evenement": {"action": "modifie" if existait else "cree", "chemin": projet + "/" + rel,
-                                           "sauvegarde": ident, "plus": plus, "moins": moins}}
+        return {"ok": True, **verifier_code(rel, contenu),
+                "_evenement": {"action": "modifie" if existait else "cree", "chemin": projet + "/" + rel,
+                               "sauvegarde": ident, "plus": plus, "moins": moins}}
     if nom == "modifier_fichier":
         if not os.path.isfile(p):
             return {"erreur": "Fichier introuvable : " + rel + " (utilise ecrire_fichier pour le creer)"}
         ancien_txt, nouveau_txt = args.get("ancien") or "", args.get("nouveau") or ""
         with open(p, "r", encoding="utf-8", errors="replace") as f:
             contenu = f.read()
+        # tolere les numeros de ligne recopies par erreur ("  12| ")
+        ancien_txt = re.sub(r"(?m)^\s*\d+\| ", "", ancien_txt) if re.search(r"(?m)^\s*\d+\| ", ancien_txt) else ancien_txt
         n = contenu.count(ancien_txt) if ancien_txt else 0
+        if n == 0 and ancien_txt.strip():
+            # deuxieme chance : memes lignes, espaces de fin de ligne differents
+            normal = lambda t: "\n".join(l.rstrip() for l in t.split("\n"))
+            if normal(contenu).count(normal(ancien_txt)) == 1:
+                contenu, ancien_txt = normal(contenu), normal(ancien_txt)
+                n = 1
         if n == 0:
-            return {"erreur": "Passage introuvable dans " + rel + ". Relis le fichier et copie le passage exactement."}
+            proche = passage_proche(contenu, ancien_txt)
+            return {"erreur": "Passage introuvable dans " + rel + ". Relis le fichier et copie le passage exactement."
+                              + (" Le plus proche (lignes %d-%d) :\n%s" % proche if proche else "")}
         if n > 1:
             return {"erreur": "Passage trouve %d fois dans %s : ajoute des lignes autour pour qu'il soit unique." % (n, rel)}
         ident, _, ancien = sauvegarder(projet, rel, p)
@@ -802,9 +852,69 @@ def outil_fichier(nom, args, projet):
         with open(p, "w", encoding="utf-8", newline="") as f:
             f.write(nouveau)
         plus, moins = compter_lignes(ancien, nouveau)
-        return {"ok": True, "_evenement": {"action": "modifie", "chemin": projet + "/" + rel,
-                                           "sauvegarde": ident, "plus": plus, "moins": moins}}
+        return {"ok": True, **verifier_code(rel, nouveau),
+                "_evenement": {"action": "modifie", "chemin": projet + "/" + rel,
+                               "sauvegarde": ident, "plus": plus, "moins": moins}}
     return {"erreur": "outil inconnu"}
+
+
+def chercher_dans_projet(projet, motif, filtre=""):
+    if not motif:
+        return {"erreur": "Motif vide"}
+    try:
+        rx = re.compile(motif, re.I)
+    except re.error:
+        rx = re.compile(re.escape(motif), re.I)
+    base = chemin_sur(projet)
+    res = []
+    for b, _, fs in marcher(base, limite=2000):
+        for f in fs:
+            if filtre and filtre.lower() not in f.lower():
+                continue
+            p = os.path.join(b, f)
+            if not est_texte(f) or os.path.getsize(p) > 1_000_000:
+                continue
+            try:
+                with open(p, "r", encoding="utf-8", errors="ignore") as fh:
+                    for i, l in enumerate(fh, 1):
+                        if rx.search(l):
+                            res.append("%s:%d: %s" % (os.path.relpath(p, base).replace("\\", "/"), i, l.rstrip()[:200]))
+                            if len(res) >= 120:
+                                return res + ["… (limite atteinte, precise le motif)"]
+            except OSError:
+                continue
+    return res or ["Aucun resultat pour « %s »" % motif]
+
+
+def passage_proche(contenu, cherche):
+    """Trouve les lignes du fichier qui ressemblent le plus au passage introuvable."""
+    import difflib
+    lignes, n = contenu.split("\n"), max(1, len(cherche.split("\n")))
+    meilleur, ou = 0.0, None
+    for i in range(0, max(1, len(lignes) - n + 1)):
+        r = difflib.SequenceMatcher(None, "\n".join(lignes[i:i + n]), cherche).quick_ratio()
+        if r > meilleur:
+            meilleur, ou = r, i
+    if ou is None or meilleur < 0.5:
+        return None
+    return (ou + 1, ou + n, "\n".join(lignes[ou:ou + n])[:1500])
+
+
+def verifier_code(rel, contenu):
+    """Verifie tout de suite la syntaxe, pour que l'IA corrige elle-meme ses erreurs."""
+    ext = os.path.splitext(rel)[1].lower()
+    try:
+        if ext == ".py":
+            compile(contenu, rel, "exec")
+        elif ext == ".json":
+            json.loads(contenu)
+        else:
+            return {"verification": "non verifie (type %s)" % (ext or "?")}
+    except SyntaxError as e:
+        return {"verification": "ERREUR DE SYNTAXE ligne %s : %s — corrige-la maintenant." % (e.lineno, e.msg)}
+    except ValueError as e:
+        return {"verification": "JSON INVALIDE : %s — corrige-le maintenant." % e}
+    return {"verification": "syntaxe OK"}
 
 
 def annuler_changement(ident):

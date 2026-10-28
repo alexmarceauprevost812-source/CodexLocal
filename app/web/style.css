@@ -278,3 +278,4 @@ label.lib{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 .apercu-fichier{margin:2px 0 8px}
 .apercu-fichier pre{max-height:320px}
 #v-codex.actif{gap:0}
+.options .moteur{border-color:var(--accent-border);color:var(--accent)}

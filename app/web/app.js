@@ -176,7 +176,12 @@ function creerChat(conteneur, mode) {
   const id = "c" + mode;
   conteneur.innerHTML = `
     <div class="options">
-      <select class="champ" aria-label="Modèle d'IA"></select>
+      <select class="champ moteur" data-s="moteur" aria-label="Moteur d'IA" title="Où roulent les IA" style="width:auto">
+        <option value="ollama">IA de la clé</option>
+        <option value="ollama_pc">IA du PC</option>
+        <option value="openai">LM Studio / OpenAI</option>
+      </select>
+      <select class="champ" data-s="modele" aria-label="Modèle d'IA"></select>
       ${mode === "codex" ? "" : `<select class="champ" data-s="plan" aria-label="Façon de travailler" title="Plan : l'IA réfléchit d'abord à un plan" style="width:auto">
         <option value="direct">Direct</option>
         <option value="auto">Plan puis code (sans attendre)</option>
@@ -200,7 +205,16 @@ function creerChat(conteneur, mode) {
         <button class="btn prim" data-o="envoyer" aria-label="Envoyer">${ic("envoyer")}</button>
       </div>
     </div>`;
-  const sel = $("select", conteneur), fil = $(".fil", conteneur), zone = $("textarea", conteneur);
+  const sel = $('[data-s="modele"]', conteneur), fil = $(".fil", conteneur), zone = $("textarea", conteneur);
+  const choixMoteur = $('[data-s="moteur"]', conteneur);
+  choixMoteur.addEventListener("change", async () => {
+    try {
+      const p = await api("parametres", { moteur: choixMoteur.value });
+      Object.assign(etat.params, p);
+      await rafraichirEtat();
+      toast(choixMoteur.value === "ollama_pc" ? "IA du PC (Ollama installé sur Windows)" : choixMoteur.value === "ollama" ? "IA de la clé USB-C" : "Moteur LM Studio / OpenAI");
+    } catch (e) { toast(e.message); }
+  });
   const apercus = $(".apercus", conteneur), entreeImg = $(`#${id}-img`, conteneur);
   const btEnvoyer = $('[data-o="envoyer"]', conteneur);
   const cases = Object.fromEntries($$("input[data-o]", conteneur).map((c) => [c.dataset.o, c]));
@@ -228,6 +242,7 @@ function creerChat(conteneur, mode) {
   [...Object.values(cases), choixPlan].forEach((c) => c.addEventListener("change", garderOptions));
 
   function majModeles() {
+    choixMoteur.value = etat.params.moteur || "ollama";
     const cle = mode === "codex" ? "modele_codex" : "modele_jasette";
     const choisi = etat.params[cle];
     sel.innerHTML = etat.modeles.length
@@ -238,8 +253,8 @@ function creerChat(conteneur, mode) {
           return (locales.length ? `<optgroup label="IA locales (hors-ligne)">${locales.map(opt).join("")}</optgroup>` : "") +
             (nuage.length ? `<optgroup label="Claude (Internet, clé API)">${nuage.map(opt).join("")}</optgroup>` : "");
         })()
-      : `<option value="">Aucune IA — va dans IA locales</option>`;
-    if (!choisi && sel.value) api("parametres", { [cle]: sel.value }).then((p) => Object.assign(etat.params, p)).catch(() => {});
+      : `<option value="">${etat.params.moteur === "ollama_pc" ? "IA du PC introuvable (Ollama est-il ouvert ?)" : "Aucune IA — va dans IA locales"}</option>`;
+    if (sel.value && sel.value !== choisi) api("parametres", { [cle]: sel.value }).then((p) => Object.assign(etat.params, p)).catch(() => {});
   }
   sel.addEventListener("change", () => {
     const cle = mode === "codex" ? "modele_codex" : "modele_jasette";
