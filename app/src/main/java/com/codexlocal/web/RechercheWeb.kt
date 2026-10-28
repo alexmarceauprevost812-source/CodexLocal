@@ -113,7 +113,9 @@ object RechercheWeb {
     fun requeteGenerale(message: String): String? {
         val texte = message.trim()
         if (Regex("\\b(sans internet|hors ligne|sans recherche|pas de recherche|offline)\\b", RegexOption.IGNORE_CASE).containsMatchIn(texte)) return null
-        if (!demandeWeb.containsMatchIn(texte)) return null
+        // Le code colle (blocs ``` et `en ligne`) ne compte pas : un `snippet` dans le code n'est pas une demande
+        val horsCode = texte.replace(Regex("```[\\s\\S]*?(```|$)"), " ").replace(Regex("`[^`\\n]*`?"), " ")
+        if (!demandeWeb.containsMatchIn(horsCode)) return null
         // Seulement la premiere ligne / phrase : jamais un bloc de code colle dans le message
         val premiere = texte.substringBefore("```").lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
         // Le code en ligne (`...`) et les « mot de passe = ... » ne partent jamais sur Internet

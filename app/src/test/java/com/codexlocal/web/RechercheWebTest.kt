@@ -123,4 +123,11 @@ class RechercheWebTest {
         prefs.rechercheWebAuto = false
         assertFalse(Prefs(context).rechercheWebAuto)
     }
+
+    @Test
+    fun leCodeColleNeDeclenchePasLaRecherche() {
+        assertNull(RechercheWeb.requeteGenerale("Explique ce fichier client Acme confidentiel\n```js\nconst snippet = 'bonjour';\n```"))
+        assertNull(RechercheWeb.requeteGenerale("Que fait `snippet` ici ?"))
+        assertNotNull(RechercheWeb.requeteGenerale("Trouve un exemple de code pour lire un fichier en Kotlin\n```kotlin\nval x = 1\n```"))
+    }
 }
