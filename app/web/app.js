@@ -603,6 +603,11 @@ function creerChat(conteneur, mode) {
       clearTimeout(minuterieLente);
       await ecrivain.terminer();
       if (window.TiSchemas && mode !== "codex") TiSchemas.activer(contenu).catch(() => {});
+      // Petits logos (crypto, langages, marques) ou image du sujet, comme des emojis
+      if (window.TiLogos && mode !== "codex" && reponse) {
+        const net = !!(etat.params && etat.params.internet) && !!(conteneur.querySelector('[data-o="internet"]') || {}).checked;
+        TiLogos.activer(contenu, texte, net).catch(() => {});
+      }
       zoneDefile.removeEventListener("scroll", surDefilement);
       contenu.classList.remove("curseur");
       if (auCentre) $("#sc-etat").textContent = "";
