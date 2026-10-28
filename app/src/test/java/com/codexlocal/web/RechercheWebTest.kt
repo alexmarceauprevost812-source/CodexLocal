@@ -25,6 +25,37 @@ class RechercheWebTest {
         assertFalse(requete.contains("abc123"))
     }
 
+    @Test fun rechercheGeneraleSeulementQuandOnLaDemandeEtSansSecrets() {
+        assertNull(RechercheWeb.requeteGenerale("Salut mon chum"))
+        assertNull(RechercheWeb.requeteGenerale("Corrige mon code"))
+        assertNull(RechercheWeb.requeteGenerale("Sans internet, cherche sur le web React"))
+        assertEquals("comment faire un bouton copier en JavaScript",
+            RechercheWeb.requeteGenerale("Cherche sur le web comment faire un bouton copier en JavaScript"))
+        assertNotNull(RechercheWeb.requeteGenerale("Donne-moi un exemple de code Python pour lire un CSV"))
+        val q = RechercheWeb.requeteGenerale("Peux-tu chercher sur internet la version de Ollama, clé sk-ant-abc123456789xyz ghp_abcdefgh12345678")!!
+        assertFalse(q.contains("sk-ant"))
+        assertFalse(q.contains("ghp_"))
+        // le code en ligne et les mots de passe ne partent jamais
+        val enLigne = RechercheWeb.requeteGenerale("Cherche sur le web pourquoi `login('alice', 'hunter2')` échoue, mot de passe: hunter3")!!
+        assertFalse(enLigne.contains("hunter2"))
+        assertFalse(enLigne.contains("hunter3"))
+        assertFalse(enLigne.contains("login("))
+        // un bloc de code colle n'est jamais envoye
+        val avecCode = RechercheWeb.requeteGenerale("Cherche sur le web cette erreur\n```\nmot_de_passe = 'secret'\n```")!!
+        assertFalse(avecCode.contains("secret"))
+    }
+
+    @Test fun rechercheGeneraleLitLePremierResultatEtEcarteLesAdressesPrivees() = runBlocking {
+        val resultat = RechercheWeb.rechercherGeneral("bouton copier javascript",
+            chercher = { listOf(SourceWeb("http://192.168.0.1/admin", "routeur"), SourceWeb("https://localhost/x", "local"),
+                SourceWeb("https://developer.mozilla.org/clipboard", "MDN — Clipboard API"), SourceWeb("https://stackoverflow.com/q/1", "SO")) },
+            lire = { url -> if (url.contains("mozilla")) "navigator.clipboard.writeText(texte)" else "" })
+        assertEquals(listOf("https://developer.mozilla.org/clipboard", "https://stackoverflow.com/q/1"), resultat.sources.map { it.url })
+        assertTrue(resultat.contexte().contains("navigator.clipboard.writeText"))
+        assertFalse(RechercheWeb.urlPublique("https://10.0.0.2/"))
+        assertTrue(RechercheWeb.urlPublique("https://fr.wikipedia.org/wiki/Bitcoin"))
+    }
+
     @Test fun refuseLesDestinationsLocalesEtLesFauxDomaines() {
         for (url in listOf("http://docs.python.org/", "https://127.0.0.1/", "file:///secret",
             "https://docs.python.org.evil.test/", "https://user:password@docs.python.org/", "https://docs.python.org:8080/")) {
@@ -91,5 +122,12 @@ class RechercheWebTest {
         assertTrue(prefs.rechercheWebAuto)
         prefs.rechercheWebAuto = false
         assertFalse(Prefs(context).rechercheWebAuto)
+    }
+
+    @Test
+    fun leCodeColleNeDeclenchePasLaRecherche() {
+        assertNull(RechercheWeb.requeteGenerale("Explique ce fichier client Acme confidentiel\n```js\nconst snippet = 'bonjour';\n```"))
+        assertNull(RechercheWeb.requeteGenerale("Que fait `snippet` ici ?"))
+        assertNotNull(RechercheWeb.requeteGenerale("Trouve un exemple de code pour lire un fichier en Kotlin\n```kotlin\nval x = 1\n```"))
     }
 }

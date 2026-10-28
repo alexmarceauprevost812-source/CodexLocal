@@ -72,6 +72,7 @@ textarea:focus{outline:none;border-color:var(--orange)}
 <script src="/mermaid.min.js"></script>
 <script src="/schemas.js"></script>
 <script src="/agenda.js"></script>
+<script src="/logos.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const colorer = TL.colorer;
@@ -209,6 +210,8 @@ async function tour(message, entete){
   zone.innerHTML = rendu(rep || "(arrêté)");
   // Moteur de schemas de la cle : les blocs mermaid deviennent des schemas animes (Rejouer, Video MP4, Image)
   if (window.TiSchemas) TiSchemas.activer(zone).catch(() => {});
+  // Petits logos (crypto, langages, marques) ou image du sujet, comme des emojis
+  if (rep && window.TiLogos) TiLogos.activer(zone, derniereQuestion, TL.internet && web).catch(() => {});
   if (rep && (modePlan || /```mermaid/i.test(rep))) actionsPlan(sortie, rep);
   historique.push({role: "assistant", content: rep});
   ctrl = null; $("#bEnv").textContent = "➤";
@@ -228,12 +231,19 @@ function actionsPlan(sortie, rep){
   sortie.appendChild(a);
 }
 
+let derniereQuestion = "";
 async function envoyer(texte){
+  derniereQuestion = texte;
   // « retiens que… » : on le garde dans la Memoire
-  const ret = texte.match(/^\s*(?:retiens|souviens[- ]toi|rappelle[- ]toi|n'oublie pas|note)\s+(?:que\s+|bien\s+que\s+|ça\s*:?\s*)?(.+)/i);
+  const ret = texte.match(/^\s*(?:retiens|souviens[- ]toi|rappelle[- ]toi|n'oublie pas|note)\s+(?:que\s+|bien\s+que\s+|ça\s*:?\s*)?([\s\S]+)/i);
   if (ret) {
     bulle("moi", echap(texte));
-    try { await fetch("/tilabo/memoire/ajouter", {method: "POST", body: JSON.stringify({texte: ret[1]})}); bulle("ia", "🧠 C'est noté ! Je m'en souviendrai. <span class='pense'>(Menu › Mémoire pour voir tout ce que je retiens)</span>"); }
+    try {
+      const r = await fetch("/tilabo/memoire/ajouter", {method: "POST", body: JSON.stringify({texte: ret[1].trim()})});
+      // fetch ne lance pas d'erreur sur un refus (texte trop long, ecriture impossible) : on verifie avant de confirmer
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error ? j.error.message : "Mémoire indisponible (" + r.status + ")"); }
+      bulle("ia", "🧠 C'est noté ! Je m'en souviendrai. <span class='pense'>(Menu › Mémoire pour voir tout ce que je retiens)</span>");
+    }
     catch (e) { bulle("ia", "⚠ " + echap(e.message)); }
     return;
   }
@@ -319,6 +329,12 @@ etat().then(r => {
   if (q) { localStorage.removeItem("tilabo-question"); if (r && r.modele) envoyer(q); else $("#q").value = q; }
 });
 window.addEventListener("hashchange", () => { if (location.hash === "#ia") ouvrirIA(); });
+// le bureau nous envoie ce qu'une autre fenetre voulait nous donner (sans recharger cette jasette)
+window.tlArrivee = hash => {
+  if (hash === "#ia") ouvrirIA();
+  const q = localStorage.getItem("tilabo-question");
+  if (q) { localStorage.removeItem("tilabo-question"); etat().then(r => { if (r && r.modele && !ctrl) envoyer(q); else $("#q").value = q; }); }
+};
 setInterval(etat, 5000);
 </script>
 </body>

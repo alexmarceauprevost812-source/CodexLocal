@@ -108,8 +108,11 @@
   TL.chargerReglages = async () => {
     try { const r = await (await fetch("/tilabo/reglages")).json(); TL.internet = r.internet; TL.hote = r.hote || "tilabo"; caseInternet.checked = r.internet; TL.reglages = r; }
     catch (_) {}
+    // Les autres fenetres (Jasette, Meteo…) relisent les reglages tout de suite (evenement « storage »)
+    try { if (localStorage.getItem("tilabo-internet") !== String(TL.internet)) localStorage.setItem("tilabo-internet", String(TL.internet)); } catch (_) {}
     document.dispatchEvent(new Event("tl-reglages"));
   };
+  addEventListener("storage", (e) => { if (e.key === "tilabo-internet") TL.chargerReglages(); });
   caseInternet.onchange = async () => {
     await fetch("/tilabo/reglages", {method: "POST", body: JSON.stringify({internet: caseInternet.checked})});
     TL.chargerReglages();

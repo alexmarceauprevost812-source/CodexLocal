@@ -253,6 +253,7 @@ class ServeurLocal(private val ctx: Context) {
             "/agenda.js" -> asset(out, "agenda.js", "text/javascript; charset=utf-8")
             "/agenda.css" -> asset(out, "agenda.css", "text/css; charset=utf-8")
             "/noel.js" -> asset(out, "noel.js", "text/javascript; charset=utf-8")
+            "/logos.js" -> asset(out, "logos.js", "text/javascript; charset=utf-8")
             "/schemas.js" -> asset(out, "schemas.js", "text/javascript; charset=utf-8")
             "/mermaid.min.js" -> asset(out, "mermaid.min.js", "text/javascript; charset=utf-8")
             "/tilabo/pc/etat" -> json(out, 200, PontPC.etat(ctx))

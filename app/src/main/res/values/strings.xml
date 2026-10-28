@@ -357,6 +357,6 @@
     <string name="projet_image_usage">Dans ton code : images/… utilise le chemin « %1$s ». Elle part dans l\'APK.</string>
     <string name="plus_echec_titre">Image impossible à ajouter</string>
     <string name="web_auto">Recherche Internet automatique</string>
-    <string name="web_auto_detail">Consulte de la documentation quand une technologie connue est mentionnée avec une demande de recherche, de version ou d’aide technique. Seuls des termes techniques sont envoyés, jamais ton code ni la conversation. Les sources apparaissent dans le chat. Décoche pour rester hors ligne.</string>
+    <string name="web_auto_detail">Consulte la documentation quand une technologie connue est mentionnée, et cherche sur le web quand tu le demandes (« cherche sur le web… », « exemple de code… », 🌐 au début du message). Seule une courte requête est envoyée, jamais ton code ni la conversation, et les clés sont retirées. Les sources apparaissent dans le chat. Décoche pour rester hors ligne.</string>
     <string name="web_recherche">Recherche de documentation sur Internet…</string>
 </resources>
