@@ -43,6 +43,7 @@ class MainActivity : Activity() {
         private const val CODE_PERM = 1
         private const val CODE_FICHIER = 2
         private const val CODE_NOTIF = 3
+        private const val CODE_POSITION = 4
     }
 
     private lateinit var vue: WebView
@@ -258,6 +259,11 @@ class MainActivity : Activity() {
     } catch (e: Exception) { false }
 
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
+        if (code == CODE_POSITION) {
+            val ok = res.isNotEmpty() && res[0] == PackageManager.PERMISSION_GRANTED
+            vue.evaluateJavascript("window.dispatchEvent(new CustomEvent('tl-position',{detail:$ok}))", null)
+            return
+        }
         if (code != CODE_PERM) return
         if (res.isNotEmpty() && res[0] == PackageManager.PERMISSION_GRANTED) lancerTermux()
         else afficher(page("Permission refusée",
@@ -314,6 +320,9 @@ class MainActivity : Activity() {
         @JavascriptInterface fun autonome() = principal.post { vue.loadUrl(URL_AUTONOME) }.let { }
         @JavascriptInterface fun plusTard() = principal.post { attendAcces = false; ouvrirBureau() }.let { }
         @JavascriptInterface fun complet() = principal.post { lancer() }.let { }
+        @JavascriptInterface fun demanderPosition() = principal.post {
+            requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), CODE_POSITION)
+        }.let { }
         @JavascriptInterface fun message(t: String) = principal.post {
             Toast.makeText(this@MainActivity, t, Toast.LENGTH_LONG).show()
         }.let { }

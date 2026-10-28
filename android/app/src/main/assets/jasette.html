@@ -205,7 +205,26 @@ async function envoyer(texte){
   if (!modele) { await etat(); if (!modele) { ouvrirIA(); return; } }
   bulle("moi", echap(texte));
   let message = texte, entete = null;
-  if (TL.internet && web) {
+  if (TL.internet && TL.QUESTION_METEO.test(texte)) {
+    // Question meteo : la vraie meteo, en carte, puis l'IA repond avec des emojis
+    entete = document.createElement("div");
+    entete.innerHTML = TL.outil("🌦️ Météo…");
+    try {
+      const m = await TL.meteo(TL.villeDans(texte));
+      entete.innerHTML = TL.carteMeteo(m);
+      message = TL.meteoPourIA(m) + "Question : " + texte;
+    } catch (e) {
+      if (e.code === "position" && window.TiLaboApp && TiLaboApp.demanderPosition) {
+        entete.innerHTML = TL.outil("📍 " + e.message);
+        TiLaboApp.demanderPosition();
+        const ok = await new Promise(res => window.addEventListener("tl-position", ev => res(ev.detail), {once: true}));
+        if (ok) {
+          try { const m = await TL.meteo(null); entete.innerHTML = TL.carteMeteo(m); message = TL.meteoPourIA(m) + "Question : " + texte; }
+          catch (e2) { entete.innerHTML = TL.outil("⚠ " + e2.message); }
+        }
+      } else entete.innerHTML = TL.outil("⚠ Météo : " + e.message);
+    }
+  } else if (TL.internet && web) {
     entete = document.createElement("div");
     const ctx = await rechercher(texte.slice(0, 120), entete);
     message = ctx + "Question : " + texte;

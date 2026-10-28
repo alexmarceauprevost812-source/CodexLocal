@@ -215,6 +215,17 @@ class ServeurLocal(private val ctx: Context) {
                     erreur(out, 400, e.message ?: "Erreur")
                 }
             }
+            "/tilabo/meteo" -> {
+                val d = JSONObject(String(r.corps, Charsets.UTF_8).ifBlank { "{}" })
+                try {
+                    if (!Reglages.internet(ctx)) throw IllegalStateException("Internet est désactivé pour l'IA (menu ☰)")
+                    json(out, 200, Meteo.obtenir(ctx, d.optString("ville").ifBlank { null }))
+                } catch (e: Meteo.PositionRequise) {
+                    json(out, 400, JSONObject().put("error", JSONObject().put("message", e.message).put("code", "position")))
+                } catch (e: Exception) {
+                    erreur(out, 400, e.message ?: "Météo indisponible")
+                }
+            }
             "/tilabo/reglages", "/tilabo/web/chercher", "/tilabo/web/page", "/tilabo/web/images",
             "/tilabo/github/depots", "/tilabo/github/cloner",
             "/tilabo/sync/cle", "/tilabo/sync/lies", "/tilabo/sync/etat", "/tilabo/sync/cloner", "/tilabo/sync/synchroniser" -> {
