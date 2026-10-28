@@ -89,7 +89,7 @@ function conseil(m){
   return `<div class="conseil"><h4>💡 Conseil du jour</h4>${l.map(echap).join("<br>")}</div>`;
 }
 
-async function chercher(ville){
+async function chercher(ville, dejaDemande){
   if (window.TL && TL.chargerReglages && TL.hote === undefined) { try { await TL.chargerReglages(); } catch (_) {} }
   if (window.TL && TL.internet === false) {
     $("#res").innerHTML = "<div class='etat'>🌐 Internet est désactivé pour l'IA.<br>Active-le dans ⚙️ Paramètres pour chercher la météo sur le web.</div>";
@@ -115,9 +115,10 @@ async function chercher(ville){
   } catch (e) {
     if (e.code === "position") {
       $("#res").innerHTML = "<div class='etat'>📍 Je n'ai pas ta position.<br>Écris le nom d'une ville en haut.</div>";
-      if (window.TiLaboApp && TiLaboApp.demanderPosition) {
-        // une fois la permission accordee, on refait la recherche tout seul
-        window.addEventListener("tl-position", ev => { if (ev.detail) chercher(""); }, {once: true});
+      // une seule demande de permission par recherche : si la position manque encore apres, on laisse taper une ville
+      if (window.TiLaboApp && TiLaboApp.demanderPosition && !dejaDemande) {
+        // une fois la permission accordee, on refait la recherche tout seul (une seule fois)
+        window.addEventListener("tl-position", ev => { if (ev.detail) chercher("", true); }, {once: true});
         TiLaboApp.demanderPosition();
       }
     } else {
