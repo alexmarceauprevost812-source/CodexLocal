@@ -182,7 +182,8 @@ function creerChat(conteneur, mode) {
         <option value="auto">Plan puis code (sans attendre)</option>
         <option value="valider">Plan à valider</option>
       </select>
-      ${mode === "codex" ? `<label class="interrupteur" title="Le Codex crée et modifie les fichiers du projet ouvert"><input type="checkbox" data-o="ecriture"><span class="rail"></span>${ic("dossier")}Écrire les fichiers</label>` : ""}
+      ${mode === "codex" ? `<label class="interrupteur" title="Le Codex crée et modifie les fichiers du projet ouvert"><input type="checkbox" data-o="ecriture"><span class="rail"></span>${ic("dossier")}Écrire les fichiers</label>
+      <label class="interrupteur" title="Agent : travaille seul jusqu'au bout, teste son code avec des commandes (tu autorises chaque commande)"><input type="checkbox" data-o="agent"><span class="rail"></span>${ic("terminal")}Agent</label>` : ""}
       <label class="interrupteur" title="L'IA peut chercher sur Internet si elle en a besoin"><input type="checkbox" data-o="internet"><span class="rail"></span>${ic("globe")}Internet</label>
       <label class="interrupteur" title="L'IA répond avec un schéma animé (exportable en vidéo)"><input type="checkbox" data-o="schema"><span class="rail"></span>${ic("studio")}Schéma</label>
       <label class="interrupteur" title="Utiliser la mémoire de la clé"><input type="checkbox" data-o="memoire"><span class="rail"></span>${ic("memoire")}Mémoire</label>
@@ -215,11 +216,12 @@ function creerChat(conteneur, mode) {
     cases.internet.checked = s.internet ?? true;
     cases.memoire.checked = !!s.memoire;
     if (cases.ecriture) cases.ecriture.checked = s.ecriture ?? true;
+    if (cases.agent) cases.agent.checked = !!s.agent;
   } catch { /* stockage indisponible : valeurs par defaut */ }
   const garderOptions = () => {
     try {
       localStorage.setItem(cleStock + "-opts2", JSON.stringify({ plan: choixPlan.value, internet: cases.internet.checked,
-        memoire: cases.memoire.checked, ecriture: cases.ecriture?.checked }));
+        memoire: cases.memoire.checked, ecriture: cases.ecriture?.checked, agent: cases.agent?.checked }));
     } catch {}
   };
   [...Object.values(cases), choixPlan].forEach((c) => c.addEventListener("change", garderOptions));
@@ -309,6 +311,7 @@ function creerChat(conteneur, mode) {
     const contenu = auCentre ? ouvrirSortieCentre(sel.value, plan) : $(".contenu", d), etapes = $(".etapes", d);
     let reponse = "";
     const modifies = new Set();
+    const toujours = { actif: false }; // « ne plus demander » pour cette demande seulement
     const zoneDefile = auCentre ? $("#sc-corps") : fil;
     const ecrivain = machineAEcrire(contenu, () => { if (pres) zoneDefile.scrollTop = zoneDefile.scrollHeight; });
     let pres = true;
@@ -323,12 +326,15 @@ function creerChat(conteneur, mode) {
         mode, modele: sel.value, messages: hist, plan,
         internet: cases.internet.checked, memoire: cases.memoire.checked, schema: cases.schema.checked,
         fichier: mode === "codex" ? etat.fichier : null, projet: etat.projet,
-        ecriture: mode === "codex" && !!cases.ecriture?.checked,
+        ecriture: mode === "codex" && (!!cases.ecriture?.checked || !!cases.agent?.checked),
+        agent: mode === "codex" && !!cases.agent?.checked,
       }, { flux: true, signal: controleur.signal });
       await lireFlux(r, (o) => {
         if (o.texte) { reponse += o.texte; ecrivain.ajouter(o.texte); }
         if (o.outil) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic(/^(Lit|Regarde|Ecrit|Modifie)/.test(o.outil) ? "dossier" : "globe")}${esc(o.outil)}</div>`);
         if (o.fichier) { carteFichier(etapes, o.fichier); modifies.add(o.fichier.chemin); montrerAuCentre(o.fichier); }
+        if (o.autorisation) carteAutorisation(etapes, o.autorisation, toujours);
+        if (o.commande) sortieCommande(o.commande);
         if (o.liens) etapes.insertAdjacentHTML("beforeend", o.liens.slice(0, 3).map((u) => `<div class="etape" style="padding-left:24px"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></div>`).join(""));
         if (o.sources) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic("memoire")}Mémoire : ${esc(o.sources.join(", "))}</div>`);
         if (o.erreur) ecrivain.erreur(o.erreur);
@@ -367,6 +373,37 @@ function creerChat(conteneur, mode) {
   }
 
   return { majModeles, envoyer: (t) => envoyer(t), zone };
+}
+
+/* ------------------------------------------------------------ agent : commandes autorisees une par une */
+function carteAutorisation(zone, a, toujours) {
+  const repondre = (ok) => api("agent/autoriser", { id: a.id, ok }).catch((e) => toast(e.message));
+  if (toujours.actif) {
+    zone.insertAdjacentHTML("beforeend", `<div class="etape">${ic("terminal")}Lance : <code>${esc(a.commande)}</code></div>`);
+    repondre(true);
+    return;
+  }
+  const el = document.createElement("div");
+  el.className = "carte-autorisation";
+  el.innerHTML = `<div>${ic("terminal")}<b>L'agent veut lancer</b></div><pre>${esc(a.commande)}</pre>
+    <label class="interrupteur" style="font-size:12px"><input type="checkbox"><span class="rail"></span>Ne plus demander pour cette demande</label>
+    <div class="ligne"><button class="btn petit prim" data-ok>Autoriser</button><button class="btn petit danger" data-non>Refuser</button></div>`;
+  const fini = (ok) => {
+    toujours.actif = ok && $("input", el).checked;
+    el.innerHTML = `<div class="etape">${ic("terminal")}${ok ? "Autorisé" : "Refusé"} : <code>${esc(a.commande)}</code></div>`;
+    repondre(ok);
+  };
+  $("[data-ok]", el).onclick = () => fini(true);
+  $("[data-non]", el).onclick = () => fini(false);
+  zone.appendChild(el);
+  $("[data-ok]", el).focus();
+}
+function sortieCommande(c) {
+  const out = $("#sortie-terminal");
+  if (c.refusee) { out.textContent += `\n[agent] commande refusée : ${c.commande}\n`; }
+  else out.textContent += `\n[agent] ${etat.projet || ""}> ${c.commande}\n${c.sortie}${c.code ? `\n[code ${c.code}]` : ""}\n`;
+  out.scrollTop = out.scrollHeight;
+  if (etat.projet) choisirProjetSilencieux().catch(() => {});
 }
 
 /* ------------------------------------------------------------ sortie du Codex au centre */

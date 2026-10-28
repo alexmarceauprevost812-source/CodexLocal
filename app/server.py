@@ -637,7 +637,8 @@ def etiquette_outil(nom, args):
             "lister_fichiers": "Regarde les fichiers du projet",
             "lire_fichier": "Lit %s" % args.get("chemin", ""),
             "ecrire_fichier": "Ecrit %s" % args.get("chemin", ""),
-            "modifier_fichier": "Modifie %s" % args.get("chemin", "")}.get(nom, nom)
+            "modifier_fichier": "Modifie %s" % args.get("chemin", ""),
+            "executer_commande": "Veut lancer : %s" % args.get("commande", "")}.get(nom, nom)
 
 
 # ---------------------------------------------------------------- Codex : lire, creer et ecrire les fichiers du projet
@@ -680,6 +681,42 @@ INVITE_FICHIERS = ("\n\nTu travailles dans le projet « %s » sur la cle. Tu as 
                    "seulement afficher le code : lis d'abord les fichiers concernes, garde le style existant, puis "
                    "explique en quelques lignes ce que tu as change et dans quels fichiers. Le code s'affiche dans l'editeur au "
                    "centre : NE recopie PAS le code dans ta reponse, donne seulement un court resume.")
+OUTILS_COMMANDE = [
+    {"type": "function", "function": {
+        "name": "executer_commande",
+        "description": "Lance une commande dans le dossier du projet (ex. python main.py, pip install requests, "
+                       "npm test, git status) pour tester ou verifier ton travail. L'utilisateur doit l'autoriser. "
+                       "Pas de programme interactif ni de serveur qui ne s'arrete jamais.",
+        "parameters": {"type": "object", "properties": {"commande": {"type": "string"}}, "required": ["commande"]}}},
+]
+INVITE_AGENT = ("\n\nMODE AGENT : tu travailles de facon autonome jusqu'a ce que la tache soit vraiment finie. "
+                "1) explore les fichiers utiles, 2) ecris le code dans les bons fichiers, 3) teste-le avec "
+                "executer_commande, 4) si ca plante, lis l'erreur, corrige et reteste, 5) termine par un court resume "
+                "de ce qui a ete fait et de comment l'utiliser. Une commande refusee par l'utilisateur ne doit pas "
+                "etre redemandee telle quelle.")
+_attentes = {}
+_attentes_verrou = threading.Lock()
+
+
+def attendre_autorisation(ident, delai=600):
+    with _attentes_verrou:
+        _attentes[ident] = {"evenement": threading.Event(), "ok": False}
+    a = _attentes[ident]
+    a["evenement"].wait(delai)
+    with _attentes_verrou:
+        _attentes.pop(ident, None)
+    return a["ok"]
+
+
+def repondre_autorisation(ident, ok):
+    with _attentes_verrou:
+        a = _attentes.get(ident)
+    if not a:
+        raise ValueError("Cette demande n'attend plus de reponse")
+    a["ok"] = bool(ok)
+    a["evenement"].set()
+
+
 INVITE_FICHIERS_LECTURE = ("\n\nTu peux lister_fichiers et lire_fichier dans le projet « %s » pour bien comprendre "
                            "avant de faire ton plan. N'ecris rien tant que le plan n'est pas approuve.")
 
@@ -1022,6 +1059,9 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, chercher_memoire(d["question"], d.get("projet")))
             if route == "ia/deplacer":
                 return self.operation_flux(deplacer_gguf if d.get("type") == "gguf" else deplacer_ollama, d)
+            if route == "agent/autoriser":
+                repondre_autorisation(d.get("id"), d.get("ok"))
+                return self.envoyer(200, {"ok": True})
             if route == "fichier/annuler":
                 return self.envoyer(200, {"chemin": annuler_changement(d.get("sauvegarde"))})
             if route == "ia/renommer":
@@ -1103,9 +1143,14 @@ class Gestion(BaseHTTPRequestHandler):
                             + ("\n- … (%d autres)" % (len(liste) - 200) if len(liste) > 200 else "")
                             + "\nModifie le fichier existant qui correspond a la demande ; cree un nouveau fichier "
                               "seulement s'il n'en existe aucun qui convient. Utilise toujours ces chemins exacts.")
-            if d.get("fichier", "").startswith(projet + "/"):
+            if (d.get("fichier") or "").startswith(projet + "/"):
                 systeme += "\nLe fichier ouvert dans l'editeur est « %s » : c'est probablement celui dont on parle." % d["fichier"][len(projet) + 1:]
         self._projet = projet
+        self._tours = 6
+        if projet and d.get("agent") and d.get("plan") != "planifier":
+            outils += OUTILS_COMMANDE
+            systeme += INVITE_AGENT
+            self._tours = 30
         systeme += INVITE_SCHEMA if d.get("schema") else INVITE_SCHEMA_TOUJOURS
         if d.get("plan") == "planifier":
             systeme += INVITE_PLAN
@@ -1150,6 +1195,19 @@ class Gestion(BaseHTTPRequestHandler):
     def executer_outil(self, nom, args):
         if not isinstance(args, dict):
             args = {}
+        if nom == "executer_commande":
+            cmd = (args.get("commande") or "").strip()
+            projet = getattr(self, "_projet", None)
+            if not cmd or not projet:
+                return {"erreur": "Commande vide ou aucun projet ouvert"}
+            ident = secrets.token_hex(8)
+            self.ligne({"autorisation": {"id": ident, "commande": cmd, "projet": projet}})
+            if not attendre_autorisation(ident):
+                self.ligne({"commande": {"commande": cmd, "refusee": True}})
+                return {"refuse": True, "message": "L'utilisateur a refuse cette commande."}
+            res = executer(projet, cmd)
+            self.ligne({"commande": {"commande": cmd, "code": res["code"], "sortie": res["sortie"][-8000:]}})
+            return {"code_sortie": res["code"], "sortie": res["sortie"][-12000:]}
         res = appeler_outil(nom, args, getattr(self, "_projet", None))
         if isinstance(res, dict) and res.get("_evenement"):
             self.ligne({"fichier": res.pop("_evenement")})
@@ -1163,7 +1221,7 @@ class Gestion(BaseHTTPRequestHandler):
         if outils:
             # Ecriture en direct meme avec les outils : on lit le flux, on affiche le texte
             # au fur et a mesure et on ramasse les appels d'outils au passage.
-            for _ in range(6):
+            for _ in range(getattr(self, "_tours", 6)):
                 req = urllib.request.Request(ollama_url("/api/chat"), headers={"Content-Type": "application/json"},
                                              data=json.dumps({"model": modele, "messages": messages,
                                                               "tools": outils, "stream": True}).encode())
@@ -1249,10 +1307,10 @@ class Gestion(BaseHTTPRequestHandler):
         if sources:
             self.ligne({"sources": sources})
         try:
-            for _ in range(8):
+            for _ in range(max(8, getattr(self, "_tours", 8))):
                 corps = {"model": modele, "max_tokens": 16000, "system": systeme, "messages": conv, "stream": True}
                 if outils:
-                    corps["tools"] = outils_claude()
+                    corps["tools"] = outils_claude(outils)
                 blocs, en_cours, arret = [], None, None
                 with requete_claude(corps) as r:
                     for l in r:
@@ -1326,7 +1384,7 @@ class Gestion(BaseHTTPRequestHandler):
         if sources:
             self.ligne({"sources": sources})
         if outils:
-            for _ in range(6):
+            for _ in range(getattr(self, "_tours", 6)):
                 try:
                     r = http_json(base + "/chat/completions", {"model": modele, "messages": conv,
                                                                "tools": outils, "stream": False}, delai=1800)
