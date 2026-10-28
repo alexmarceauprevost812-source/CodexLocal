@@ -2,6 +2,13 @@
 (function () {
   "use strict";
   try { if (!window.TILABO_JETON && window.parent.TILABO_JETON) window.TILABO_JETON = window.parent.TILABO_JETON; } catch (_) {}
+  // Mot de passe actif et page ouverte seule (pas dans une fenetre du bureau deverrouille) :
+  // on passe par le bureau, qui demande le mot de passe, puis on ouvre l'appli dans une fenetre.
+  if (!window.TILABO_JETON) {
+    const appli = location.pathname.replace(/^\//, "");
+    location.replace("/" + (appli ? "?ouvrir=" + encodeURIComponent(appli) : ""));
+    return;
+  }
   const echap = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
   const css = `
   .tl-outil{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#7CC4FF;background:#08131d;border:1px solid #16314a;border-radius:20px;padding:3px 10px;margin:3px 0}
