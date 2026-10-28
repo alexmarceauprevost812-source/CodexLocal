@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="/web/logo.png">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ti-Labo — Écriture</title>
+<style>
+/* marceau-78 : feuille gris mat, ecriture noire, boutons orange */
+:root{--mat:#9a9a98;--mat2:#8c8c8a;--encre:#111;--orange:#FF7A1A;--orange2:#ff9a4d;--barre:#161616;--doux:#555}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--mat);color:var(--encre);font-family:system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--barre);color:#fff;border-bottom:2px solid var(--orange)}
+header img{width:34px;height:34px;object-fit:contain}
+header .t{flex:1;min-width:0}
+header input{width:100%;background:transparent;border:0;color:#fff;font:600 16px system-ui,sans-serif;padding:4px 0;outline:none}
+header small{display:block;color:#9a9a9a;font-size:11.5px}
+button{font:inherit;border-radius:10px;min-height:40px;padding:0 12px;border:0;background:var(--orange);color:#000;font-weight:700;cursor:pointer}
+button.sec{background:#222;color:var(--orange);border:1px solid #333;font-weight:600}
+button:disabled{opacity:.45}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+/* zone d'ecriture : centree a l'ecran, puis elle monte en haut des la premiere ligne */
+#zone{flex:1;overflow-y:auto;display:flex;flex-direction:column;justify-content:center;padding:18px 16px;transition:padding .35s ease}
+#zone.ecrit{justify-content:flex-start}
+#feuille{width:100%;max-width:720px;margin:0 auto;display:flex;flex-direction:column}
+#texte{width:100%;min-height:3.2em;border:0;background:transparent;color:var(--encre);resize:none;outline:none;
+  font:19px/1.65 Georgia,"Times New Roman",serif;text-align:center;overflow:hidden;transition:text-align .2s}
+#zone.ecrit #texte{text-align:left;min-height:60vh}
+#texte::placeholder{color:#3d3d3d}
+#aide{color:var(--doux);text-align:center;font-size:13.5px;margin-top:8px}
+#zone.ecrit #aide{display:none}
+/* pouvoirs magiques */
+#pouvoirs{display:flex;gap:6px;overflow-x:auto;padding:8px 10px;background:var(--mat2);border-top:1px solid #7d7d7b;scrollbar-width:none}
+#pouvoirs::-webkit-scrollbar{display:none}
+#pouvoirs button{flex:0 0 auto;min-height:38px;font-size:13.5px;white-space:nowrap}
+#bas{display:flex;align-items:center;gap:8px;padding:6px 12px calc(6px + env(safe-area-inset-bottom));background:var(--barre);color:#bbb;font-size:12.5px}
+#bas .esp{flex:1}
+#etat{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* propositions de l'IA */
+#prop{position:fixed;left:0;right:0;bottom:0;z-index:20;max-height:70vh;display:none;flex-direction:column;background:#101010;color:#eee;
+  border-top:2px solid var(--orange);border-radius:16px 16px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.5)}
+#prop.ouvert{display:flex}
+#prop .tete{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #262626}
+#prop .tete b{flex:1;color:var(--orange)}
+#prop .corps{flex:1;overflow-y:auto;padding:12px 14px;white-space:pre-wrap;line-height:1.55;font:16px/1.6 Georgia,serif}
+#prop .actions{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #262626}
+.tl-sources{white-space:normal}
+/* liste des textes */
+#liste{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
+#liste.ouvert{display:flex}
+#liste .f{width:100%;max-width:560px;max-height:80vh;overflow-y:auto;background:#101010;color:#eee;border-radius:16px 16px 0 0;padding:14px;border-top:2px solid var(--orange)}
+#liste h3{margin:0 0 10px;color:var(--orange)}
+.doc{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.doc:hover{background:#1a1a1a}.doc.actif{border-color:var(--orange)}
+.doc .n{flex:1;min-width:0}.doc .n b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc small{color:#888}
+.doc .x{min-height:32px;padding:0 10px;background:#222;color:#f87171}
+#choix{position:fixed;inset:0;z-index:35;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
+#choix.ouvert{display:flex}
+#choix .f{background:#101010;color:#eee;border:1px solid var(--orange);border-radius:16px;padding:14px;width:min(360px,100%);display:flex;flex-direction:column;gap:8px}
+#choix h4{margin:0 0 4px;color:var(--orange)}
+#choix input{background:#0a0a0a;color:#fff;border:1px solid #333;border-radius:10px;padding:10px 12px;font:inherit}
+</style>
+</head>
+<body>
+<header>
+  <img src="/web/logo.png" alt="">
+  <div class="t"><input id="titre" value="Sans titre" aria-label="Titre du texte"><small id="sauve">Enregistré sur ce PC</small></div>
+  <button class="sec" id="bListe" title="Mes textes">📄</button>
+  <button class="sec" id="bNouv" title="Nouveau texte">＋</button>
+  <button class="sec" id="bExp" title="Enregistrer en .txt">💾</button>
+</header>
+<div id="zone">
+  <div id="feuille">
+    <textarea id="texte" rows="1" placeholder="Commence à écrire ici…"></textarea>
+    <div id="aide">Écris ta première ligne : la feuille monte en haut. Les ✨ pouvoirs magiques sont en bas.</div>
+  </div>
+</div>
+<div id="pouvoirs">
+  <button data-p="continuer">✍️ Continuer</button>
+  <button data-p="corriger">✅ Corriger</button>
+  <button data-p="style">🎨 Changer le style</button>
+  <button data-p="resumer">📝 Résumer</button>
+  <button data-p="traduire">🌍 Traduire</button>
+  <button data-p="idees">💡 Idées</button>
+  <button data-p="web">🌐 Chercher sur le web</button>
+  <button data-p="lire" class="sec">🔊 Lire à voix haute</button>
+</div>
+<div id="bas"><span id="etat">0 mot</span><span class="esp"></span><span id="ia">IA locale</span></div>
+
+<div id="prop"><div class="tete"><b id="propT">✨</b><button class="sec" id="propStop">■ Arrêter</button></div>
+  <div class="corps" id="propC"></div>
+  <div class="actions" id="propA"></div></div>
+<div id="liste"><div class="f"><h3>📄 Mes textes</h3><div id="docs"></div></div></div>
+<div id="choix"><div class="f" id="choixF"></div></div>
+
+<script>window.TILABO_JETON = "__JETON__";</script>
+<script src="/web/tl-cle.js"></script>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const echap = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const lire = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (_) { return d; } };
+const ecrire = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } };
+
+// ------------------------------------------------------------ textes (gardes sur le telephone)
+let docs = lire("tilabo-ecriture", []);
+let actuel = lire("tilabo-ecriture-actuel", null);
+if (!docs.length) docs.push({id: Date.now().toString(36), titre: "Sans titre", texte: "", date: Date.now()});
+let doc = docs.find(d => d.id === actuel) || docs[0];
+const T = $("#texte");
+
+function charger(d){
+  doc = d; ecrire("tilabo-ecriture-actuel", d.id);
+  $("#titre").value = d.titre; T.value = d.texte; ajuster();
+}
+let minuterie = null;
+function sauver(){
+  doc.titre = $("#titre").value.trim() || "Sans titre"; doc.texte = T.value; doc.date = Date.now();
+  docs = [doc, ...docs.filter(d => d.id !== doc.id)];
+  $("#sauve").textContent = ecrire("tilabo-ecriture", docs) ? "Enregistré sur ce PC" : "⚠ Impossible d'enregistrer";
+}
+function plusTard(){ $("#sauve").textContent = "…"; clearTimeout(minuterie); minuterie = setTimeout(sauver, 600); }
+
+function ajuster(){
+  // la zone est centree tant qu'il n'y a pas de premiere ligne complete
+  $("#zone").classList.toggle("ecrit", T.value.includes("\n") || T.value.length > 40);
+  T.style.height = "auto"; T.style.height = T.scrollHeight + "px";
+  const mots = (T.value.match(/\S+/g) || []).length;
+  $("#etat").textContent = mots + (mots > 1 ? " mots" : " mot") + " · " + T.value.length + " caractères";
+}
+T.addEventListener("input", () => { ajuster(); plusTard(); });
+$("#titre").addEventListener("input", plusTard);
+
+$("#bNouv").onclick = () => { sauver(); const d = {id: Date.now().toString(36), titre: "Sans titre", texte: "", date: Date.now()}; docs.unshift(d); charger(d); sauver(); T.focus(); };
+$("#bListe").onclick = () => {
+  sauver();
+  $("#docs").innerHTML = "";
+  docs.forEach(d => {
+    const l = document.createElement("div"); l.className = "doc" + (d.id === doc.id ? " actif" : "");
+    const extrait = d.texte.trim().slice(0, 60) || "(vide)";
+    l.innerHTML = `<span>📝</span><span class="n"><b>${echap(d.titre)}</b><small>${echap(extrait)}</small></span><button class="x" title="Supprimer">🗑</button>`;
+    l.onclick = e => {
+      if (e.target.classList.contains("x")) {
+        if (e.target.dataset.ok !== "1") { e.target.dataset.ok = "1"; e.target.textContent = "Sûr ?"; e.stopPropagation(); return; }
+        docs = docs.filter(x => x.id !== d.id);
+        if (!docs.length) docs.push({id: Date.now().toString(36), titre: "Sans titre", texte: "", date: Date.now()});
+        ecrire("tilabo-ecriture", docs);
+        if (d.id === doc.id) charger(docs[0]);
+        $("#bListe").onclick(); return;
+      }
+      charger(d); $("#liste").classList.remove("ouvert");
+    };
+    $("#docs").appendChild(l);
+  });
+  $("#liste").classList.add("ouvert");
+};
+$("#liste").onclick = e => { if (e.target.id === "liste") e.target.classList.remove("ouvert"); };
+$("#bExp").onclick = () => {
+  sauver();
+  const nom = (doc.titre || "texte").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 60) + ".txt";
+  const url = "data:text/plain;base64," + btoa(unescape(encodeURIComponent(T.value)));
+  if (window.TiLaboApp && TiLaboApp.enregistrer) TiLaboApp.enregistrer(url, nom);
+  else { const a = document.createElement("a"); a.href = url; a.download = nom; a.click(); }
+};
+
+// ------------------------------------------------------------ IA locale (meme moteur que la Jasette)
+let ctrl = null;
+const SYSTEME_ECRITURE = "Tu es l'assistant d'ecriture de marceau-78. Tu ecris en francais du Quebec, clair et naturel. " +
+  "Tu rends SEULEMENT le texte demande : pas d'introduction, pas de guillemets autour, pas de commentaire.";
+async function demanderIA(consigne, texte, sortie){
+  ctrl = new AbortController();
+  const net = t => t.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trimStart();
+  const rep = await TL.ia(SYSTEME_ECRITURE, consigne + "\n\nTexte :\n" + texte,
+    t => { sortie.textContent = net(t); sortie.scrollTop = sortie.scrollHeight; }, ctrl.signal);
+  ctrl = null;
+  return rep.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+}
+
+/** Le texte vise : la selection s'il y en a une, sinon tout le texte. */
+function cible(){
+  const a = T.selectionStart, b = T.selectionEnd;
+  return a !== b ? {a, b, t: T.value.slice(a, b), sel: true} : {a: 0, b: T.value.length, t: T.value, sel: false};
+}
+function remplacer(c, nouveau){ T.value = T.value.slice(0, c.a) + nouveau + T.value.slice(c.b); ajuster(); sauver(); }
+
+function demanderChoix(titre, options){
+  return new Promise(ok => {
+    const F = $("#choixF");
+    F.innerHTML = `<h4>${echap(titre)}</h4>` + options.map((o, i) => `<button class="${i ? "sec" : ""}" data-i="${i}">${echap(o)}</button>`).join("") + `<button class="sec" data-i="-1">Annuler</button>`;
+    $("#choix").classList.add("ouvert");
+    F.onclick = e => { const i = e.target.dataset.i; if (i === undefined) return; $("#choix").classList.remove("ouvert"); ok(i === "-1" ? null : options[+i]); };
+  });
+}
+
+const POUVOIRS = {
+  continuer: {t: "✍️ Suite du texte", consigne: () => "Continue ce texte avec un ou deux paragraphes dans le meme ton et le meme style. Donne seulement la suite.", ajout: true},
+  corriger: {t: "✅ Texte corrigé", consigne: () => "Corrige l'orthographe, la grammaire et la ponctuation, sans changer le sens ni le style. Donne le texte corrige au complet."},
+  style: {t: "🎨 Nouveau style", choix: ["Plus professionnel", "Plus simple", "Plus chaleureux", "Plus drôle", "Plus court", "Québécois familier"],
+    consigne: s => "Reecris ce texte dans un style « " + s + " ». Garde toutes les idees."},
+  resumer: {t: "📝 Résumé", consigne: () => "Resume ce texte en quelques phrases claires (ou une courte liste a puces si c'est long).", apart: true},
+  traduire: {t: "🌍 Traduction", choix: ["Anglais", "Espagnol", "Français", "Allemand", "Italien"],
+    consigne: s => "Traduis ce texte en " + s.toLowerCase() + ". Donne seulement la traduction.", apart: true},
+  idees: {t: "💡 Idées", consigne: () => "Propose 5 idees courtes et concretes pour developper ou ameliorer ce texte (liste numerotee).", apart: true},
+};
+
+async function pouvoir(nom){
+  if (ctrl) return;
+  if (nom === "lire") return lireAVoixHaute();
+  if (nom === "web") return chercherWeb();
+  const P = POUVOIRS[nom], c = cible();
+  if (!c.t.trim()) { $("#etat").textContent = "Écris quelque chose d'abord ✍️"; T.focus(); return; }
+  let option = null;
+  if (P.choix) { option = await demanderChoix(P.t, P.choix); if (!option) return; }
+  const C = $("#propC"), A = $("#propA");
+  $("#propT").textContent = P.t + (option ? " — " + option : "") + (c.sel ? " (sélection)" : "");
+  C.textContent = "…"; A.innerHTML = ""; $("#propStop").hidden = false;
+  $("#prop").classList.add("ouvert");
+  try {
+    const rep = await demanderIA(P.consigne(option), P.ajout ? T.value.slice(-4000) : c.t.slice(0, 6000), C);
+    C.textContent = rep || "(rien)";
+    actions(rep, P, c);
+  } catch (e) {
+    ctrl = null;
+    C.textContent = e.name === "AbortError" ? "(arrêté)" : "⚠ " + e.message + "\n\nVérifie que l'IA de la Jasette est choisie (🤖 IA locales sur le bureau).";
+    A.innerHTML = "<button class='sec' id='pFerme'>Fermer</button>"; $("#pFerme").onclick = fermerProp;
+  }
+  $("#propStop").hidden = true;
+}
+function actions(rep, P, c){
+  const A = $("#propA"); A.innerHTML = "";
+  const bouton = (txt, sec, f) => { const b = document.createElement("button"); b.textContent = txt; if (sec) b.className = "sec"; b.onclick = f; A.appendChild(b); };
+  if (rep) {
+    if (P.ajout) bouton("➕ Ajouter à la suite", false, () => { remplacer({a: T.value.length, b: T.value.length}, (T.value && !/\s$/.test(T.value) ? "\n\n" : "") + rep); fermerProp(); });
+    else if (!P.apart) bouton(c.sel ? "↔️ Remplacer la sélection" : "↔️ Remplacer le texte", false, () => { remplacer(c, rep); fermerProp(); });
+    if (P.apart || !P.ajout) bouton("➕ Ajouter à la fin", !!(!P.apart), () => { remplacer({a: T.value.length, b: T.value.length}, "\n\n" + rep); fermerProp(); });
+    bouton("📋 Copier", true, () => navigator.clipboard && navigator.clipboard.writeText(rep).catch(() => {}));
+  }
+  bouton("✕ Fermer", true, fermerProp);
+}
+function fermerProp(){ if (ctrl) ctrl.abort(); $("#prop").classList.remove("ouvert"); }
+$("#propStop").onclick = () => ctrl && ctrl.abort();
+
+// --- chercher sur le web : l'IA ecrit un paragraphe a partir des resultats
+async function chercherWeb(){
+  await TL.pret;
+  if (TL.internet === false) { $("#etat").textContent = "🌐 Internet est désactivé (⚙️ Paramètres)"; return; }
+  const c = cible();
+  const sujet = await new Promise(ok => {
+    const F = $("#choixF");
+    F.innerHTML = "<h4>🌐 Chercher sur le web</h4><input id='cSujet' placeholder='Sujet à chercher…'><button id='cOk'>🔎 Chercher</button><button class='sec' id='cNon'>Annuler</button>";
+    $("#cSujet").value = c.sel ? c.t.slice(0, 80) : ($("#titre").value !== "Sans titre" ? $("#titre").value : "");
+    $("#choix").classList.add("ouvert"); setTimeout(() => $("#cSujet").focus(), 50);
+    const fin = v => { $("#choix").classList.remove("ouvert"); ok(v); };
+    $("#cOk").onclick = () => fin($("#cSujet").value.trim());
+    $("#cNon").onclick = () => fin(null);
+    $("#cSujet").onkeydown = e => { if (e.key === "Enter") fin($("#cSujet").value.trim()); };
+  });
+  if (!sujet) return;
+  const C = $("#propC"), A = $("#propA");
+  $("#propT").textContent = "🌐 " + sujet; A.innerHTML = ""; $("#prop").classList.add("ouvert");
+  C.innerHTML = TL.outil("🔎 Recherche sur le web…");
+  try {
+    const res = await TL.chercher(sujet);
+    const page = res[0] ? await TL.page(res[0].url).catch(() => null) : null;
+    C.innerHTML = TL.cartesSources(res);
+    if (!res.length) { C.insertAdjacentHTML("beforeend", "Rien trouvé sur le web."); actions("", {}, c); return; }
+    const z = document.createElement("div"); C.appendChild(z);
+    const rep = await demanderIA("A partir de ces resultats Internet, ecris un court paragraphe informatif sur « " + sujet + " », en tes propres mots, " +
+      "pour l'ajouter a mon texte.\n\n" + TL.pourIA(sujet, res, page), T.value.slice(-1500), z);
+    z.textContent = rep;
+    actions(rep, {ajout: true}, c);
+  } catch (e) { ctrl = null; C.insertAdjacentHTML("beforeend", "⚠ " + echap(e.message)); actions("", {}, c); }
+}
+
+// --- lecture a voix haute (voix du telephone)
+let parle = false;
+function lireAVoixHaute(){
+  const b = document.querySelector('[data-p="lire"]');
+  if (!("speechSynthesis" in window)) { $("#etat").textContent = "🔊 La lecture à voix haute n'est pas offerte ici"; return; }
+  if (parle) { speechSynthesis.cancel(); parle = false; b.textContent = "🔊 Lire à voix haute"; return; }
+  const c = cible(); if (!c.t.trim()) return;
+  const u = new SpeechSynthesisUtterance(c.t.slice(0, 4000)); u.lang = "fr-CA";
+  const v = speechSynthesis.getVoices().find(x => /^fr[-_]CA/i.test(x.lang)) || speechSynthesis.getVoices().find(x => /^fr/i.test(x.lang));
+  if (v) u.voice = v;
+  u.onend = u.onerror = () => { parle = false; b.textContent = "🔊 Lire à voix haute"; };
+  speechSynthesis.speak(u); parle = true; b.textContent = "■ Arrêter la lecture";
+}
+
+$("#pouvoirs").onclick = e => { const b = e.target.closest("button"); if (b) pouvoir(b.dataset.p); };
+async function etatIA(){
+  const m = await TL.etatIA(); $("#ia").textContent = m ? "🧠 " + m : "Choisis une IA (🤖 IA locales)";
+}
+window.addEventListener("pagehide", sauver);
+document.addEventListener("visibilitychange", () => { if (document.hidden) sauver(); });
+charger(doc); etatIA();
+</script>
+</body>
+</html>

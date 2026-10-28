@@ -1560,6 +1560,9 @@ INVITE_OUTILS = ("\n\nTu as des outils : recherche_web, lire_page, chercher_code
                  "Utilise-les seulement si tu en as vraiment besoin (info recente, doc d'une librairie, exemple de code "
                  "que tu ne connais pas). Sinon reponds directement. Quand tu t'en sers, cite les liens a la fin "
                  "sous « Sources : ».")
+INVITE_ECRITURE = ("Tu es l'assistant d'ecriture de marceau-78 dans le Ti-Labo d'Alex. Tu ecris en francais du Quebec, "
+                   "clair et naturel. Tu rends SEULEMENT le texte demande : pas d'introduction, pas de guillemets autour, "
+                   "pas de commentaire, pas de bloc de code.")
 INVITE_SCHEMA_TOUJOURS = ("\n\nSi on te demande un schema, un diagramme, une carte ou un plan visuel, reponds avec un bloc "
                           "```mermaid valide (flowchart TD, sequenceDiagram, mindmap, classDiagram, timeline...). Le Ti-Labo "
                           "l'anime et peut en faire une video. Mets les textes des boites entre guillemets et commence chaque "
@@ -1795,6 +1798,11 @@ class Gestion(BaseHTTPRequestHandler):
             with open(os.path.join(WEB, nom), "r", encoding="utf-8") as f:
                 page = f.read().replace("__JETON__", "" if mdp_actif() else JETON)
             return self.envoyer(200, page, "text/html; charset=utf-8")
+        if u.path in ("/ecriture", "/meteo"):
+            # applis du bureau dans leur propre page (Ecriture facon marceau-78, Meteo du web)
+            with open(os.path.join(WEB, u.path[1:] + ".html"), "r", encoding="utf-8") as f:
+                page = f.read().replace("__JETON__", "" if mdp_actif() else JETON)
+            return self.envoyer(200, page, "text/html; charset=utf-8")
         if u.path.startswith("/web/"):
             return self.statique(u.path[5:])
         if u.path.startswith("/apercu/"):
@@ -2022,6 +2030,13 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, {"ok": demarrer_ollama(), "version": ollama_vivant()})
             if route == "jasette":
                 return self.jasette(d)
+            if route in ("web/chercher", "web/page"):
+                # pour l'appli Ecriture (pouvoir « Chercher sur le web »)
+                if not lire_params().get("internet"):
+                    raise ValueError("Internet est désactivé pour l'IA (⚙️ Paramètres)")
+                if route == "web/chercher":
+                    return self.envoyer(200, {"resultats": recherche_web(str(d.get("requete", ""))[:200])})
+                return self.envoyer(200, lire_page(str(d.get("url", ""))))
             if route == "github/connecter":
                 return self.envoyer(200, {"utilisateur": github_connecter(d["jeton"].strip())})
             if route == "github/deconnecter":
@@ -2170,6 +2185,9 @@ class Gestion(BaseHTTPRequestHandler):
         global DERNIERE_IA
         if not str(modele).startswith("claude"):
             DERNIERE_IA = modele
+        if mode == "ecriture":
+            # Appli Ecriture : l'IA rend seulement le texte demande (pas d'outils, pas de schema)
+            return self.jasette_ecriture(modele, p, d)
         systeme = INVITE_CODEX if mode == "codex" else INVITE_DEVOIR if mode == "devoir" else INVITE_JASETTE
         systeme += contexte_tilabo(modele, p)
         if mode == "devoir":
@@ -2301,6 +2319,21 @@ class Gestion(BaseHTTPRequestHandler):
         if p["moteur"] == "openai":
             return self.jasette_openai(p, modele, messages, sources, outils)
         return self.jasette_ollama(modele, messages, sources, outils)
+
+    def jasette_ecriture(self, modele, p, d):
+        """Appli Ecriture : continuer, corriger, changer le style, resumer, traduire… sur le texte d'Alex."""
+        self._projet, self._fichier_ouvert = None, None
+        self._lus, self._double_ok, self._nouveau_ok, self._relances = set(), {}, False, 0
+        self._tours, self._turbo = 1, False
+        self._blocs_auto, self._texte_flux, self._ecrits, self._blocs_faits = False, "", set(), False
+        question = next((str(m.get("content", "")) for m in reversed(d.get("messages") or []) if m.get("role") == "user"), "")
+        messages = [{"role": "system", "content": INVITE_ECRITURE},
+                    {"role": "user", "content": question[:24000]}]
+        if modele.startswith("claude-"):
+            return self.jasette_claude(modele, messages, [], [])
+        if p["moteur"] == "openai":
+            return self.jasette_openai(p, modele, messages, [], [])
+        return self.jasette_ollama(modele, messages, [], [])
 
     def executer_outil(self, nom, args):
         if not isinstance(args, dict):

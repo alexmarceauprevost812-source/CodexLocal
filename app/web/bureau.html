@@ -192,6 +192,8 @@ const APPS = [
   {id: "codex", e: "🧑‍💻", n: "Codex", c1: "#1d4ed8", c2: "#60a5fa"},
   {id: "projets", e: "📁", n: "Mes projets", c1: "#b45309", c2: "#fcd34d"},
   {id: "studio", e: "🎬", n: "Studio", c1: "#be123c", c2: "#fb7185"},
+  {id: "ecriture", e: "✍️", n: "Écriture", u: "/ecriture", c1: "#57534e", c2: "#d6d3d1", desc: "Écrire avec les pouvoirs magiques de l'IA"},
+  {id: "meteo", e: "🌤️", n: "Météo", u: "/meteo", c1: "#1d4ed8", c2: "#7dd3fc", desc: "La météo cherchée sur le web"},
   {id: "agenda", e: "🗓️", n: "Agenda", c1: "#c2410c", c2: "#fdba74"},
   {id: "notes", e: "📝", n: "Notes", c1: "#4d7c0f", c2: "#a3e635", interne: true},
   {id: "explorateur", e: "🗄️", n: "Explorateur", c1: "#a16207", c2: "#fde047", action: true, desc: "Ouvre le dossier des projets dans Windows"},
@@ -203,7 +205,7 @@ const APPS = [
   {id: "ia", e: "🤖", n: "IA locales", c1: "#6d28d9", c2: "#a78bfa"},
   {id: "parametres", e: "⚙️", n: "Paramètres", c1: "#3f3f46", c2: "#a1a1aa"},
 ];
-const EPINGLES = ["jasette", "codex", "projets", "agenda", "notes"];
+const EPINGLES = ["jasette", "codex", "ecriture", "projets", "agenda"];
 const app = (id) => APPS.find((a) => a.id === id);
 let projets = [], etatTL = {};
 
@@ -231,7 +233,10 @@ function lancer(a, opts = {}) {
   if (a.action) return api("ouvrir-dossier", {chemin: ""}).catch((e) => alert(e.message));
   const cle = a.id + (opts.projet ? ":" + opts.projet : "");
   const deja = fenetres.find((f) => f.cle === cle);
-  if (deja) { deja.el.classList.remove("min"); activer(deja); return; }
+  if (deja) {
+    if (opts.src) deja.el.querySelector("iframe").src = opts.src;
+    deja.el.classList.remove("min"); activer(deja); return;
+  }
   const el = document.createElement("div"); el.className = "fen";
   const w = Math.min(1100, Math.max(640, innerWidth * 0.62)), h = Math.min(720, innerHeight - 140);
   decal = (decal + 28) % 168;
@@ -247,7 +252,8 @@ function lancer(a, opts = {}) {
     setTimeout(() => t.focus(), 60);
   } else {
     const f = document.createElement("iframe");
-    f.src = "/index.html?cadre=1&vue=" + encodeURIComponent(a.id) + (opts.projet ? "&projet=" + encodeURIComponent(opts.projet) : "");
+    f.src = opts.src || (a.u ? a.u + "?cadre=1" :
+      "/index.html?cadre=1&vue=" + encodeURIComponent(a.id) + (opts.projet ? "&projet=" + encodeURIComponent(opts.projet) : ""));
     f.title = titre;
     el.insertBefore(f, el.querySelector(".cache-iframe"));
   }
@@ -322,7 +328,17 @@ function remplirMenu(q) {
       C.appendChild(d);
     });
   }
-  if (!as.length && !ps.length) C.insertAdjacentHTML("beforeend", '<p class="vide" style="padding:8px">Rien trouvé.</p>');
+  // « Normandin », « météo Paris » : la météo de cette ville, cherchée sur le web
+  const v = q.replace(/^(la\s+)?m[ée]t[ée]o\s*(à|a|de|du|au|pour)?\s*/i, "").trim();
+  if (q && v && v.length < 50) {
+    const vraie = $("#cherche").value.trim().replace(/^(la\s+)?m[ée]t[ée]o\s*(à|a|de|du|au|pour)?\s*/i, "").trim();
+    C.insertAdjacentHTML("beforeend", "<h5>Météo</h5>");
+    const d = document.createElement("div"); d.className = "proj";
+    d.innerHTML = `🌤️ <span>Météo à ${esc(vraie)}</span><small>Cherchée sur le web</small>`;
+    d.onclick = () => { fermerMenu(); lancer(app("meteo"), {src: "/meteo?cadre=1&ville=" + encodeURIComponent(vraie)}); };
+    C.appendChild(d);
+  }
+  if (!as.length && !ps.length && !(q && v)) C.insertAdjacentHTML("beforeend", '<p class="vide" style="padding:8px">Rien trouvé.</p>');
 }
 $("#demarrer").onclick = (e) => { e.stopPropagation(); $("#menu").classList.contains("ouvert") ? fermerMenu() : ouvrirMenu(); };
 $("#cherche").oninput = (e) => remplirMenu(e.target.value);
@@ -403,6 +419,11 @@ async function meteo() {
     C.innerHTML = `<div class="met"><span class="e">${e}</span><div><b>${Math.round(m.current.temperature_2m)}°C</b><small>${desc} · ressenti ${Math.round(m.current.apparent_temperature)}° · vent ${Math.round(m.current.wind_speed_10m)} km/h</small><small>${esc(l.name)}${l.admin1 ? ", " + esc(l.admin1) : ""}</small></div></div><div class="jours">${jours}</div>`;
   } catch (err) { C.className = "vide"; C.textContent = "Météo indisponible pour le moment (" + err.message + ")."; }
 }
+// Toucher la meteo du bureau ouvre l'appli Meteo (previsions, conseil du jour)
+$("#meteoCorps").style.cursor = "pointer";
+$("#meteoCorps").onclick = () => lancer(app("meteo"));
+// Les applis dans les fenetres peuvent en ouvrir une autre (ex. Meteo -> Jasette)
+window.tlOuvrir = (id) => { const a = app(id); if (a) lancer(a); };
 $("#btVille").onclick = () => {
   const v = prompt("Ville pour la météo :", ville());
   if (v && v.trim()) { try { localStorage.setItem("tilabo-ville", v.trim()); } catch (_) {} meteo(); }
