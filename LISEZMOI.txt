@@ -63,6 +63,14 @@ DEVOIRS (v3.8)
    de la clé. À l'école, double-clique-le : il s'ouvre dans le navigateur,
    SANS rien installer et sans Internet (texte, images et schéma animé inclus).
 
+NOUVELLES DU MATIN (v3.13)
+--------------------------
+- Page « Nouvelles » : les titres du jour par rubrique (à la une, Québec,
+  Saguenay–Lac-Saint-Jean, techno et IA, monde), cherchés sur le web
+  (Google News, sans clé API). Besoin d'Internet.
+- Bandeau défilant « EN DIRECT », filtres par rubrique, et recherche d'un sujet.
+- « Bulletin lu par l'IA » : ton IA locale résume les titres en quelques points.
+
 BON À SAVOIR
 ------------
 - Internet + outils : marche avec les modèles marqués « internet »

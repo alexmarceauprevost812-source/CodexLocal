@@ -802,6 +802,7 @@ function allerA(vue) {
   if (vue === "parametres") rendreParametres();
   if (vue === "images") rendreImages();
   if (vue === "devoirs") rendreDevoirs();
+  if (vue === "nouvelles" && window.TiNouvelles) TiNouvelles.rendre();
   if (vue === "bureau") rendreBureau();
   if (vue === "codex") { rendreCodexProjets(); setTimeout(() => codex.zone.focus(), 30); }
 }

@@ -1693,6 +1693,8 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, liste_projets())
             if route == "arbre":
                 return self.envoyer(200, arbre(q.get("projet", "")))
+            if route == "nouvelles":
+                return self.envoyer(200, nouvelles(q.get("rubrique", "une"), q.get("sujet", "")))
             if route == "fichier":
                 return self.envoyer(200, {"chemin": q["chemin"], "contenu": lire_fichier(q["chemin"])})
             if route == "ia/modeles":
@@ -3460,6 +3462,73 @@ def ajouter_image_galerie(d):
         f.write(brut)
     return {"nom": nom, "url": "/images/" + nom}
 
+
+
+# ---------------------------------------------------------------- Nouvelles du matin
+RUBRIQUES_NOUVELLES = {
+    "une": {"titre": "À la une", "rss": "https://news.google.com/rss?hl=fr-CA&gl=CA&ceid=CA:fr",
+            "q": "nouvelles Canada aujourd'hui"},
+    "quebec": {"titre": "Québec", "q": "Québec when:1d"},
+    "region": {"titre": "Saguenay–Lac-Saint-Jean", "q": "Saguenay OR \"Lac-Saint-Jean\" OR Roberval OR Alma when:3d"},
+    "techno": {"titre": "Techno et IA", "q": "intelligence artificielle OR technologie OR logiciel when:1d"},
+    "monde": {"titre": "Monde", "rss": "https://news.google.com/rss/headlines/section/topic/WORLD?hl=fr-CA&gl=CA&ceid=CA:fr",
+              "q": "actualité internationale"},
+}
+_CACHE_NOUVELLES = {}
+
+
+def _rss_google(url, n):
+    import xml.etree.ElementTree as ET
+    import email.utils
+    texte, _ = telecharger_texte(url, delai=12)
+    racine = ET.fromstring(texte.encode("utf-8", errors="replace"))
+    sortie = []
+    for it in racine.iter("item"):
+        titre = (it.findtext("title") or "").strip()
+        source_el = it.find("source")
+        source = (source_el.text or "").strip() if source_el is not None else ""
+        if source and titre.endswith(" - " + source):
+            titre = titre[: -len(" - " + source)]
+        date = 0
+        try:
+            date = email.utils.parsedate_to_datetime(it.findtext("pubDate") or "").timestamp()
+        except Exception:
+            pass
+        lien = (it.findtext("link") or "").strip()
+        if not titre or not lien.startswith("http"):
+            continue
+        sortie.append({"titre": _html.unescape(titre), "source": source, "url": lien, "date": date, "extrait": ""})
+        if len(sortie) >= n:
+            break
+    return sortie
+
+
+def nouvelles(rubrique="une", sujet="", n=8):
+    """Titres du jour : Google News (RSS, sans cle API), sinon la recherche web."""
+    sujet = (sujet or "").strip()[:80]
+    if sujet:
+        r = {"titre": sujet, "q": sujet + " when:2d"}
+    else:
+        r = RUBRIQUES_NOUVELLES.get(rubrique) or RUBRIQUES_NOUVELLES["une"]
+    cle = (rubrique, sujet)
+    deja = _CACHE_NOUVELLES.get(cle)
+    if deja and time.time() - deja[0] < 600:
+        return deja[1]
+    url = r.get("rss") or ("https://news.google.com/rss/search?" + urllib.parse.urlencode(
+        {"q": r["q"], "hl": "fr-CA", "gl": "CA", "ceid": "CA:fr"}))
+    try:
+        articles = _rss_google(url, n)
+    except Exception:
+        articles = []
+    if not articles:
+        q = re.sub(r"\bwhen:\w+", "", r.get("q", "")).replace("OR", " ").strip() or r["titre"]
+        articles = [{"titre": x["titre"], "source": urllib.parse.urlparse(x["url"]).hostname or "",
+                     "url": x["url"], "date": 0, "extrait": x.get("extrait", "")}
+                    for x in recherche_web(q + " nouvelles", n)]
+    articles.sort(key=lambda a: a["date"], reverse=True)
+    res = {"rubrique": rubrique, "titre": r["titre"], "articles": articles, "heure": time.time()}
+    _CACHE_NOUVELLES[cle] = (time.time(), res)
+    return res
 
 # ---------------------------------------------------------------- mot de passe a l'entree
 _essais = {"rates": 0, "bloque_jusqua": 0.0}

@@ -28,6 +28,7 @@
   <symbol id="i-plan" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-cle" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="9" rx="1"/><rect x="5" y="11" width="14" height="11" rx="2"/></symbol>
+  <symbol id="i-journal" viewBox="0 0 24 24"><path d="M4 5h13v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v10a2 2 0 0 1-2 2"/><path d="M7 9h7M7 13h7M7 17h4"/></symbol>
   <symbol id="i-livre" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></symbol>
   <symbol id="i-pinceau" viewBox="0 0 24 24"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L11 15.8 8.2 13z"/><path d="M8.2 13c-2 0-3.7 1.6-3.7 3.6 0 1.6-1.3 2.9-2.5 3.4 1 .7 2.6 1 4 1 3 0 5-2.2 5-5.2z"/></symbol>
   <symbol id="i-cadenas" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
@@ -39,7 +40,7 @@
     <div class="points" aria-hidden="true"><span style="background:#FF5F3A"></span><span style="background:#FFB020"></span><span style="background:var(--green)"></span></div>
     <div class="logo">
       <svg class="ic" style="width:26px;height:26px;color:var(--accent)"><use href="#i-terminal"/></svg>
-      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v3.12</span><small>mon ti-univers · laboratoire de dev local</small>
+      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v3.13</span><small>mon ti-univers · laboratoire de dev local</small>
     </div>
     <div class="espace"></div>
     <span class="pastille" id="p-ia"><i class="pt"></i>IA : …</span>
@@ -58,6 +59,7 @@
       <button class="nav" data-vue="studio"><svg class="ic"><use href="#i-studio"/></svg>Studio</button>
       <button class="nav" data-vue="images"><svg class="ic"><use href="#i-pinceau"/></svg>Images</button>
       <button class="nav" data-vue="devoirs"><svg class="ic"><use href="#i-livre"/></svg>Devoirs</button>
+      <button class="nav" data-vue="nouvelles"><svg class="ic"><use href="#i-journal"/></svg>Nouvelles</button>
       <div class="section-nav">La clé</div>
       <button class="nav" data-vue="ia"><svg class="ic"><use href="#i-puce"/></svg>IA locales<span class="compte" id="nb-ia"></span></button>
       <button class="nav" data-vue="github"><svg class="ic"><use href="#i-git"/></svg>GitHub</button>
@@ -81,6 +83,7 @@
           <button class="icone" data-aller="codex"><span class="boite"><svg class="ic"><use href="#i-terminal"/></svg></span>Codex</button>
           <button class="icone" data-aller="studio"><span class="boite"><svg class="ic"><use href="#i-studio"/></svg></span>Studio</button>
           <button class="icone" data-aller="images"><span class="boite"><svg class="ic"><use href="#i-pinceau"/></svg></span>Images</button>
+          <button class="icone" data-aller="nouvelles"><span class="boite"><svg class="ic"><use href="#i-journal"/></svg></span>Nouvelles</button>
           <button class="icone" data-aller="ia"><span class="boite"><svg class="ic"><use href="#i-puce"/></svg></span>IA locales</button>
           <button class="icone" data-aller="github"><span class="boite"><svg class="ic"><use href="#i-git"/></svg></span>GitHub</button>
           <button class="icone" data-aller="memoire"><span class="boite"><svg class="ic"><use href="#i-memoire"/></svg></span>Mémoire</button>
@@ -319,6 +322,35 @@ Chaque « ## » devient une diapo quand tu présentes."></textarea>
         <div class="dv-modale" id="dv-galerie" hidden><div class="dv-modale-boite"><div class="ligne"><h2 style="margin:0">Choisis une image</h2><span class="espace"></span><button class="btn petit" id="dv-galerie-fermer">✕</button></div><div class="galerie" id="dv-galerie-liste" style="margin-top:12px"></div></div></div>
       </section>
 
+      <!-- Nouvelles du matin -->
+      <section class="vue" id="v-nouvelles" aria-label="Nouvelles du matin">
+        <div class="nv-tete">
+          <div>
+            <div class="nv-date" id="nv-date"></div>
+            <h1 id="nv-salut">Bon matin</h1>
+            <p class="sous">Les nouvelles du jour, cherchées sur le web. <span id="nv-maj"></span></p>
+          </div>
+          <div class="espace"></div>
+          <div class="nv-heure" id="nv-heure" aria-label="Heure"></div>
+          <button class="btn" id="nv-bulletin">Bulletin lu par l'IA</button>
+          <button class="btn prim" id="nv-actualiser">Actualiser</button>
+        </div>
+        <div class="nv-bandeau" aria-hidden="true">
+          <span class="nv-direct"><i></i>EN DIRECT</span>
+          <div class="nv-defile"><div class="nv-piste" id="nv-piste"></div></div>
+        </div>
+        <div class="nv-barre">
+          <div class="nv-rubriques" id="nv-rubriques"></div>
+          <form class="nv-sujet" id="nv-sujet-form" role="search">
+            <label class="lib" for="nv-sujet" style="position:absolute;left:-9999px">Chercher un sujet</label>
+            <input class="champ" id="nv-sujet" type="search" placeholder="Un sujet… (ex. Canadiens, Ollama)" maxlength="80">
+            <button class="btn" type="submit"><svg class="ic"><use href="#i-loupe"/></svg>Chercher</button>
+          </form>
+        </div>
+        <div class="nv-resume" id="nv-resume" hidden aria-live="polite"></div>
+        <div class="nv-grille" id="nv-grille"></div>
+      </section>
+
       <!-- IA locales -->
       <section class="vue" id="v-ia" aria-label="IA locales">
         <div class="entete"><div><h1>IA locales sur la clé</h1><p class="sous">Les modèles sont rangés dans <code id="dossier-modeles">ia\modeles</code> — rien n'est installé sur le PC.</p></div>
@@ -421,6 +453,7 @@ Chaque « ## » devient une diapo quand tu présentes."></textarea>
 <script src="/web/schemas.js"></script>
 <script src="/web/artefact.js"></script>
 <script src="/web/devoirs.js"></script>
+<script src="/web/nouvelles.js"></script>
 <script src="/web/app.js"></script>
 </body>
 </html>
