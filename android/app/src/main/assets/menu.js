@@ -351,12 +351,18 @@
   b.type = "button"; b.className = "tl-charge"; b.hidden = true;
   const avant = tete.querySelector("#bNouv");
   avant ? tete.insertBefore(b, avant) : tete.appendChild(b);
-  let suivi = null, dernier = null;
+  let suivi = null, dernier = null, viaChemin = false;
   async function maj() {
     let e;
     try { e = await (await fetch("/tilabo/etat")).json(); } catch (_) { b.hidden = true; return false; }
-    dernier = e.dernier;
-    b.hidden = !e.chargement && !e.pret && !e.dernier;
+    // CodexLocal donne « pret » et « dernier » ; l'APK Ti-Labo donne « modele » et « chemin » :
+    // on comprend les deux (et on retient la derniere IA chargee pour pouvoir la recharger)
+    const pret = e.pret !== undefined ? e.pret : !!e.modele;
+    viaChemin = e.dernier === undefined;
+    if (viaChemin && e.chemin) { try { localStorage.setItem("tilabo-dernier-gguf", e.chemin); } catch (_) {} }
+    dernier = viaChemin ? (e.chemin || (() => { try { return localStorage.getItem("tilabo-dernier-gguf"); } catch (_) { return null; } })()) : e.dernier;
+    e.pret = pret;
+    b.hidden = !e.chargement && !pret && !dernier;
     if (e.chargement) { b.className = "tl-charge charge"; b.textContent = "⏳ chargement…"; b.title = "L'IA se charge en mémoire (une seule fois) : " + e.chargement; }
     else if (e.pret) { b.className = "tl-charge prete"; b.textContent = "⚡ prête"; b.title = "L'IA est en mémoire : les réponses partent tout de suite"; }
     else { b.className = "tl-charge dort"; b.textContent = "💤 charger"; b.title = "Charger l'IA en mémoire pour des réponses rapides"; }
@@ -368,7 +374,9 @@
   }
   b.onclick = async () => {
     if (b.classList.contains("prete") || !dernier) return;
-    try { await fetch("/tilabo/precharger", { method: "POST", body: "{}" }); } catch (_) {}
+    // APK : on recharge la derniere IA par /tilabo/charger (la reponse arrive quand c'est fini : on ne l'attend pas)
+    if (viaChemin) fetch("/tilabo/charger", { method: "POST", body: JSON.stringify({ chemin: dernier }) }).then(() => maj()).catch(() => {});
+    else { try { await fetch("/tilabo/precharger", { method: "POST", body: "{}" }); } catch (_) {} }
     b.className = "tl-charge charge"; b.textContent = "⏳ chargement…";
     suivre();
   };
