@@ -827,6 +827,61 @@ def annuler_changement(ident):
     return s["projet"] + "/" + rel
 
 
+# ---------------------------------------------------------------- appels d'outils ecrits en texte
+# Certaines petites IA locales (ex. qwen2.5-coder) ecrivent l'appel en JSON dans leur texte
+# au lieu d'un vrai appel d'outil : on les reconnait et on les execute quand meme.
+DEBUTS_APPEL = ("{", "<tool_call>", "```json", "```tool", "[{")
+
+
+def ressemble_appel(texte):
+    t = texte.lstrip()
+    if not t:
+        return None  # pas encore assez de texte pour decider
+    for d in DEBUTS_APPEL:
+        if t.startswith(d) or d.startswith(t[:len(d)]):
+            return True if len(t) >= len(d) or t.startswith(d) else None
+    return False
+
+
+def appels_dans_texte(texte, noms):
+    """Retourne (appels, reste_du_texte) au format Ollama."""
+    appels, morceaux_gardes = [], []
+    dec = json.JSONDecoder()
+    i, debut_garde = 0, 0
+    while i < len(texte):
+        if texte[i] in "{[":
+            try:
+                obj, fin = dec.raw_decode(texte, i)
+            except ValueError:
+                i += 1
+                continue
+            liste = obj if isinstance(obj, list) else [obj]
+            trouves = []
+            for o in liste:
+                if not isinstance(o, dict):
+                    continue
+                o = o.get("function", o) if isinstance(o.get("function"), dict) else o
+                nom = o.get("name")
+                args = o.get("arguments", o.get("parameters", {}))
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        args = {}
+                if nom in noms and isinstance(args, dict):
+                    trouves.append({"function": {"name": nom, "arguments": args}})
+            if trouves:
+                morceaux_gardes.append(texte[debut_garde:i])
+                appels += trouves
+                i = debut_garde = fin
+                continue
+        i += 1
+    morceaux_gardes.append(texte[debut_garde:])
+    reste = "".join(morceaux_gardes)
+    reste = re.sub(r"</?tool_call>|```(?:json|tool[_\w]*)?\s*```|```(?:json|tool[_\w]*)\s*$", "", reste).strip()
+    return appels, reste
+
+
 # ---------------------------------------------------------------- invites systeme
 INVITE_JASETTE = ("Tu es l'IA locale du Ti-Labo d'Alex, qui roule sur sa cle USB-C. "
                   "Reponds en francais quebecois naturel, clair et direct.")
@@ -1241,6 +1296,8 @@ class Gestion(BaseHTTPRequestHandler):
                     self.ligne({"erreur": corps or str(e)})
                     return
                 texte, appels, stats = "", [], {}
+                retenu = None  # None = on ne sait pas encore, True = on retient (appel ecrit en texte ?), False = on affiche
+                noms = {o["function"]["name"] for o in outils}
                 with r:
                     for l in r:
                         if not l.strip():
@@ -1255,10 +1312,23 @@ class Gestion(BaseHTTPRequestHandler):
                         m = o.get("message", {})
                         if m.get("content"):
                             texte += m["content"]
-                            self.ligne({"texte": m["content"]})
+                            if retenu is None:
+                                retenu = ressemble_appel(texte)
+                                if retenu is False:
+                                    self.ligne({"texte": texte})
+                            elif retenu is False:
+                                self.ligne({"texte": m["content"]})
                         appels += m.get("tool_calls") or []
                         if o.get("done"):
                             stats = o
+                if not appels and retenu is not False:
+                    appels, reste = appels_dans_texte(texte, noms)
+                    if appels:
+                        texte = reste
+                    if reste and (not appels or retenu is None):
+                        self.ligne({"texte": reste})
+                elif retenu is None and texte:
+                    self.ligne({"texte": texte})
                 if not appels:
                     self.ligne({"fini": True, "jetons_s": round(stats.get("eval_count", 0) / max(stats.get("eval_duration", 1) / 1e9, 0.001), 1)})
                     return
