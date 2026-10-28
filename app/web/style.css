@@ -352,3 +352,49 @@ pre.diff{margin:0;padding:6px 0;font:12.5px/1.55 var(--mono);overflow:auto;max-h
 .cs-lien img{margin-top:2px;border-radius:3px;flex:none}
 .cs-lien b{color:var(--accent);font-weight:600}
 .cs-lien small{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+
+/* ---------- bulle des téléchargements d'IA (visible sur toutes les pages) */
+#tel-bulle{position:fixed;right:16px;top:68px;z-index:60;width:min(340px,calc(100vw - 32px));display:none;
+  background:var(--card2);border:1px solid var(--accent-border);border-radius:12px;padding:10px 12px;cursor:pointer;
+  box-shadow:0 8px 24px rgba(0,0,0,.6)}
+#tel-bulle .tel-ligne+.tel-ligne{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+#tel-bulle .tel-haut{display:flex;align-items:center;gap:8px;font-size:13px}
+#tel-bulle .tel-haut b{color:var(--accent);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tel-bulle .tel-haut span{color:var(--text2);font:12px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+#tel-bulle .tel-ligne.erreur .tel-haut span{color:var(--red);white-space:normal}
+#tel-bulle .tel-x{background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;width:24px;height:24px;padding:0;cursor:pointer}
+#tel-bulle .tel-x:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ---------- images : onglets, image source, pinceau */
+.img-onglets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.img-onglet{background:var(--card2);border:1px solid var(--border2);color:var(--text2);border-radius:999px;padding:7px 14px;cursor:pointer;font:inherit}
+.img-onglet:hover{border-color:var(--accent)}
+.img-onglet.actif{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
+.img-source{margin:10px 0 4px}
+.img-cadre{position:relative;display:inline-block;max-width:100%;border-radius:10px;overflow:hidden;border:1px solid var(--border2)}
+.img-cadre img{display:block;max-width:100%;max-height:420px}
+.img-cadre canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none}
+.img-case{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--card)}
+.img-case a{border:0!important;border-radius:0!important}
+.img-case.nouvelle{outline:2px solid var(--accent)}
+.img-actions{position:absolute;top:6px;right:6px;display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.img-case:hover .img-actions,.img-case:focus-within .img-actions{opacity:1}
+@media (hover:none){.img-actions{opacity:1}}
+input[type=range]{accent-color:var(--accent)}
+
+/* ---------- devoirs */
+.dv-grille-infos{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.dv-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.dv-travail{display:grid;grid-template-columns:minmax(300px,1fr) minmax(320px,1.15fr);gap:14px;align-items:start}
+.dv-editeur{display:flex;flex-direction:column;position:sticky;top:0}
+.dv-outils{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+#dv-texte{min-height:62vh;font:13.5px/1.55 var(--mono);resize:vertical}
+.dv-apercu{background:#1a1a1a;border:1px solid var(--border);border-radius:var(--rayon);padding:18px;max-height:80vh;overflow:auto}
+.dv-apercu .dv-papier{padding:36px 40px;font-size:15px}
+.dv-modale{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px}
+.dv-modale[hidden]{display:none}
+.dv-modale-boite{background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:16px;width:min(820px,100%);max-height:85vh;overflow:auto}
+.dv-modale .galerie button{padding:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:none;cursor:pointer}
+.dv-modale .galerie button:hover{border-color:var(--accent)}
+@media (max-width:900px){.dv-travail{grid-template-columns:1fr}.dv-editeur{position:static}#dv-texte{min-height:40vh}}
+.btn[hidden]{display:none}

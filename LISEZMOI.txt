@@ -42,6 +42,27 @@ CE QUE ÇA FAIT
 - Paramètres    : moteur (Ollama de la clé, ou LM Studio / llama.cpp compatible
                   OpenAI), polices, accès Internet.
 
+IMAGES (v3.8)
+-------------
+- Créer        : écris ce que tu veux voir (SD-Turbo, SDXL Turbo, FLUX.2 Klein…).
+- Modifier     : choisis une image + un ordre (« change le ciel en coucher de
+                 soleil ») — avec FLUX.2 Klein.
+- Retoucher    : peins une zone au pinceau, l'IA la redessine (SD 1.5 Inpainting).
+- Agrandir ×4  : Real-ESRGAN, idéal avant d'imprimer.
+Les téléchargements d'IA continuent quand tu changes de page (bulle en haut à droite).
+
+DEVOIRS (v3.8)
+--------------
+1. Devoirs > colle la consigne du prof (ou une photo de la feuille).
+2. « Faire le devoir » : l'IA écrit le texte, un schéma et propose des images.
+   Relis-le et mets-le dans tes mots. « Changer » pour demander des retouches.
+3. « Présenter » : plein écran, flèches ← → (ou une manette de présentation),
+   Échap pour sortir. Chaque « ## » = une diapo, le schéma s'anime.
+4. « Imprimer » : une belle page blanche, prête pour l'imprimante.
+5. « Exporter pour l'école » : un seul fichier .html dans le dossier Devoirs
+   de la clé. À l'école, double-clique-le : il s'ouvre dans le navigateur,
+   SANS rien installer et sans Internet (texte, images et schéma animé inclus).
+
 BON À SAVOIR
 ------------
 - Internet + outils : marche avec les modèles marqués « internet »
@@ -62,4 +83,5 @@ DOSSIERS
   outils\       python, ollama, git (portables)
   ia\modeles\   tes IA
   projets\      tes projets
-  donnees\      paramètres, mémoire, corbeille
+  donnees\      paramètres, mémoire, corbeille, devoirs, images
+  Devoirs\      tes présentations exportées (.html) pour l'école

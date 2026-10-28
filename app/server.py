@@ -583,6 +583,74 @@ def url_publique(url):
     return True
 
 
+
+# ---------------------------------------------------------------- telechargements d'IA en arriere-plan
+# Le telechargement roule dans le serveur, pas dans la page : on peut changer de page
+# (ou recharger) et il continue. La page vient juste lire l'avancement.
+TELECHARGEMENTS = {}
+_VERROU_TEL = threading.Lock()
+
+
+def _suivre_pull(nom):
+    t = TELECHARGEMENTS[nom]
+    couches = {}
+    try:
+        req = urllib.request.Request(ollama_url("/api/pull"),
+                                     data=json.dumps({"model": nom, "stream": True}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=3600) as r:
+            for l in r:
+                if t["annuler"]:
+                    t.update(etat="annule", statut="Annulé (la partie déjà reçue est gardée)")
+                    return
+                if not l.strip():
+                    continue
+                try:
+                    o = json.loads(l)
+                except ValueError:
+                    continue
+                if o.get("error"):
+                    raise RuntimeError(o["error"])
+                if o.get("digest") and o.get("total"):
+                    couches[o["digest"]] = (o.get("completed") or 0, o["total"])
+                fait = sum(c for c, _ in couches.values())
+                total = sum(tt for _, tt in couches.values())
+                t.update(statut=o.get("status", ""), fait=fait, total=total,
+                         pourcent=round(fait * 100 / total, 1) if total else t["pourcent"])
+                if o.get("status") == "success":
+                    t.update(etat="fini", pourcent=100, statut="Installée")
+                    return
+        if t["etat"] == "en_cours":
+            t.update(etat="fini", pourcent=100, statut="Installée")
+    except Exception as e:  # moteur arrete, nom inconnu, reseau coupe...
+        t.update(etat="erreur", statut="Erreur", erreur=str(e)[:300])
+    finally:
+        t["fin"] = time.time()
+
+
+def lancer_telechargement(nom):
+    nom = (nom or "").strip()
+    if not re.fullmatch(r"[\w.\-/:]{1,120}", nom):
+        raise ValueError("Nom de modele invalide")
+    with _VERROU_TEL:
+        t = TELECHARGEMENTS.get(nom)
+        if t and t["etat"] == "en_cours":
+            return t
+        t = TELECHARGEMENTS[nom] = {"nom": nom, "etat": "en_cours", "statut": "Démarrage…", "fait": 0,
+                                    "total": 0, "pourcent": 0, "erreur": "", "annuler": False,
+                                    "debut": time.time(), "fin": 0}
+    threading.Thread(target=_suivre_pull, args=(nom,), daemon=True).start()
+    return t
+
+
+def liste_telechargements():
+    maintenant = time.time()
+    with _VERROU_TEL:
+        for n in [n for n, t in TELECHARGEMENTS.items() if t["fin"] and maintenant - t["fin"] > 600]:
+            del TELECHARGEMENTS[n]   # on oublie les vieux (10 min apres la fin)
+        return [{k: v for k, v in t.items() if k != "annuler"} for t in TELECHARGEMENTS.values()]
+
+
 def telecharger_texte(url, max_octets=1_500_000, delai=15):
     req = urllib.request.Request(url, headers={"User-Agent": NAVIGATEUR, "Accept-Language": "fr-CA,fr,en"})
     with urllib.request.urlopen(req, timeout=delai) as r:
@@ -1493,7 +1561,7 @@ class Gestion(BaseHTTPRequestHandler):
                 return self.envoyer(200, sorted((f[:-4] for f in os.listdir(SCHEMAS) if f.endswith(".mmd")), key=str.lower))
             if route == "images":
                 return self.envoyer(200, {"moteur": bool(exe_sd()), "modeles": modeles_images(),
-                                          "catalogue": CATALOGUE_IMAGES, "galerie": galerie()})
+                                          "catalogue": catalogue_images_public(), "galerie": galerie()})
             return self.erreur("Route inconnue", 404)
         except Exception as e:
             return self.erreur(e)
@@ -1585,7 +1653,22 @@ class Gestion(BaseHTTPRequestHandler):
                 ecrire_params({"anthropic_key": cle})
                 return self.envoyer(200, {"ok": True})
             if route == "images/telecharger":
-                return self.operation_flux(telecharger_modele_image, d)
+                lancer_telechargement_image(d.get("nom"))
+                return self.envoyer(200, {"ok": True, "telechargements": liste_telechargements()})
+            if route == "devoirs":
+                return self.envoyer(200, {"devoirs": liste_devoirs()})
+            if route == "devoirs/lire":
+                return self.envoyer(200, lire_devoir(d.get("id")))
+            if route == "devoirs/sauver":
+                return self.envoyer(200, sauver_devoir(d))
+            if route == "devoirs/supprimer":
+                supprimer_devoir(d.get("id"))
+                return self.envoyer(200, {"ok": True})
+            if route == "devoirs/exporter":
+                chemin = exporter_devoir(d)
+                return self.envoyer(200, {"ok": True, "chemin": chemin, "relatif": os.path.relpath(chemin, os.path.dirname(RACINE))})
+            if route == "images/ajouter":
+                return self.envoyer(200, ajouter_image_galerie(d))
             if route == "images/creer":
                 return self.operation_flux(creer_image, d)
             if route == "fichier":
@@ -1616,7 +1699,16 @@ class Gestion(BaseHTTPRequestHandler):
                 http_json(ollama_url("/api/delete"), {"model": d["nom"]}, methode="DELETE")
                 return self.envoyer(200, {"ok": True})
             if route == "ia/telecharger":
-                return self.flux_ollama("/api/pull", {"model": d["nom"], "stream": True}, brut=True)
+                lancer_telechargement(d.get("nom"))
+                return self.envoyer(200, {"ok": True, "telechargements": liste_telechargements()})
+            if route == "ia/telechargements":
+                return self.envoyer(200, {"telechargements": liste_telechargements()})
+            if route == "ia/annuler-telechargement":
+                t = TELECHARGEMENTS.get(d.get("nom", ""))
+                if t and t["etat"] == "en_cours":
+                    t["annuler"] = True
+                    t["statut"] = "Annulation…"
+                return self.envoyer(200, {"telechargements": liste_telechargements()})
             if route == "ia/prechauffer":
                 # charge le modele en memoire tout de suite (requete vide)
                 threading.Thread(target=lambda: http_json(ollama_url("/api/generate"),
@@ -1768,7 +1860,12 @@ class Gestion(BaseHTTPRequestHandler):
         modele = d.get("modele") or p["modele_codex" if mode == "codex" else "modele_jasette"]
         if not modele:
             raise ValueError("Choisis un modele d'IA (IA locales sur la cle)")
-        systeme = INVITE_CODEX if mode == "codex" else INVITE_JASETTE
+        systeme = INVITE_CODEX if mode == "codex" else INVITE_DEVOIR if mode == "devoir" else INVITE_JASETTE
+        if mode == "devoir":
+            if d.get("devoir_actuel"):
+                systeme += INVITE_DEVOIR_RETOUCHE % d["devoir_actuel"][:60000]
+            if d.get("niveau"):
+                systeme += "\nNiveau scolaire : %s." % str(d["niveau"])[:80]
         internet = bool(d.get("internet")) and bool(p.get("internet"))
         outils = []
         if internet:
@@ -1821,6 +1918,8 @@ class Gestion(BaseHTTPRequestHandler):
                 systeme += INVITE_TURBO
         if mode == "codex":
             d["plan"] = None if d.get("plan") != "executer" else "executer"
+        elif mode == "devoir":
+            d["plan"] = None
         else:
             systeme += INVITE_SCHEMA if d.get("schema") else INVITE_SCHEMA_TOUJOURS
             if d.get("schema_actuel"):
@@ -2738,17 +2837,50 @@ def requete_claude(corps, flux=False):
 IMAGES_MODELES = os.path.join(RACINE, "ia", "images")
 IMAGES_SORTIE = os.path.join(DONNEES, "images")
 SD_DIR = os.path.join(OUTILS, "sd")
+HF = "https://huggingface.co/"
+# Chaque « IA d'images » = un ou plusieurs fichiers. « peut » = ce qu'elle sait faire :
+#   creer (texte -> image), retoucher (redessine toute une image), zone (redessine une zone peinte),
+#   modifier (suit un ordre : « change le ciel en coucher de soleil »), agrandir (x4 plus net)
 CATALOGUE_IMAGES = {
-    "sd_turbo.safetensors": {
-        "titre": "SD-Turbo", "taille_go": 5.2, "pas": 2, "cfg": 1.0, "dim": 512,
-        "desc": "Tres rapide (1 a 4 etapes). Ideal pour un PC ordinaire.",
-        "url": "https://huggingface.co/stabilityai/sd-turbo/resolve/main/sd_turbo.safetensors"},
-    "v1-5-pruned-emaonly.safetensors": {
-        "titre": "Stable Diffusion 1.5", "taille_go": 4.3, "pas": 20, "cfg": 7.0, "dim": 512,
-        "desc": "Le classique : plus lent, plus de details.",
-        "url": "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"},
+    "flux2_klein": {
+        "titre": "FLUX.2 Klein 4B", "genre": "flux2", "peut": ["creer", "modifier"],
+        "pas": 4, "cfg": 1.0, "dim": 768, "taille_go": 5.3,
+        "desc": "La plus intelligente : crée ET modifie une image en suivant un ordre en mots. Licence Apache 2.0.",
+        "fichiers": {
+            "modele": ("flux-2-klein-4b-Q4_0.gguf", HF + "leejet/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q4_0.gguf"),
+            "vae": ("flux2-vae.safetensors", HF + "Comfy-Org/flux2-klein-4B/resolve/main/split_files/vae/flux2-vae.safetensors"),
+            "llm": ("Qwen3-4B-Q4_K_M.gguf", HF + "unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"),
+        }},
+    "sd_turbo": {
+        "titre": "SD-Turbo", "genre": "sd", "peut": ["creer", "retoucher"],
+        "pas": 2, "cfg": 1.0, "dim": 512, "taille_go": 5.2,
+        "desc": "Très rapide (1 à 4 étapes). Idéal pour un PC ordinaire.",
+        "fichiers": {"modele": ("sd_turbo.safetensors", HF + "stabilityai/sd-turbo/resolve/main/sd_turbo.safetensors")}},
+    "sdxl_turbo": {
+        "titre": "SDXL Turbo", "genre": "sd", "peut": ["creer", "retoucher"],
+        "pas": 4, "cfg": 1.0, "dim": 512, "taille_go": 6.9,
+        "desc": "Plus beau que SD-Turbo, toujours rapide. Usage personnel (licence non commerciale).",
+        "fichiers": {"modele": ("sd_xl_turbo_1.0_fp16.safetensors", HF + "stabilityai/sdxl-turbo/resolve/main/sd_xl_turbo_1.0_fp16.safetensors")}},
+    "sd15": {
+        "titre": "Stable Diffusion 1.5", "genre": "sd", "peut": ["creer", "retoucher"],
+        "pas": 20, "cfg": 7.0, "dim": 512, "taille_go": 4.3,
+        "desc": "Le classique : plus lent, plus de détails.",
+        "fichiers": {"modele": ("v1-5-pruned-emaonly.safetensors", HF + "stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors")}},
+    "sd15_zone": {
+        "titre": "Retouche de zone (SD 1.5 Inpainting)", "genre": "sd", "peut": ["zone", "retoucher"],
+        "pas": 25, "cfg": 7.0, "dim": 512, "taille_go": 4.3,
+        "desc": "Tu peins une zone, elle la redessine : effacer quelque chose, remplacer un objet, réparer.",
+        "fichiers": {"modele": ("sd-v1-5-inpainting.ckpt", HF + "stable-diffusion-v1-5/stable-diffusion-inpainting/resolve/main/sd-v1-5-inpainting.ckpt")}},
+    "esrgan_x4": {
+        "titre": "Real-ESRGAN ×4 (agrandir)", "genre": "agrandir", "peut": ["agrandir"],
+        "pas": 0, "cfg": 0, "dim": 0, "taille_go": 0.07,
+        "desc": "Agrandit une image 4 fois et la rend plus nette. Minuscule (64 Mo).",
+        "fichiers": {"modele": ("RealESRGAN_x4plus.pth", "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth")}},
 }
-for _d in (IMAGES_MODELES, IMAGES_SORTIE):
+# anciens noms (avant v3.8) -> nouvel identifiant
+_ANCIENS_IMAGES = {"sd_turbo.safetensors": "sd_turbo", "v1-5-pruned-emaonly.safetensors": "sd15"}
+IMAGES_SOURCES = os.path.join(IMAGES_SORTIE, "sources")
+for _d in (IMAGES_MODELES, IMAGES_SORTIE, IMAGES_SOURCES):
     os.makedirs(_d, exist_ok=True)
 
 
@@ -2760,14 +2892,30 @@ def exe_sd():
     return shutil.which("sd-cli") or shutil.which("sd")
 
 
+def _pack_installe(c):
+    return all(os.path.isfile(os.path.join(IMAGES_MODELES, f)) for f, _ in c["fichiers"].values())
+
+
 def modeles_images():
-    res = []
+    res, connus = [], set()
+    for ident, c in CATALOGUE_IMAGES.items():
+        connus.update(f for f, _ in c["fichiers"].values())
+        if _pack_installe(c):
+            taille = sum(os.path.getsize(os.path.join(IMAGES_MODELES, f)) for f, _ in c["fichiers"].values())
+            res.append({"nom": ident, "titre": c["titre"], "genre": c["genre"], "peut": c["peut"],
+                        "taille_go": round(taille / 1e9, 1), "pas": c["pas"], "cfg": c["cfg"], "dim": c["dim"]})
+    # un modele ajoute a la main dans ia\images (un seul fichier SD) marche aussi
     for f in sorted(os.listdir(IMAGES_MODELES)):
-        if f.lower().endswith((".safetensors", ".ckpt", ".gguf")):
-            info = CATALOGUE_IMAGES.get(f, {})
-            res.append({"nom": f, "titre": info.get("titre", f), "taille_go": round(os.path.getsize(os.path.join(IMAGES_MODELES, f)) / 1e9, 1),
-                        "pas": info.get("pas", 20), "cfg": info.get("cfg", 7.0), "dim": info.get("dim", 512)})
+        if f.lower().endswith((".safetensors", ".ckpt")) and f not in connus:
+            res.append({"nom": f, "titre": f, "genre": "sd", "peut": ["creer", "retoucher"],
+                        "taille_go": round(os.path.getsize(os.path.join(IMAGES_MODELES, f)) / 1e9, 1),
+                        "pas": 20, "cfg": 7.0, "dim": 512})
     return res
+
+
+def catalogue_images_public():
+    return {k: {x: v for x, v in c.items() if x != "fichiers"} | {"installe": _pack_installe(c)}
+            for k, c in CATALOGUE_IMAGES.items()}
 
 
 def galerie():
@@ -2775,56 +2923,155 @@ def galerie():
     return [{"nom": f, "url": "/images/" + urllib.parse.quote(f)} for f in fichiers[:60]]
 
 
-def telecharger_modele_image(d, envoyer):
-    nom = d.get("nom")
-    if nom not in CATALOGUE_IMAGES:
-        raise ValueError("Modele d'image inconnu")
-    dst = os.path.join(IMAGES_MODELES, nom)
+def _telecharger_fichier(url, dst, t, deja_fait, total_pack):
+    """Telecharge un fichier avec reprise (.part). Met a jour l'etat t pendant ce temps."""
     if os.path.isfile(dst):
-        envoyer({"fini": True, "message": "Deja sur la cle"})
-        return
+        return os.path.getsize(dst)
     tmp = dst + ".part"
     deja = os.path.getsize(tmp) if os.path.isfile(tmp) else 0
-    req = urllib.request.Request(CATALOGUE_IMAGES[nom]["url"], headers={"User-Agent": NAVIGATEUR})
+    req = urllib.request.Request(url, headers={"User-Agent": NAVIGATEUR})
     if deja:
         req.add_header("Range", "bytes=%d-" % deja)
     with urllib.request.urlopen(req, timeout=60) as r:
         if deja and r.status != 206:
             deja = 0
-        total = deja + int(r.headers.get("Content-Length") or 0)
         with open(tmp, "ab" if deja else "wb") as f:
             fait = deja
             for b in iter(lambda: r.read(4 * 1024 * 1024), b""):
+                if t["annuler"]:
+                    raise InterruptedError
                 f.write(b)
                 fait += len(b)
-                envoyer({"fait": fait, "total": total})
+                t.update(fait=deja_fait + fait, pourcent=round((deja_fait + fait) * 100 / total_pack, 1))
     os.replace(tmp, dst)
-    envoyer({"fini": True, "message": CATALOGUE_IMAGES[nom]["titre"] + " est sur la cle"})
+    return os.path.getsize(dst)
+
+
+def _suivre_pack_image(cle, ident):
+    t, c = TELECHARGEMENTS[cle], CATALOGUE_IMAGES[ident]
+    total = int(c["taille_go"] * 1e9) or 1
+    t["total"] = total
+    fait = 0
+    try:
+        for i, (f, url) in enumerate(c["fichiers"].values(), 1):
+            t["statut"] = "Fichier %d/%d" % (i, len(c["fichiers"]))
+            fait += _telecharger_fichier(url, os.path.join(IMAGES_MODELES, f), t, fait, total)
+        t.update(etat="fini", pourcent=100, fait=total, statut="Sur la clé")
+    except InterruptedError:
+        t.update(etat="annule", statut="Annulé (ça reprendra où c'était rendu)")
+    except Exception as e:
+        t.update(etat="erreur", statut="Erreur", erreur=str(e)[:300])
+    finally:
+        t["fin"] = time.time()
+
+
+def lancer_telechargement_image(ident):
+    ident = _ANCIENS_IMAGES.get(ident, ident)
+    if ident not in CATALOGUE_IMAGES:
+        raise ValueError("Modele d'image inconnu")
+    cle = "img:" + ident
+    with _VERROU_TEL:
+        t = TELECHARGEMENTS.get(cle)
+        if t and t["etat"] == "en_cours":
+            return t
+        t = TELECHARGEMENTS[cle] = {"nom": cle, "titre": CATALOGUE_IMAGES[ident]["titre"], "etat": "en_cours",
+                                    "statut": "Démarrage…", "fait": 0, "total": 0, "pourcent": 0, "erreur": "",
+                                    "annuler": False, "debut": time.time(), "fin": 0}
+    threading.Thread(target=_suivre_pack_image, args=(cle, ident), daemon=True).start()
+    return t
+
+
+def _taille_png(chemin):
+    with open(chemin, "rb") as f:
+        tete = f.read(24)
+    if tete[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("L'image doit etre un PNG")
+    return int.from_bytes(tete[16:20], "big"), int.from_bytes(tete[20:24], "big")
+
+
+def _image_entree(valeur, prefixe):
+    """Une image de la galerie (son nom) ou une image envoyee par la page (data:image/png;base64,...)."""
+    valeur = valeur or ""
+    if valeur.startswith("data:image/png;base64,"):
+        import base64
+        brut = base64.b64decode(valeur.split(",", 1)[1])
+        if len(brut) > 25_000_000:
+            raise ValueError("Image trop grosse (25 Mo max)")
+        chemin = os.path.join(IMAGES_SOURCES, "%s-%s.png" % (prefixe, time.strftime("%Y%m%d-%H%M%S")))
+        with open(chemin, "wb") as f:
+            f.write(brut)
+        return chemin
+    nom = os.path.basename(urllib.parse.unquote(valeur.split("?")[0]))
+    chemin = os.path.join(IMAGES_SORTIE, nom)
+    if not nom.endswith(".png") or not os.path.isfile(chemin):
+        raise ValueError("Choisis une image a modifier")
+    return chemin
+
+
+def _dims_sortie(l, h, maxi=1024):
+    """Garde les proportions, multiple de 64, entre 256 et maxi."""
+    f = min(1.0, maxi / max(l, h))
+    return (max(256, min(maxi, int(l * f) // 64 * 64)), max(256, min(maxi, int(h * f) // 64 * 64)))
 
 
 def creer_image(d, envoyer):
     exe = exe_sd()
     if not exe:
         raise ValueError("Le moteur d'images est absent. Relance Installer-Ti-Labo.bat (il ajoute stable-diffusion.cpp).")
-    nom = os.path.basename(d.get("modele") or "")
-    modele = os.path.join(IMAGES_MODELES, nom)
-    if not os.path.isfile(modele):
-        raise ValueError("Telecharge d'abord un modele d'image")
-    prompt = (d.get("prompt") or "").strip()
-    if not prompt:
-        raise ValueError("Decris l'image a creer")
-    largeur = max(256, min(1024, int(d.get("largeur") or 512)) // 64 * 64)
-    hauteur = max(256, min(1024, int(d.get("hauteur") or 512)) // 64 * 64)
-    pas = max(1, min(60, int(d.get("pas") or 20)))
-    cfg = max(0.0, min(20.0, float(d.get("cfg") or 7.0)))
-    graine = int(d.get("graine") if d.get("graine") not in (None, "") else -1)
+    ident = _ANCIENS_IMAGES.get(d.get("modele") or "", d.get("modele") or "")
+    action = d.get("action") or "creer"
+    if ident in CATALOGUE_IMAGES:
+        c = CATALOGUE_IMAGES[ident]
+        if not _pack_installe(c):
+            raise ValueError("Telecharge d'abord « %s »" % c["titre"])
+        fichier = {r: os.path.join(IMAGES_MODELES, f) for r, (f, _) in c["fichiers"].items()}
+        genre, peut = c["genre"], c["peut"]
+    else:
+        nom = os.path.basename(ident)
+        if not nom or not os.path.isfile(os.path.join(IMAGES_MODELES, nom)):
+            raise ValueError("Telecharge d'abord un modele d'image")
+        fichier, genre, peut = {"modele": os.path.join(IMAGES_MODELES, nom)}, "sd", ["creer", "retoucher"]
+    if action not in peut:
+        raise ValueError("Ce modele ne sait pas faire ca. Choisis un modele qui sait « %s »." % action)
+
     sortie = os.path.join(IMAGES_SORTIE, time.strftime("image-%Y%m%d-%H%M%S.png"))
-    cmd = [exe, "-m", modele, "-p", prompt, "-o", sortie, "--steps", str(pas), "--cfg-scale", str(cfg),
-           "-W", str(largeur), "-H", str(hauteur), "-s", str(graine)]
-    if d.get("negatif"):
-        cmd += ["-n", d["negatif"]]
+    if action == "agrandir":
+        src = _image_entree(d.get("image"), "agrandir")
+        cmd = [exe, "-M", "upscale", "--upscale-model", fichier["modele"], "-i", src, "-o", sortie]
+        envoyer({"etape": "Agrandissement ×4…"})
+    else:
+        prompt = (d.get("prompt") or "").strip()
+        if not prompt:
+            raise ValueError("Decris l'image a creer" if action == "creer" else "Dis ce qu'il faut changer")
+        pas = max(1, min(60, int(d.get("pas") or 20)))
+        cfg = max(0.0, min(20.0, float(d.get("cfg") if d.get("cfg") not in (None, "") else 7.0)))
+        graine = int(d.get("graine") if d.get("graine") not in (None, "") else -1)
+        if genre == "flux2":
+            cmd = [exe, "--diffusion-model", fichier["modele"], "--vae", fichier["vae"], "--llm", fichier["llm"],
+                   "--sampling-method", "euler", "--offload-to-cpu"]
+        else:
+            cmd = [exe, "-m", fichier["modele"]]
+        cmd += ["-p", prompt, "-o", sortie, "--steps", str(pas), "--cfg-scale", str(cfg), "-s", str(graine)]
+        if d.get("negatif") and genre != "flux2":
+            cmd += ["-n", d["negatif"]]
+        if action == "creer":
+            largeur = max(256, min(1024, int(d.get("largeur") or 512)) // 64 * 64)
+            hauteur = max(256, min(1024, int(d.get("hauteur") or 512)) // 64 * 64)
+        else:
+            src = _image_entree(d.get("image"), "source")
+            largeur, hauteur = _dims_sortie(*_taille_png(src), maxi=1024 if genre == "flux2" else 768)
+            if action == "modifier":
+                cmd += ["-r", src]
+            else:
+                force = max(0.05, min(1.0, float(d.get("force") or (1.0 if action == "zone" else 0.6))))
+                cmd += ["-i", src, "--strength", str(force)]
+                if action == "zone":
+                    if not d.get("masque"):
+                        raise ValueError("Peins d'abord la zone a changer")
+                    cmd += ["--mask", _image_entree(d["masque"], "masque")]
+        cmd += ["-W", str(largeur), "-H", str(hauteur)]
+        envoyer({"etape": "Le moteur d'images charge le modele…"})
     drapeaux = 0x08000000 if WINDOWS else 0
-    envoyer({"etape": "Le moteur d'images charge le modele…"})
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, creationflags=drapeaux)
     tampon, dernier = b"", ""
     while True:
@@ -2843,8 +3090,107 @@ def creer_image(d, envoyer):
             tampon += c
     proc.wait()
     if proc.returncode != 0 or not os.path.isfile(sortie):
-        raise ValueError("Echec de la creation : " + dernier[-300:])
+        raise ValueError("Echec : " + dernier[-300:])
     envoyer({"fini": True, "image": {"nom": os.path.basename(sortie), "url": "/images/" + urllib.parse.quote(os.path.basename(sortie))}})
+
+
+
+# ---------------------------------------------------------------- devoirs (document + presentation)
+DEVOIRS = os.path.join(DONNEES, "devoirs")
+DEVOIRS_EXPORTS = os.path.join(RACINE, "Devoirs")      # dossier facile a trouver sur la cle
+os.makedirs(DEVOIRS, exist_ok=True)
+CHAMPS_DEVOIR = ("titre", "matiere", "eleve", "niveau", "date", "contenu", "consigne")
+
+INVITE_DEVOIR = (
+    "Tu aides un eleve du Quebec a faire son devoir dans le Ti-Labo. Tu ecris en francais du Quebec, "
+    "clair, au niveau scolaire indique. Tu reponds UNIQUEMENT avec le document du devoir en Markdown, "
+    "sans phrase avant ni apres, et sans l'entourer d'un bloc ```.\n"
+    "FORMAT OBLIGATOIRE :\n"
+    "- Une seule ligne « # Titre du devoir » au debut.\n"
+    "- Puis des sections « ## Titre de section ». CHAQUE section deviendra UNE diapo de la presentation : "
+    "garde-les courtes (3 a 6 puces ou 1 a 2 petits paragraphes).\n"
+    "- Mets les mots importants en **gras**. Listes avec « - ». Tableaux Markdown permis.\n"
+    "- Ajoute AU MOINS UN schema utile (fonctionnement, etapes, comparaison, ligne du temps) dans un bloc "
+    "```mermaid (flowchart TD ou LR, mindmap ou timeline). Textes des boites ENTRE GUILLEMETS, courts, sans "
+    "parentheses ni deux-points hors des guillemets.\n"
+    "- Pour suggerer une image, ecris seule sur sa ligne : [IMAGE: description precise EN ANGLAIS pour une IA d'images]. "
+    "1 a 3 images maximum.\n"
+    "- Si la consigne contient des QUESTIONS, fais une section par question (« ## Question 1 — ... ») et "
+    "reponds-y completement, avec la demarche si c'est des maths ou des sciences.\n"
+    "- Termine par « ## Conclusion » puis, si tu as utilise des faits precis, « ## Sources » (seulement des "
+    "sources reelles que tu connais ; sinon ecris « A verifier dans le manuel ou a la bibliotheque »).\n"
+    "Ne t'invente pas de faits : si tu n'es pas sur, dis-le simplement dans le texte.")
+INVITE_DEVOIR_RETOUCHE = (
+    "\n\nLE DEVOIR ACTUEL est ci-dessous. Applique la demande de l'eleve et renvoie le DOCUMENT COMPLET "
+    "modifie (meme format), sans commentaire :\n\n%s")
+
+
+def _id_devoir(i):
+    i = (i or "").strip()
+    if not re.fullmatch(r"[a-z0-9-]{4,40}", i):
+        raise ValueError("Devoir introuvable")
+    return i
+
+
+def liste_devoirs():
+    res = []
+    for f in os.listdir(DEVOIRS):
+        if f.endswith(".json"):
+            try:
+                with open(os.path.join(DEVOIRS, f), encoding="utf-8") as h:
+                    d = json.load(h)
+                res.append({"id": d["id"], "titre": d.get("titre") or "Sans titre", "matiere": d.get("matiere", ""),
+                            "maj": d.get("maj", 0)})
+            except (ValueError, KeyError, OSError):
+                pass
+    return sorted(res, key=lambda x: -x["maj"])
+
+
+def lire_devoir(i):
+    with open(os.path.join(DEVOIRS, _id_devoir(i) + ".json"), encoding="utf-8") as h:
+        return json.load(h)
+
+
+def sauver_devoir(d):
+    i = d.get("id") or time.strftime("dv-%Y%m%d-%H%M%S-") + secrets.token_hex(2)
+    dv = {"id": _id_devoir(i), "maj": time.time()}
+    for k in CHAMPS_DEVOIR:
+        dv[k] = str(d.get(k) or "")[:400_000 if k == "contenu" else 20_000]
+    ecrire_sur(os.path.join(DEVOIRS, dv["id"] + ".json"), json.dumps(dv, ensure_ascii=False, indent=1))
+    return dv
+
+
+def supprimer_devoir(i):
+    p = os.path.join(DEVOIRS, _id_devoir(i) + ".json")
+    if os.path.isfile(p):
+        os.replace(p, p + ".efface")   # on garde une copie, au cas ou
+
+
+def exporter_devoir(d):
+    """Enregistre la presentation autonome (.html) dans le dossier Devoirs a la racine de la cle."""
+    html = d.get("html") or ""
+    if not html.startswith("<!doctype html>") or len(html) > 60_000_000:
+        raise ValueError("Presentation invalide")
+    nom = re.sub(r"[^\w\- ]+", "", d.get("titre") or "", flags=re.UNICODE).strip()[:60] or "Devoir"
+    os.makedirs(DEVOIRS_EXPORTS, exist_ok=True)
+    chemin = os.path.join(DEVOIRS_EXPORTS, nom + ".html")
+    ecrire_sur(chemin, html)
+    return chemin
+
+
+def ajouter_image_galerie(d):
+    """Une image du PC ajoutee au devoir : rangee avec les autres images (PNG)."""
+    import base64
+    v = d.get("image") or ""
+    if not v.startswith("data:image/png;base64,"):
+        raise ValueError("Image PNG attendue")
+    brut = base64.b64decode(v.split(",", 1)[1])
+    if len(brut) > 25_000_000:
+        raise ValueError("Image trop grosse (25 Mo max)")
+    nom = time.strftime("image-%Y%m%d-%H%M%S-") + secrets.token_hex(2) + ".png"
+    with open(os.path.join(IMAGES_SORTIE, nom), "wb") as f:
+        f.write(brut)
+    return {"nom": nom, "url": "/images/" + nom}
 
 
 # ---------------------------------------------------------------- mot de passe a l'entree

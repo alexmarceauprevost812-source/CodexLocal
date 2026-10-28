@@ -4,10 +4,24 @@
 (function () {
   let pret = false, compteur = 0;
 
+  // Enleve les morceaux d'erreur que Mermaid laisse parfois dans la page (la bombe en bas)
+  function nettoyer() {
+    document.querySelectorAll('body > [id^="dschema-"], body > [id^="schema-"], body > svg[aria-roledescription="error"]')
+      .forEach((x) => x.remove());
+  }
+  async function rendre(code) {
+    try {
+      try { return await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, code); }
+      catch (e1) { nettoyer(); return await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, reparer(code)); }
+    } finally { nettoyer(); }
+  }
+
   function initialiser() {
     if (pret || !window.mermaid) return !!window.mermaid;
     window.mermaid.initialize({
       startOnLoad: false,
+      // pas de bombe « Syntax error in text » collee en bas de la page quand un schema est mal ecrit
+      suppressErrorRendering: true,
       securityLevel: "strict",
       theme: "base",
       // htmlLabels:false = texte SVG pur, indispensable pour exporter en video/PNG
@@ -292,14 +306,7 @@
         <button class="btn petit" data-sc="code">Code</button></div>
         <div class="schema-dessin" role="img" aria-label="Schéma animé"></div>`;
       try {
-        let rendu;
-        try {
-          rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, code);
-        } catch (e1) {
-          // deuxieme essai apres reparation automatique
-          document.querySelectorAll('[id^="dschema-"]').forEach((x) => x.remove());
-          rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, reparer(code));
-        }
+        const rendu = await rendre(code); // 2e essai apres reparation automatique, et nettoyage
         carte.querySelector(".schema-dessin").innerHTML = rendu.svg;
       } catch (e) {
         bloc.insertAdjacentHTML("afterend", `<p class="sous" style="color:var(--red)">Schéma invalide : ${String(e.message || e).replace(/</g, "&lt;").slice(0, 200)}</p>`);
@@ -319,13 +326,7 @@
   async function dessiner(carte, code, animation = true) {
     if (!initialiser()) throw new Error("Moteur de schémas absent");
     if (window.TiArtefact && window.TiArtefact.preparer) code = window.TiArtefact.preparer(code); // couleurs + images
-    let rendu;
-    try {
-      rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, code);
-    } catch (e1) {
-      document.querySelectorAll('[id^="dschema-"]').forEach((x) => x.remove());
-      rendu = await window.mermaid.render("schema-" + Date.now() + "-" + compteur++, reparer(code));
-    }
+    const rendu = await rendre(code);
     carte.querySelector(".schema-dessin").innerHTML = rendu.svg;
     carte._morceaux = null;
     if (animation) requestAnimationFrame(() => animer(carte));

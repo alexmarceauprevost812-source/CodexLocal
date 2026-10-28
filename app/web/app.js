@@ -757,6 +757,7 @@ function allerA(vue) {
   if (vue === "studio") rendreStudio();
   if (vue === "parametres") rendreParametres();
   if (vue === "images") rendreImages();
+  if (vue === "devoirs") rendreDevoirs();
   if (vue === "bureau") rendreBureau();
   if (vue === "codex") { rendreCodexProjets(); setTimeout(() => codex.zone.focus(), 30); }
 }
@@ -1096,27 +1097,87 @@ function rendreIA() {
     if (!confirm("Retirer " + b.dataset.ret + " de la clé ?")) return;
     try { await api("ia/supprimer", { nom: b.dataset.ret }); await rafraichirEtat(); rendreIA(); } catch (e) { toast(e.message); }
   }));
-  $$("[data-tel]").forEach((b) => (b.onclick = () => telecharger(b.dataset.tel, b)));
+  $$("[data-tel]").forEach((b) => (b.onclick = () => telecharger(b.dataset.tel)));
+  dessinerTels();
   brancherRenommer($("#ia-installees"));
 }
 
-async function telecharger(nom, bouton) {
-  const pr = $("#pr-" + nom.replace(/[^\w]/g, "_"));
-  if (bouton) { bouton.disabled = true; bouton.textContent = "…"; }
-  if (pr) pr.style.display = "block";
+/* ---- Téléchargements d'IA : ils roulent dans le serveur, la page ne fait que regarder.
+   On peut changer de page ou recharger : ça continue, et la bulle en bas suit partout. */
+const tels = {};          // nom -> état reçu du serveur
+let suiviTel = null;
+const idTel = (nom) => nom.replace(/[^\w]/g, "_");
+const go = (o) => (o / 1e9).toFixed(1).replace(".", ",");
+
+async function telecharger(nom) {
   try {
-    const r = await api("ia/telecharger", { nom }, { flux: true });
-    await lireFlux(r, (o) => {
-      if (o.error) throw new Error(o.error);
-      if (o.total && o.completed && pr) $("i", pr).style.width = Math.round((o.completed / o.total) * 100) + "%";
-      if (bouton) bouton.textContent = o.total ? Math.round(((o.completed || 0) / o.total) * 100) + " %" : (o.status || "…").slice(0, 14);
-    });
-    toast(nom + " est sur la clé !");
+    const r = await api("ia/telecharger", { nom });
+    majTels(r.telechargements);
+    toast("Téléchargement de " + nom + " lancé — tu peux changer de page, il continue");
   } catch (e) { toast("Échec : " + e.message); }
-  await rafraichirEtat();
-  rendreIA();
 }
-$("#bt-ia-autre").onclick = () => { const n = $("#ia-autre").value.trim(); if (n) { telecharger(n, $("#bt-ia-autre")); $("#ia-autre").value = ""; } };
+async function annulerTel(nom) {
+  try { majTels((await api("ia/annuler-telechargement", { nom })).telechargements); } catch (e) { toast(e.message); }
+}
+function majTels(liste) {
+  const avant = { ...tels };
+  Object.keys(tels).forEach((k) => delete tels[k]);
+  (liste || []).forEach((t) => (tels[t.nom] = t));
+  let fini = false;
+  for (const t of Object.values(tels)) {
+    const ancien = avant[t.nom];
+    if (ancien && ancien.etat === "en_cours" && t.etat !== "en_cours") {
+      fini = true;
+      const n = t.titre || t.nom;
+      if (t.etat === "fini") toast("✅ " + n + " est sur la clé !");
+      else if (t.etat === "erreur") toast("❌ " + n + " : " + (t.erreur || "échec"));
+      else toast(n + " : téléchargement annulé");
+    }
+  }
+  dessinerTels();
+  if (fini) rafraichirEtat().then(() => {
+    if ($("#v-ia").classList.contains("actif")) rendreIA();
+    if ($("#v-images").classList.contains("actif")) rendreImages();
+  });
+  const actif = Object.values(tels).some((t) => t.etat === "en_cours");
+  if (actif && !suiviTel) suiviTel = setInterval(() => api("ia/telechargements", {}).then((r) => majTels(r.telechargements)).catch(() => {}), 1000);
+  if (!actif && suiviTel) { clearInterval(suiviTel); suiviTel = null; }
+}
+function texteTel(t) {
+  if (t.etat === "erreur") return "Erreur";
+  if (t.etat === "fini") return "Installée";
+  if (t.etat === "annule") return "Annulé";
+  return t.total ? Math.round(t.pourcent) + " %" : (t.statut || "…").slice(0, 14);
+}
+function dessinerTels() {
+  // 1) les lignes de la page IA locales (si elles sont affichées)
+  for (const t of Object.values(tels)) {
+    const pr = $("#pr-" + idTel(t.nom));
+    if (pr) { pr.style.display = "block"; $("i", pr).style.width = (t.pourcent || 0) + "%"; }
+    const b = $(`[data-tel="${CSS.escape(t.nom)}"]`);
+    if (b && t.etat === "en_cours") { b.disabled = true; b.textContent = texteTel(t); }
+  }
+  // 2) la bulle, visible sur toutes les pages
+  let bulle = $("#tel-bulle");
+  if (!bulle) { bulle = document.createElement("div"); bulle.id = "tel-bulle"; document.body.appendChild(bulle); }
+  const visibles = Object.values(tels).filter((t) => t.etat === "en_cours" || t.etat === "erreur");
+  bulle.style.display = visibles.length ? "block" : "none";
+  bulle.innerHTML = visibles.map((t) => `
+    <div class="tel-ligne ${t.etat}">
+      <div class="tel-haut"><b>⬇ ${esc(t.titre || t.nom)}</b>
+        <span>${t.etat === "erreur" ? "❌ " + esc(t.erreur || "échec") : texteTel(t) + (t.total ? " · " + go(t.fait) + " / " + go(t.total) + " Go" : "")}</span>
+        <button class="tel-x" data-telx="${esc(t.nom)}" title="${t.etat === "erreur" ? "Réessayer" : "Annuler"}">${t.etat === "erreur" ? "↻" : "✕"}</button></div>
+      <div class="progression" style="display:block"><i style="width:${t.pourcent || 0}%"></i></div>
+    </div>`).join("");
+  $$("[data-telx]", bulle).forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
+    const t = tels[b.dataset.telx];
+    if (t && t.etat === "erreur") (t.nom.startsWith("img:") ? telechargerImage(t.nom.slice(4)) : telecharger(t.nom)); else annulerTel(b.dataset.telx);
+  }));
+  bulle.onclick = () => allerA("ia");
+}
+api("ia/telechargements", {}).then((r) => majTels(r.telechargements)).catch(() => {});
+$("#bt-ia-autre").onclick = () => { const n = $("#ia-autre").value.trim(); if (n) { telecharger(n); $("#ia-autre").value = ""; } };
 $("#bt-demarrer-ia").onclick = async () => {
   $("#bt-demarrer-ia").textContent = "Démarrage…";
   try { const r = await api("ia/demarrer", {}); toast(r.ok ? "Moteur démarré" : "Ollama introuvable sur la clé — relance Installer-Ti-Labo.bat"); }
@@ -1231,6 +1292,21 @@ $("#bt-studio-codex").onclick = () => {
 /* ------------------------------------------------------------ images */
 let infoImages = null;
 const urlImage = (u) => u + (u.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(window.TILABO_JETON);
+const ACTIONS_IMG = {
+  creer: { bouton: "Créer l'image", lib: "Décris l'image (l'anglais donne de meilleurs résultats)", ph: "ex. a cozy cabin by a lake in Quebec, autumn, sunset, detailed",
+    aide: "Écris ce que tu veux voir : l'IA dessine une image toute neuve." },
+  modifier: { bouton: "Modifier l'image", lib: "Qu'est-ce qu'on change ?", ph: "ex. change the sky to a sunset · add snow · make it a cartoon · remove the car",
+    aide: "Choisis une image, puis donne un ordre : l'IA garde le reste et change ce que tu dis. (FLUX.2 Klein)" },
+  zone: { bouton: "Retoucher la zone", lib: "Qu'est-ce qu'on met dans la zone peinte ?", ph: "ex. a red bicycle · empty grass · a smiling cat",
+    aide: "Choisis une image, peins en orange la zone à changer, puis dis ce qu'il faut y mettre. Pour effacer un objet : décris le fond (« grass », « wall »…)." },
+  retoucher: { bouton: "Redessiner l'image", lib: "Dans quel style ou avec quels changements ?", ph: "ex. oil painting, warm colors · anime style · more detailed",
+    aide: "L'IA redessine toute l'image en gardant sa forme. Petite force = proche de l'original, grande force = plus de liberté." },
+  agrandir: { bouton: "Agrandir ×4", lib: "", ph: "",
+    aide: "Rend l'image 4 fois plus grande et plus nette (Real-ESRGAN). Idéal avant d'imprimer." },
+};
+let actionImg = "creer";
+const imgSource = { data: null, nom: null, largeur: 0, hauteur: 0, masque: null, peint: false };
+
 async function rendreImages() {
   try { infoImages = await api("images"); } catch (e) { toast(e.message); return; }
   const { moteur, modeles, catalogue, galerie } = infoImages;
@@ -1239,47 +1315,141 @@ async function rendreImages() {
   if (!moteur) msgs.push(etat.plateforme === "android"
     ? "La création d'images marche sur le PC (Ti-Labo de la clé). Sur le téléphone, c'est trop lourd pour l'instant."
     : "Le moteur d'images n'est pas encore sur la clé : relance <b>Installer-Ti-Labo.bat</b> (étape 4/4).");
-  if (!modeles.length) msgs.push("Télécharge un modèle d'images plus bas (SD-Turbo est le plus rapide).");
+  if (!modeles.length) msgs.push("Télécharge une IA d'images plus bas (SD-Turbo est la plus rapide, FLUX.2 Klein sait aussi modifier).");
   avis.hidden = !msgs.length;
   avis.innerHTML = msgs.map((m) => `<p class="sous" style="margin:4px 0">${m}</p>`).join("");
-  const sel = $("#img-modele"), garde = sel.value;
-  sel.innerHTML = modeles.map((m) => `<option value="${esc(m.nom)}" ${m.nom === garde ? "selected" : ""}>${esc(m.titre)}</option>`).join("") || `<option value="">Aucun modèle</option>`;
-  const choisi = () => modeles.find((m) => m.nom === sel.value);
-  sel.onchange = () => { const m = choisi(); if (m) $("#img-pas").value = m.pas; };
-  if (!$("#img-pas").value && choisi()) $("#img-pas").value = choisi().pas;
-  $("#bt-img").disabled = !moteur || !modeles.length;
-  $("#galerie").innerHTML = galerie.map((g) => `<a href="${esc(urlImage(g.url))}" target="_blank" rel="noopener"><img src="${esc(urlImage(g.url))}" alt="${esc(g.nom)}" loading="lazy"></a>`).join("") || `<p class="vide">Tes images apparaîtront ici.</p>`;
-  const installes = new Set(modeles.map((m) => m.nom));
+  choisirActionImg(actionImg);
+  $("#galerie").innerHTML = galerie.map((g) => `<div class="img-case">
+      <a href="${esc(urlImage(g.url))}" target="_blank" rel="noopener"><img src="${esc(urlImage(g.url))}" alt="${esc(g.nom)}" loading="lazy"></a>
+      <div class="img-actions"><button class="btn petit" data-imod="${esc(g.nom)}" title="Modifier cette image">✏️</button>
+      <button class="btn petit" data-igr="${esc(g.nom)}" title="Agrandir ×4">🔍</button></div></div>`).join("") || `<p class="vide">Tes images apparaîtront ici.</p>`;
+  brancherGalerie();
+  const PEUT = { creer: "créer", modifier: "modifier par ordre", zone: "retoucher une zone", retoucher: "redessiner", agrandir: "agrandir" };
   $("#img-catalogue").innerHTML = Object.entries(catalogue).map(([nom, c]) => `
-    <div class="modele"><div class="info"><b>${esc(c.titre)}</b> <span class="tag or">images</span><small>${esc(c.desc)} · ${c.taille_go} Go</small>
-      <div class="progression" id="ipr-${nom.replace(/[^\w]/g, "_")}"><i></i></div></div>
-      <button class="btn petit ${installes.has(nom) ? "" : "prim"}" data-itel="${esc(nom)}" ${installes.has(nom) ? "disabled" : ""}>${installes.has(nom) ? "Sur la clé" : "Télécharger"}</button></div>`).join("");
-  $$("[data-itel]").forEach((b) => (b.onclick = () => telechargerImage(b.dataset.itel, b)));
+    <div class="modele"><div class="info"><b>${esc(c.titre)}</b> ${c.peut.map((p) => `<span class="tag ${p === "modifier" ? "bleu" : p === "zone" ? "vert" : "or"}">${PEUT[p]}</span>`).join(" ")}
+      <small>${esc(c.desc)} · ${c.taille_go < 1 ? Math.round(c.taille_go * 1000) + " Mo" : c.taille_go + " Go"}</small>
+      <div class="progression" id="pr-${idTel("img:" + nom)}"><i></i></div></div>
+      <button class="btn petit ${c.installe ? "" : "prim"}" data-tel="img:${esc(nom)}" data-itel="${esc(nom)}" ${c.installe ? "disabled" : ""}>${c.installe ? "Sur la clé" : "Télécharger"}</button></div>`).join("");
+  $$("[data-itel]").forEach((b) => (b.onclick = () => telechargerImage(b.dataset.itel)));
+  dessinerTels();
 }
-async function telechargerImage(nom, b) {
-  const pr = $("#ipr-" + nom.replace(/[^\w]/g, "_"));
-  b.disabled = true; pr.style.display = "block";
+async function telechargerImage(nom) {
   try {
-    const r = await api("images/telecharger", { nom }, { flux: true });
-    await lireFlux(r, (o) => {
-      if (o.erreur) throw new Error(o.erreur);
-      if (o.total) { const pc = Math.round((o.fait / o.total) * 100); $("i", pr).style.width = pc + "%"; b.textContent = pc + " %"; }
-      if (o.message) toast(o.message);
-    });
-  } catch (e) { toast("Échec : " + e.message + " (relance : le téléchargement reprend où il était rendu)"); }
-  rendreImages();
+    const r = await api("images/telecharger", { nom });
+    majTels(r.telechargements);
+    toast("Téléchargement lancé — tu peux changer de page, il continue");
+  } catch (e) { toast("Échec : " + e.message); }
 }
+function choisirActionImg(act) {
+  actionImg = act;
+  const A = ACTIONS_IMG[act], modeles = infoImages?.modeles || [];
+  $$(".img-onglet").forEach((o) => { o.classList.toggle("actif", o.dataset.act === act); o.setAttribute("aria-selected", String(o.dataset.act === act)); });
+  $("#img-aide").textContent = A.aide;
+  $("#bt-img").textContent = A.bouton;
+  $("#img-texte-zone").hidden = act === "agrandir";
+  $("#img-prompt-lib").textContent = A.lib;
+  $("#img-prompt").placeholder = A.ph;
+  $("#img-source-zone").hidden = act === "creer";
+  $("#img-pinceau").hidden = act !== "zone";
+  $("#img-format-zone").hidden = act !== "creer";
+  $("#img-pas-zone").hidden = act === "agrandir";
+  $("#img-force-zone").hidden = !(act === "retoucher" || act === "zone");
+  $("#img-negatif-zone").hidden = act === "agrandir" || act === "modifier";
+  if (act === "zone") $("#img-force").value = 1; else if (act === "retoucher" && +$("#img-force").value === 1) $("#img-force").value = 0.6;
+  $("#img-force-val").textContent = Math.round($("#img-force").value * 100) + " %";
+  const bons = modeles.filter((m) => (m.peut || ["creer"]).includes(act));
+  const sel = $("#img-modele"), garde = sel.value;
+  sel.innerHTML = bons.map((m) => `<option value="${esc(m.nom)}" ${m.nom === garde ? "selected" : ""}>${esc(m.titre)}</option>`).join("")
+    || `<option value="">Aucune IA pour ça — télécharge-la plus bas</option>`;
+  const choisi = () => bons.find((m) => m.nom === sel.value);
+  sel.onchange = () => { const m = choisi(); if (m && m.pas) $("#img-pas").value = m.pas; };
+  if (choisi()?.pas) $("#img-pas").value = choisi().pas;
+  $("#bt-img").disabled = !infoImages?.moteur || !bons.length;
+  dessinerSource();
+}
+$$(".img-onglet").forEach((o) => (o.onclick = () => choisirActionImg(o.dataset.act)));
+$("#img-force").oninput = () => ($("#img-force-val").textContent = Math.round($("#img-force").value * 100) + " %");
+
+function brancherGalerie() {
+  $$("[data-imod]").forEach((b) => (b.onclick = () => chargerSourceUrl(b.dataset.imod, actionImg === "creer" || actionImg === "agrandir" ? "modifier" : actionImg)));
+  $$("[data-igr]").forEach((b) => (b.onclick = () => chargerSourceUrl(b.dataset.igr, "agrandir")));
+}
+// Toute image (PC ou galerie) est convertie en PNG dans la page : le moteur reçoit toujours du PNG.
+function chargerSource(src, nom, action) {
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext("2d").drawImage(img, 0, 0);
+    Object.assign(imgSource, { data: c.toDataURL("image/png"), nom, largeur: c.width, hauteur: c.height, masque: null, peint: false });
+    if (action) choisirActionImg(action); else dessinerSource();
+    $("#v-images").scrollTo?.({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  img.onerror = () => toast("Impossible de lire cette image");
+  img.src = src;
+}
+function chargerSourceUrl(nom, action) { chargerSource(urlImage("/images/" + encodeURIComponent(nom)), nom, action); }
+$("#img-fichier").onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => chargerSource(r.result, f.name);
+  r.readAsDataURL(f);
+  e.target.value = "";
+};
+function dessinerSource() {
+  const z = $("#img-source");
+  if (!imgSource.data) { z.innerHTML = `<p class="vide">Aucune image choisie</p>`; return; }
+  z.innerHTML = `<div class="img-cadre"><img src="${imgSource.data}" alt="Image à modifier"><canvas id="img-masque" aria-label="Zone à retoucher"></canvas></div>
+    <small class="sous">${esc(imgSource.nom || "")} · ${imgSource.largeur}×${imgSource.hauteur}</small>`;
+  const cv = $("#img-masque");
+  cv.width = imgSource.largeur; cv.height = imgSource.hauteur;
+  cv.style.display = actionImg === "zone" ? "block" : "none";
+  const ctx = cv.getContext("2d");
+  if (imgSource.masque) { const m = new Image(); m.onload = () => ctx.drawImage(m, 0, 0); m.src = imgSource.masque; }
+  let peint = false;
+  const point = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height, cv.width / r.width]; };
+  const trace = (e) => {
+    if (!peint) return;
+    const [x, y, ech] = point(e);
+    ctx.fillStyle = "rgba(255,122,26,.55)";
+    ctx.beginPath(); ctx.arc(x, y, (+$("#img-taille-pinceau").value / 2) * ech, 0, Math.PI * 2); ctx.fill();
+    imgSource.peint = true;
+  };
+  cv.onpointerdown = (e) => { peint = true; cv.setPointerCapture(e.pointerId); trace(e); };
+  cv.onpointermove = trace;
+  cv.onpointerup = cv.onpointerleave = () => { if (peint) imgSource.masque = cv.toDataURL("image/png"); peint = false; };
+}
+$("#img-effacer-masque").onclick = () => { imgSource.masque = null; imgSource.peint = false; dessinerSource(); };
+// Le masque pour le moteur : blanc = à redessiner, noir = à garder
+function masquePourMoteur() {
+  const cv = $("#img-masque"); if (!cv || !imgSource.peint) return null;
+  const sortie = document.createElement("canvas");
+  sortie.width = cv.width; sortie.height = cv.height;
+  const o = sortie.getContext("2d");
+  o.fillStyle = "#000"; o.fillRect(0, 0, cv.width, cv.height);
+  const src = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height), dst = o.getImageData(0, 0, cv.width, cv.height);
+  for (let i = 3; i < src.data.length; i += 4) if (src.data[i] > 0) { dst.data[i - 3] = dst.data[i - 2] = dst.data[i - 1] = 255; }
+  o.putImageData(dst, 0, 0);
+  return sortie.toDataURL("image/png");
+}
+
 $("#bt-img").onclick = async () => {
   const b = $("#bt-img"), pr = $("#img-pr"), etatTxt = $("#img-etat");
-  const [l, h] = $("#img-format").value.split("x").map(Number);
+  const act = actionImg;
   const m = infoImages?.modeles.find((x) => x.nom === $("#img-modele").value);
+  if (act !== "creer" && !imgSource.data) return toast("Choisis d'abord une image (bouton 📂 ou ✏️ sur une de tes images)");
+  const masque = act === "zone" ? masquePourMoteur() : null;
+  if (act === "zone" && !masque) return toast("Peins d'abord la zone à changer sur l'image");
+  const [l, h] = $("#img-format").value.split("x").map(Number);
   b.disabled = true; pr.style.display = "block"; $("i", pr).style.width = "0";
   etatTxt.textContent = "Préparation…";
   const depart = Date.now();
   try {
     const r = await api("images/creer", {
-      modele: $("#img-modele").value, prompt: $("#img-prompt").value, negatif: $("#img-negatif").value,
+      action: act, modele: $("#img-modele").value, prompt: $("#img-prompt").value, negatif: $("#img-negatif").value,
       largeur: l, hauteur: h, pas: +$("#img-pas").value || m?.pas, cfg: m?.cfg,
+      image: act === "creer" ? undefined : imgSource.data, masque, force: +$("#img-force").value,
     }, { flux: true });
     await lireFlux(r, (o) => {
       if (o.erreur) throw new Error(o.erreur);
@@ -1287,15 +1457,303 @@ $("#bt-img").onclick = async () => {
       if (o.total) { $("i", pr).style.width = Math.round((o.fait / o.total) * 100) + "%"; etatTxt.textContent = `Étape ${o.fait}/${o.total}`; }
       if (o.image) {
         etatTxt.textContent = `Fini en ${Math.round((Date.now() - depart) / 1000)} s`;
-        const a = document.createElement("a");
-        a.href = urlImage(o.image.url); a.target = "_blank"; a.rel = "noopener"; a.className = "nouvelle";
-        a.innerHTML = `<img src="${esc(urlImage(o.image.url))}" alt="Nouvelle image">`;
+        const d = document.createElement("div");
+        d.className = "img-case nouvelle";
+        d.innerHTML = `<a href="${esc(urlImage(o.image.url))}" target="_blank" rel="noopener"><img src="${esc(urlImage(o.image.url))}" alt="Nouvelle image"></a>
+          <div class="img-actions"><button class="btn petit" data-imod="${esc(o.image.nom)}" title="Modifier cette image">✏️</button>
+          <button class="btn petit" data-igr="${esc(o.image.nom)}" title="Agrandir ×4">🔍</button></div>`;
         $(".vide", $("#galerie"))?.remove();
-        $("#galerie").prepend(a);
+        $("#galerie").prepend(d);
+        brancherGalerie();
       }
     });
   } catch (e) { etatTxt.textContent = ""; toast(e.message); }
   b.disabled = false; pr.style.display = "none";
+};
+
+/* ------------------------------------------------------------ devoirs */
+const dv = { id: null, minuteur: null, apercuMin: null, controleur: null, photo: null, precedent: null, liste: [] };
+const CHAMPS_DV = ["titre", "matiere", "eleve", "niveau", "date", "consigne"];
+const imageDv = (nom) => urlImage("/images/" + encodeURIComponent(nom));
+const metaDv = () => ({ titre: $("#dv-titre").value, matiere: $("#dv-matiere").value, eleve: $("#dv-eleve").value,
+  niveau: $("#dv-niveau").value, date: $("#dv-date").value ? new Date($("#dv-date").value + "T12:00").toLocaleDateString("fr-CA", { day: "numeric", month: "long", year: "numeric" }) : "" });
+
+async function rendreDevoirs() {
+  // l'IA : même liste que la Jasette
+  const sel = $("#dv-modele"), garde = sel.value || etat.params.modele_jasette;
+  const locales = etat.modeles.filter((m) => !/embed/.test(m.nom));
+  sel.innerHTML = locales.map((m) => `<option value="${esc(m.nom)}" ${m.nom === garde ? "selected" : ""}>${esc(m.nom)}</option>`).join("") || `<option value="">Aucune IA — va dans IA locales</option>`;
+  try { dv.liste = (await api("devoirs", {})).devoirs; } catch (e) { return toast(e.message); }
+  if (!dv.id) {
+    if (dv.liste.length) await ouvrirDevoir(dv.liste[0].id);
+    else nouveauDevoir();
+  }
+  majListeDv();
+}
+function majListeDv() {
+  $("#dv-liste").innerHTML = (dv.id && !dv.liste.some((d) => d.id === dv.id) ? `<option value="${dv.id}">(nouveau devoir)</option>` : "") +
+    dv.liste.map((d) => `<option value="${esc(d.id)}" ${d.id === dv.id ? "selected" : ""}>${esc(d.titre)}${d.matiere ? " · " + esc(d.matiere) : ""}</option>`).join("") ||
+    `<option value="">Mes devoirs</option>`;
+}
+function remplirDv(d) {
+  dv.id = d.id || null;
+  CHAMPS_DV.forEach((k) => ($("#dv-" + k).value = d[k] || ($("#dv-" + k).tagName === "SELECT" ? $("#dv-" + k).value : "")));
+  $("#dv-texte").value = d.contenu || "";
+  dv.precedent = null; dv.photo = null; $("#dv-photo-nom").textContent = "";
+  apercuDv(true);
+}
+function nouveauDevoir() {
+  remplirDv({ date: new Date().toISOString().slice(0, 10), eleve: $("#dv-eleve").value, niveau: $("#dv-niveau").value });
+  dv.id = null;
+  $("#dv-sauve").textContent = "";
+  majListeDv();
+}
+async function ouvrirDevoir(id) {
+  try { remplirDv(await api("devoirs/lire", { id })); majListeDv(); } catch (e) { toast(e.message); }
+}
+function sauverDvBientot() {
+  clearTimeout(dv.minuteur);
+  $("#dv-sauve").textContent = "…";
+  dv.minuteur = setTimeout(sauverDv, 900);
+}
+async function sauverDv() {
+  clearTimeout(dv.minuteur);
+  const corps = { id: dv.id, contenu: $("#dv-texte").value };
+  CHAMPS_DV.forEach((k) => (corps[k] = $("#dv-" + k).value));
+  if (!corps.titre) corps.titre = (corps.contenu.match(/^#\s+(.+)$/m) || [])[1] || "";
+  if (!corps.titre && !corps.contenu.trim() && !corps.consigne.trim()) { $("#dv-sauve").textContent = ""; return; }
+  try {
+    const r = await api("devoirs/sauver", corps);
+    dv.id = r.id;
+    const i = dv.liste.findIndex((d) => d.id === r.id);
+    const ligne = { id: r.id, titre: r.titre || "Sans titre", matiere: r.matiere, maj: r.maj };
+    if (i >= 0) dv.liste[i] = ligne; else dv.liste.unshift(ligne);
+    majListeDv();
+    $("#dv-sauve").textContent = "💾 Enregistré sur la clé";
+  } catch (e) { $("#dv-sauve").textContent = "⚠️ " + e.message; }
+}
+function apercuDv(tout_de_suite) {
+  clearTimeout(dv.apercuMin);
+  const faire = () => {
+    const z = $("#dv-apercu");
+    const haut = z.scrollTop;
+    z.innerHTML = TiDevoir.documentHtml($("#dv-texte").value || "*Ton devoir va apparaître ici.*", metaDv(), imageDv, { brouillon: true });
+    TiDevoir.activerSchemas(z, false).then(() => (z.scrollTop = haut));
+    z.scrollTop = haut;
+  };
+  if (tout_de_suite) faire(); else dv.apercuMin = setTimeout(faire, 500);
+}
+["#dv-texte", ...CHAMPS_DV.map((k) => "#dv-" + k)].forEach((s) => $(s).addEventListener("input", () => { sauverDvBientot(); apercuDv(); }));
+$("#dv-niveau").addEventListener("change", () => { sauverDvBientot(); apercuDv(); });
+$("#dv-liste").onchange = async (e) => { if (e.target.value && e.target.value !== dv.id) { await sauverDv(); ouvrirDevoir(e.target.value); } };
+$("#dv-nouveau").onclick = async () => { await sauverDv(); nouveauDevoir(); $("#dv-titre").focus(); };
+$("#dv-effacer").onclick = async () => {
+  if (!dv.id) return nouveauDevoir();
+  if (!confirm("Effacer ce devoir ? (une copie .efface reste dans donnees\\devoirs)")) return;
+  try { await api("devoirs/supprimer", { id: dv.id }); dv.liste = dv.liste.filter((d) => d.id !== dv.id); dv.id = null; nouveauDevoir(); toast("Devoir effacé"); }
+  catch (e) { toast(e.message); }
+};
+
+// insérer du texte là où est le curseur
+function insererDv(txt, remplacerSelection = true) {
+  const t = $("#dv-texte"), a = t.selectionStart, b = remplacerSelection ? t.selectionEnd : t.selectionStart;
+  t.value = t.value.slice(0, a) + txt + t.value.slice(b);
+  t.focus(); t.selectionStart = t.selectionEnd = a + txt.length;
+  sauverDvBientot(); apercuDv();
+}
+const SCHEMA_DV = '\n```mermaid\nflowchart LR\n  A["Étape 1"] --> B["Étape 2"] --> C["Étape 3"]\n```\n';
+$$("[data-dvo]").forEach((b) => (b.onclick = () => {
+  const t = $("#dv-texte");
+  if (b.dataset.dvo === "section") insererDv("\n\n## Nouvelle section\n- ");
+  if (b.dataset.dvo === "schema") insererDv(SCHEMA_DV);
+  if (b.dataset.dvo === "gras") { const s = t.value.slice(t.selectionStart, t.selectionEnd) || "important"; insererDv("**" + s + "**"); }
+  if (b.dataset.dvo === "mes-images") choisirImageDv((nom) => insererDv(`\n![](image:${nom})\n`));
+}));
+async function choisirImageDv(quandChoisi) {
+  let g = [];
+  try { g = (await api("images")).galerie; } catch (e) { return toast(e.message); }
+  $("#dv-galerie-liste").innerHTML = g.map((x) => `<button data-dvimg="${esc(x.nom)}"><img src="${esc(urlImage(x.url))}" alt="${esc(x.nom)}" loading="lazy"></button>`).join("")
+    || `<p class="vide">Pas encore d'images. Crée-en dans « Images » ou utilise « Image du PC ».</p>`;
+  $("#dv-galerie").hidden = false;
+  $$("[data-dvimg]").forEach((b) => (b.onclick = () => { $("#dv-galerie").hidden = true; quandChoisi(b.dataset.dvimg); }));
+}
+$("#dv-galerie-fermer").onclick = () => ($("#dv-galerie").hidden = true);
+$("#dv-galerie").onclick = (e) => { if (e.target.id === "dv-galerie") e.currentTarget.hidden = true; };
+// une image du PC -> PNG (1600 px max) -> rangée dans Mes images
+function imagePcEnPng(fichier) {
+  return new Promise((ok, ko) => {
+    const r = new FileReader();
+    r.onerror = ko;
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = () => ko(new Error("Image illisible"));
+      img.onload = () => {
+        const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        ok(c.toDataURL("image/png"));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(fichier);
+  });
+}
+$("#dv-img-pc").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  try { const r = await api("images/ajouter", { image: await imagePcEnPng(f) }); insererDv(`\n![${f.name.replace(/\.[^.]+$/, "")}](image:${r.nom})\n`); }
+  catch (er) { toast(er.message); }
+};
+// boutons dans l'aperçu : [IMAGE: …] à créer ou à remplacer
+function remplacerPlaceholderDv(prompt, ligne) {
+  const t = $("#dv-texte");
+  const re = new RegExp("^\\s*\\[IMAGE\\s*:\\s*" + prompt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\]\\s*$", "mi");
+  t.value = t.value.replace(re, ligne);
+  sauverDvBientot(); apercuDv(true);
+}
+$("#dv-apercu").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-dv]"); if (!b) return;
+  const prompt = b.closest(".dv-a-creer").dataset.prompt;
+  if (b.dataset.dv === "choisir-image") return choisirImageDv((nom) => remplacerPlaceholderDv(prompt, `![](image:${nom})`));
+  // créer avec une IA d'images de la clé
+  let info;
+  try { info = await api("images"); } catch (er) { return toast(er.message); }
+  const ordre = ["flux2_klein", "sdxl_turbo", "sd_turbo", "sd15"];
+  const m = info.modeles.filter((x) => (x.peut || []).includes("creer")).sort((a, b2) => (ordre.indexOf(a.nom) + 99) % 99 - (ordre.indexOf(b2.nom) + 99) % 99)[0];
+  if (!info.moteur || !m) { toast("Il faut une IA d'images : va dans « Images » et télécharge-en une (SD-Turbo est la plus rapide)."); return; }
+  b.disabled = true; b.textContent = "Création…";
+  try {
+    const r = await api("images/creer", { action: "creer", modele: m.nom, prompt, largeur: 768, hauteur: 512, pas: m.pas, cfg: m.cfg }, { flux: true });
+    let nom = null;
+    await lireFlux(r, (o) => {
+      if (o.erreur) throw new Error(o.erreur);
+      if (o.total) b.textContent = `Étape ${o.fait}/${o.total}`;
+      if (o.image) nom = o.image.nom;
+    });
+    if (nom) remplacerPlaceholderDv(prompt, `![](image:${nom})`);
+  } catch (er) { toast(er.message); b.disabled = false; b.textContent = "Créer avec l'IA"; }
+});
+
+// ---- l'IA écrit le devoir (en direct dans le texte)
+$("#dv-photo").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  try { dv.photo = await reduireImage(f, 1600); $("#dv-photo-nom").textContent = "📎 " + f.name; } catch { toast("Photo illisible"); }
+};
+function nettoyerDevoirIA(t) {
+  t = t.replace(/^\s*```(?:markdown|md)?\s*\n/i, "").replace(/\n```\s*$/, "");
+  const i = t.search(/^#\s/m);
+  return (i > 0 ? t.slice(i) : t).replace(/<think>[\s\S]*?<\/think>/g, "").trimStart();
+}
+async function faireDevoirIA(changement) {
+  const consigne = $("#dv-consigne").value.trim();
+  const actuel = $("#dv-texte").value;
+  if (!changement && !consigne && !dv.photo) return toast("Colle la consigne (ou prends la feuille en photo) d'abord");
+  if (changement && !actuel.trim()) return toast("Il n'y a pas encore de devoir à changer");
+  if (!changement && actuel.trim() && !confirm("Remplacer ton texte actuel par celui de l'IA ? (tu pourras revenir en arrière)")) return;
+  const m = metaDv();
+  const demande = changement
+    ? "Changement demande : " + changement
+    : "Consigne du devoir :\n" + (consigne || "(voir la photo de la feuille)") +
+      (m.titre ? "\nTitre voulu : " + m.titre : "") + (m.matiere ? "\nMatiere : " + m.matiere : "");
+  dv.precedent = actuel;
+  dv.controleur = new AbortController();
+  $("#dv-faire").disabled = $("#dv-changer").disabled = true; $("#dv-stop").hidden = false;
+  $("#dv-etat").textContent = "L'IA écrit ton devoir…";
+  let texte = "";
+  try {
+    const r = await api("jasette", {
+      mode: "devoir", modele: $("#dv-modele").value, niveau: m.niveau, internet: true,
+      devoir_actuel: changement ? actuel : null,
+      messages: [{ role: "user", content: demande, images: dv.photo && !changement ? [dv.photo] : [] }],
+    }, { flux: true, signal: dv.controleur.signal });
+    await lireFlux(r, (o) => {
+      if (o.erreur) throw new Error(o.erreur);
+      if (o.outil) $("#dv-etat").textContent = "🌐 " + o.outil;
+      if (o.texte) {
+        texte += o.texte;
+        $("#dv-texte").value = nettoyerDevoirIA(texte);
+        $("#dv-texte").scrollTop = $("#dv-texte").scrollHeight;
+        apercuDv();
+      }
+    });
+    $("#dv-texte").value = nettoyerDevoirIA(texte);
+    if (!$("#dv-titre").value) $("#dv-titre").value = ($("#dv-texte").value.match(/^#\s+(.+)$/m) || [])[1] || "";
+    $("#dv-etat").innerHTML = `✅ Fini ! Relis-le et change ce que tu veux. <button class="btn petit" id="dv-annuler-ia">↩️ Revenir à avant</button>`;
+    $("#dv-annuler-ia").onclick = () => { $("#dv-texte").value = dv.precedent || ""; dv.precedent = null; $("#dv-etat").textContent = "Version d'avant remise."; sauverDvBientot(); apercuDv(true); };
+    if (changement) $("#dv-changement").value = "";
+  } catch (e) {
+    if (e.name === "AbortError") $("#dv-etat").textContent = "Arrêté.";
+    else { $("#dv-etat").textContent = ""; toast(e.message); }
+  }
+  dv.controleur = null;
+  $("#dv-faire").disabled = $("#dv-changer").disabled = false; $("#dv-stop").hidden = true;
+  sauverDv(); apercuDv(true);
+}
+$("#dv-faire").onclick = () => faireDevoirIA(null);
+$("#dv-changer").onclick = () => { const c = $("#dv-changement").value.trim(); if (c) faireDevoirIA(c); else $("#dv-changement").focus(); };
+$("#dv-changement").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#dv-changer").click(); });
+$("#dv-stop").onclick = () => dv.controleur?.abort();
+
+// ---- présenter, imprimer, exporter
+$("#dv-presenter").onclick = () => {
+  const md = $("#dv-texte").value;
+  if (!md.trim()) return toast("Écris ou fais d'abord ton devoir");
+  TiDevoir.presenter(md, metaDv(), imageDv);
+};
+$("#dv-imprimer").onclick = async () => {
+  if (!$("#dv-texte").value.trim()) return toast("Écris ou fais d'abord ton devoir");
+  apercuDv(true);
+  await TiDevoir.activerSchemas($("#dv-apercu"), false);
+  const page = $("#dv-apercu .dv-papier").outerHTML;
+  const f = document.createElement("iframe");
+  f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(f);
+  const d = f.contentDocument;
+  d.open();
+  d.write(`<!doctype html><html lang="fr-CA"><head><meta charset="utf-8"><title>${esc($("#dv-titre").value || "Devoir")}</title><link rel="stylesheet" href="/web/devoirs.css"><style>body{margin:0;background:#fff}.dv-papier{box-shadow:none;max-width:none;padding:0}.dv-a-creer{display:none}</style></head><body>${page}</body></html>`);
+  d.close();
+  await new Promise((ok) => (f.onload = ok, setTimeout(ok, 1500)));
+  await Promise.all([...d.images].map((im) => (im.complete ? 0 : new Promise((ok) => (im.onload = im.onerror = ok)))));
+  f.contentWindow.focus();
+  f.contentWindow.print();
+  setTimeout(() => f.remove(), 60000);
+};
+const enDataUrl = (blob) => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(blob); });
+const pourScript = (t) => t.replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--");
+async function construirePresentation() {
+  const md = $("#dv-texte").value, meta = metaDv();
+  const [mermaid, schemas, devoirs, css] = await Promise.all(
+    ["/web/lib/mermaid.min.js", "/web/schemas.js", "/web/devoirs.js", "/web/devoirs.css"].map((u) => fetch(u).then((r) => r.text())));
+  const images = {};
+  for (const m of md.matchAll(/\]\(image:([^)\s]+)\)/g)) {
+    const nom = decodeURIComponent(m[1]);
+    if (images[nom]) continue;
+    try { images[nom] = await enDataUrl(await (await fetch(imageDv(nom))).blob()); } catch { /* image manquante */ }
+  }
+  const donnees = JSON.stringify({ md, meta, images }).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+  return `<!doctype html>
+<html lang="fr-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(meta.titre || "Devoir")}</title>
+<meta name="generator" content="Ti-Labo">
+<style>${css}</style></head><body>
+<script>${pourScript(mermaid)}</script>
+<script>${pourScript(schemas)}</script>
+<script>${pourScript(devoirs)}</script>
+<script>const D = ${donnees}; TiDevoir.autonome(D.md, D.meta, D.images);</script>
+</body></html>`;
+}
+$("#dv-exporter").onclick = async () => {
+  if (!$("#dv-texte").value.trim()) return toast("Écris ou fais d'abord ton devoir");
+  const b = $("#dv-exporter"); b.disabled = true; b.textContent = "📦 Préparation…";
+  try {
+    const html = await construirePresentation();
+    const titre = $("#dv-titre").value || ($("#dv-texte").value.match(/^#\s+(.+)$/m) || [])[1] || "Devoir";
+    const r = await api("devoirs/exporter", { titre, html });
+    toast("✅ Enregistré sur la clé : " + r.relatif + " — à l'école, double-clique ce fichier (aucune installation)");
+  } catch (e) { toast("Échec : " + e.message); }
+  b.disabled = false; b.textContent = "📦 Exporter pour l'école";
 };
 
 /* ------------------------------------------------------------ paramètres */

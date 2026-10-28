@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ti-Labo</title>
 <link rel="stylesheet" href="/web/style.css">
+<link rel="stylesheet" href="/web/devoirs.css">
 <script>window.TILABO_JETON = "__JETON__";</script>
 </head>
 <body>
@@ -27,6 +28,7 @@
   <symbol id="i-plan" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-cle" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="9" rx="1"/><rect x="5" y="11" width="14" height="11" rx="2"/></symbol>
+  <symbol id="i-livre" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></symbol>
   <symbol id="i-pinceau" viewBox="0 0 24 24"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L11 15.8 8.2 13z"/><path d="M8.2 13c-2 0-3.7 1.6-3.7 3.6 0 1.6-1.3 2.9-2.5 3.4 1 .7 2.6 1 4 1 3 0 5-2.2 5-5.2z"/></symbol>
   <symbol id="i-cadenas" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
@@ -37,7 +39,7 @@
     <div class="points" aria-hidden="true"><span style="background:#FF5F3A"></span><span style="background:#FFB020"></span><span style="background:var(--green)"></span></div>
     <div class="logo">
       <svg class="ic" style="width:26px;height:26px;color:var(--accent)"><use href="#i-terminal"/></svg>
-      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v3.7</span><small>mon ti-univers · laboratoire de dev local</small>
+      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v3.8</span><small>mon ti-univers · laboratoire de dev local</small>
     </div>
     <div class="espace"></div>
     <span class="pastille" id="p-ia"><i class="pt"></i>IA : …</span>
@@ -55,6 +57,7 @@
       <button class="nav" data-vue="codex"><svg class="ic"><use href="#i-terminal"/></svg>Codex</button>
       <button class="nav" data-vue="studio"><svg class="ic"><use href="#i-studio"/></svg>Studio</button>
       <button class="nav" data-vue="images"><svg class="ic"><use href="#i-pinceau"/></svg>Images</button>
+      <button class="nav" data-vue="devoirs"><svg class="ic"><use href="#i-livre"/></svg>Devoirs</button>
       <div class="section-nav">La clé</div>
       <button class="nav" data-vue="ia"><svg class="ic"><use href="#i-puce"/></svg>IA locales<span class="compte" id="nb-ia"></span></button>
       <button class="nav" data-vue="github"><svg class="ic"><use href="#i-git"/></svg>GitHub</button>
@@ -199,17 +202,39 @@
 
       <!-- Images -->
       <section class="vue" id="v-images" aria-label="Images">
-        <div class="entete"><div><h1>Créer des images</h1><p class="sous">100 % local : l'image est créée sur ce PC, avec un modèle rangé sur la clé.</p></div></div>
+        <div class="entete"><div><h1>Images</h1><p class="sous">100 % local : créer, modifier, retoucher et agrandir des images, sur ce PC, avec des IA rangées sur la clé.</p></div></div>
         <div class="carte" id="img-avis" hidden></div>
         <div class="carte">
-          <label class="lib" for="img-prompt">Décris l'image (l'anglais donne de meilleurs résultats)</label>
-          <textarea class="champ" id="img-prompt" rows="3" placeholder="ex. a cozy cabin by a lake in Quebec, autumn, sunset, detailed"></textarea>
+          <div class="img-onglets" role="tablist" aria-label="Que veux-tu faire ?">
+            <button class="img-onglet actif" data-act="creer" role="tab">🎨 Créer</button>
+            <button class="img-onglet" data-act="modifier" role="tab">🪄 Modifier par un ordre</button>
+            <button class="img-onglet" data-act="zone" role="tab">🖌️ Retoucher une zone</button>
+            <button class="img-onglet" data-act="retoucher" role="tab">✨ Redessiner</button>
+            <button class="img-onglet" data-act="agrandir" role="tab">🔍 Agrandir ×4</button>
+          </div>
+          <p class="sous" id="img-aide"></p>
+          <div id="img-source-zone" hidden>
+            <div class="ligne"><label class="btn petit" for="img-fichier">📂 Choisir une image du PC</label>
+              <input type="file" id="img-fichier" accept="image/*" hidden>
+              <span class="sous" style="margin:0">ou clique ✏️ sur une de tes images plus bas</span>
+              <span class="espace"></span>
+              <span id="img-pinceau" hidden class="ligne" style="gap:6px"><span class="sous" style="margin:0">Pinceau</span>
+                <input type="range" id="img-taille-pinceau" min="8" max="120" value="40" aria-label="Taille du pinceau">
+                <button class="btn petit" id="img-effacer-masque">Effacer la zone</button></span>
+            </div>
+            <div class="img-source" id="img-source"><p class="vide">Aucune image choisie</p></div>
+          </div>
+          <div id="img-texte-zone">
+            <label class="lib" for="img-prompt" id="img-prompt-lib">Décris l'image (l'anglais donne de meilleurs résultats)</label>
+            <textarea class="champ" id="img-prompt" rows="3" placeholder="ex. a cozy cabin by a lake in Quebec, autumn, sunset, detailed"></textarea>
+          </div>
           <div class="grille" style="margin-top:12px">
-            <div><label class="lib" for="img-modele">Modèle</label><select class="champ" id="img-modele"></select></div>
-            <div><label class="lib" for="img-format">Format</label><select class="champ" id="img-format">
-              <option value="512x512">Carré 512</option><option value="768x512">Paysage 768×512</option><option value="512x768">Portrait 512×768</option><option value="768x768">Grand carré 768</option></select></div>
-            <div><label class="lib" for="img-pas">Étapes (qualité)</label><input class="champ" id="img-pas" type="number" min="1" max="60"></div>
-            <div><label class="lib" for="img-negatif">À éviter (optionnel)</label><input class="champ" id="img-negatif" placeholder="blurry, text, watermark"></div>
+            <div><label class="lib" for="img-modele">IA d'images</label><select class="champ" id="img-modele"></select></div>
+            <div id="img-format-zone"><label class="lib" for="img-format">Format</label><select class="champ" id="img-format">
+              <option value="512x512">Carré 512</option><option value="768x512">Paysage 768×512</option><option value="512x768">Portrait 512×768</option><option value="768x768">Grand carré 768</option><option value="1024x768">Grand paysage 1024×768</option></select></div>
+            <div id="img-pas-zone"><label class="lib" for="img-pas">Étapes (qualité)</label><input class="champ" id="img-pas" type="number" min="1" max="60"></div>
+            <div id="img-force-zone" hidden><label class="lib" for="img-force">Force du changement <b id="img-force-val"></b></label><input type="range" id="img-force" min="0.1" max="1" step="0.05" value="0.6" style="width:100%"></div>
+            <div id="img-negatif-zone"><label class="lib" for="img-negatif">À éviter (optionnel)</label><input class="champ" id="img-negatif" placeholder="blurry, text, watermark"></div>
           </div>
           <div class="ligne" style="margin-top:12px">
             <button class="btn prim" id="bt-img">Créer l'image</button>
@@ -218,7 +243,80 @@
           </div>
         </div>
         <div><h2 style="margin-bottom:10px">Mes images</h2><div class="galerie" id="galerie"></div></div>
-        <div class="carte" style="padding:0"><div style="padding:14px 14px 0"><h2>Modèles d'images</h2><p class="sous">Téléchargés directement sur la clé (dossier ia\images).</p></div><div id="img-catalogue"></div></div>
+        <div class="carte" style="padding:0"><div style="padding:14px 14px 0"><h2>IA d'images</h2><p class="sous">Téléchargées directement sur la clé (dossier ia\images). Tu peux changer de page pendant le téléchargement.</p></div><div id="img-catalogue"></div></div>
+      </section>
+
+      <!-- Devoirs -->
+      <section class="vue" id="v-devoirs" aria-label="Devoirs">
+        <div class="entete"><div><h1>Devoirs</h1><p class="sous">Fais ton devoir avec l'IA, imprime-le, puis présente-le à l'école : texte, images et schéma animé.</p></div>
+          <div class="espace"></div>
+          <select class="champ" id="dv-liste" aria-label="Mes devoirs" style="max-width:240px"></select>
+          <button class="btn" id="dv-nouveau">+ Nouveau</button>
+          <button class="btn danger petit" id="dv-effacer" title="Effacer ce devoir">🗑</button></div>
+
+        <div class="carte">
+          <div class="grille dv-grille-infos">
+            <div><label class="lib" for="dv-titre">Titre</label><input class="champ" id="dv-titre" placeholder="ex. Le cycle de l'eau"></div>
+            <div><label class="lib" for="dv-matiere">Matière</label><input class="champ" id="dv-matiere" placeholder="ex. Sciences" list="dv-matieres">
+              <datalist id="dv-matieres"><option>Français</option><option>Mathématiques</option><option>Sciences</option><option>Histoire</option><option>Géographie</option><option>Anglais</option><option>Éthique et culture religieuse</option><option>Culture et citoyenneté québécoise</option><option>Arts</option></datalist></div>
+            <div><label class="lib" for="dv-eleve">Ton nom</label><input class="champ" id="dv-eleve"></div>
+            <div><label class="lib" for="dv-niveau">Niveau</label><select class="champ" id="dv-niveau">
+              <option>Primaire 3e année</option><option>Primaire 4e année</option><option>Primaire 5e année</option><option>Primaire 6e année</option>
+              <option>Secondaire 1</option><option>Secondaire 2</option><option selected>Secondaire 3</option><option>Secondaire 4</option><option>Secondaire 5</option>
+              <option>Cégep</option><option>Université</option><option>Adulte</option></select></div>
+            <div><label class="lib" for="dv-date">Date</label><input class="champ" id="dv-date" type="date"></div>
+          </div>
+        </div>
+
+        <div class="carte">
+          <h2>✨ Avec l'IA</h2>
+          <label class="lib" for="dv-consigne">Colle la consigne du prof ou les questions (ou prends la feuille en photo)</label>
+          <textarea class="champ" id="dv-consigne" rows="4" placeholder="ex. Fais une présentation de 5 minutes sur le cycle de l'eau : les étapes, un schéma, et pourquoi c'est important."></textarea>
+          <div class="ligne" style="margin-top:10px;flex-wrap:wrap">
+            <label class="btn petit" for="dv-photo">📷 Photo de la feuille</label><input type="file" id="dv-photo" accept="image/*" hidden>
+            <span id="dv-photo-nom" class="sous" style="margin:0"></span>
+            <select class="champ" id="dv-modele" aria-label="IA à utiliser" style="max-width:260px"></select>
+            <span class="espace"></span>
+            <button class="btn prim" id="dv-faire">✨ Faire le devoir</button>
+            <button class="btn" id="dv-stop" hidden>Arrêter</button>
+          </div>
+          <div class="ligne" style="margin-top:10px">
+            <input class="champ" id="dv-changement" placeholder="Changer quelque chose : « plus simple », « ajoute une section sur la pollution », « 3 diapos de moins »…" style="flex:1" aria-label="Changement demandé">
+            <button class="btn" id="dv-changer">✏️ Changer</button>
+          </div>
+          <p class="sous" id="dv-etat" style="margin:8px 0 0"></p>
+          <p class="sous" style="font-size:12px;margin:6px 0 0">Relis tout et mets-le dans tes mots : l'IA peut se tromper, et c'est toi qui présentes 😉</p>
+        </div>
+
+        <div class="dv-actions">
+          <button class="btn prim" id="dv-presenter">🎬 Présenter</button>
+          <button class="btn" id="dv-imprimer">🖨️ Imprimer</button>
+          <button class="btn" id="dv-exporter" title="Un seul fichier .html qui marche sur n'importe quel ordi, même sans le Ti-Labo">📦 Exporter pour l'école</button>
+          <span class="espace"></span>
+          <span class="sous" id="dv-sauve" style="margin:0"></span>
+        </div>
+
+        <div class="dv-travail">
+          <div class="dv-editeur">
+            <div class="dv-outils">
+              <button class="btn petit" data-dvo="section">+ Section</button>
+              <button class="btn petit" data-dvo="schema">+ Schéma</button>
+              <button class="btn petit" data-dvo="mes-images">🖼️ Mes images</button>
+              <label class="btn petit" for="dv-img-pc">📂 Image du PC</label><input type="file" id="dv-img-pc" accept="image/*" hidden>
+              <button class="btn petit" data-dvo="gras" title="Gras"><b>G</b></button>
+            </div>
+            <textarea class="champ" id="dv-texte" spellcheck="true" lang="fr-CA" aria-label="Texte du devoir" placeholder="# Mon titre
+
+## Première partie
+Ton texte ici…
+
+Chaque « ## » devient une diapo quand tu présentes."></textarea>
+            <p class="sous" style="font-size:12px;margin:6px 0 0">Astuce : « ## » = nouvelle diapo · **gras** · « - » = liste · le bloc mermaid = schéma animé.</p>
+          </div>
+          <div class="dv-apercu" id="dv-apercu" aria-label="Aperçu de la page"></div>
+        </div>
+
+        <div class="dv-modale" id="dv-galerie" hidden><div class="dv-modale-boite"><div class="ligne"><h2 style="margin:0">Choisis une image</h2><span class="espace"></span><button class="btn petit" id="dv-galerie-fermer">✕</button></div><div class="galerie" id="dv-galerie-liste" style="margin-top:12px"></div></div></div>
       </section>
 
       <!-- IA locales -->
@@ -322,6 +420,7 @@
 <script src="/web/couleurs.js"></script>
 <script src="/web/schemas.js"></script>
 <script src="/web/artefact.js"></script>
+<script src="/web/devoirs.js"></script>
 <script src="/web/app.js"></script>
 </body>
 </html>
