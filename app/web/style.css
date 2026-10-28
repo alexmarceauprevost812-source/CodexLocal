@@ -342,3 +342,13 @@ pre.diff{margin:0;padding:6px 0;font:12.5px/1.55 var(--mono);overflow:auto;max-h
 .d-code{background:none;padding:0;font:inherit;white-space:pre}
 .d-moins .d-code{opacity:.8}
 .d-saut{display:block;color:var(--dim);padding:2px 12px;background:#0d0d0d}
+
+/* ---------- sources web cliquables */
+.carte-sources{margin-top:10px;border:1px solid var(--border);border-radius:12px;background:var(--card);overflow:hidden;max-width:860px}
+.cs-tete{padding:8px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)}
+.cs-lien{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;text-decoration:none;color:var(--text2);border-bottom:1px solid #151515}
+.cs-lien:last-child{border-bottom:none}
+.cs-lien:hover{background:var(--card2)}
+.cs-lien img{margin-top:2px;border-radius:3px;flex:none}
+.cs-lien b{color:var(--accent);font-weight:600}
+.cs-lien small{display:block;color:var(--dim);font-size:12px;margin-top:2px}

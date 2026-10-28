@@ -1905,6 +1905,12 @@ class Gestion(BaseHTTPRequestHandler):
             self.ligne({"commande": {"commande": cmd, "code": res["code"], "sortie": res["sortie"][-8000:]}})
             return {"code_sortie": res["code"], "sortie": res["sortie"][-12000:]}
         res = appeler_outil(nom, args, getattr(self, "_projet", None))
+        # Liens du web consultes : envoyes avec leur titre pour etre cliquables dans le chat
+        if nom in ("recherche_web", "chercher_code_github") and isinstance(res, list):
+            self.ligne({"liens": [{"url": x["url"], "titre": x.get("titre") or ("%s · %s" % (x.get("depot", ""), x.get("fichier", ""))).strip(" ·"),
+                                   "extrait": (x.get("extrait") or "")[:200]} for x in res[:6] if x.get("url")]})
+        elif nom == "lire_page" and isinstance(res, dict) and res.get("url"):
+            self.ligne({"liens": [{"url": res["url"], "titre": res.get("titre") or res["url"], "lu": True}]})
         if isinstance(res, dict) and res.get("ok") and nom in ("ecrire_fichier", "modifier_fichier", "remplacer_lignes"):
             try:
                 self.__dict__.setdefault("_lus", set()).add(chemin_projet(self._projet, args.get("chemin"))[1])
@@ -2069,8 +2075,6 @@ class Gestion(BaseHTTPRequestHandler):
                             args = {}
                     self.ligne({"outil": etiquette_outil(f.get("name"), args)})
                     res = self.executer_outil(f.get("name"), args)
-                    if f.get("name") in ("recherche_web", "chercher_code_github") and isinstance(res, list):
-                        self.ligne({"liens": [x.get("url") for x in res[:5] if x.get("url")]})
                     messages.append({"role": "tool", "content": json.dumps(res, ensure_ascii=False)[:14000],
                                      "tool_name": f.get("name")})
                 if texte:
@@ -2161,8 +2165,6 @@ class Gestion(BaseHTTPRequestHandler):
                         continue
                     self.ligne({"outil": etiquette_outil(b["name"], b["input"])})
                     res = self.executer_outil(b["name"], b["input"])
-                    if b["name"] in ("recherche_web", "chercher_code_github") and isinstance(res, list):
-                        self.ligne({"liens": [x.get("url") for x in res[:5] if x.get("url")]})
                     resultats.append({"type": "tool_result", "tool_use_id": b["id"],
                                       "content": json.dumps(res, ensure_ascii=False)[:14000]})
                 conv.append({"role": "user", "content": resultats})

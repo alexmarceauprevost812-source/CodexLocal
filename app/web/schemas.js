@@ -255,6 +255,8 @@
     return out;
   }
   function reparer(code) {
+    // fautes de frappe frequentes sur la premiere ligne (ex. « lowchart TD »)
+    code = code.replace(/^(\s*)(?:f?low?c?h?art|flowchar|flowcart|flochart|fowchart|grpah|graf)\b/i, "$1flowchart");
     const lignes = code.replace(/\r/g, "").split("\n");
     const type = (lignes.find((x) => x.trim()) || "").trim();
     if (!/^(flowchart|graph)\b/i.test(type)) return code;

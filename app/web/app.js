@@ -16,7 +16,8 @@ const CATALOGUE = [
   { nom: "qwen2.5-coder:14b", taille: 9.0, tags: ["code", "internet", "top"], groupe: "code", desc: "N° 4 — l'équilibre parfait pour une carte de 16 Go." },
   { nom: "qwen2.5-coder:7b", taille: 4.7, tags: ["code", "internet", "top"], groupe: "code", desc: "N° 5 — le meilleur Codex pour un PC ordinaire." },
   // --- Généralistes, vision et mémoire
-  { nom: "qwen3:8b", taille: 5.2, tags: ["internet"], desc: "Très bon en jasette et pour faire des plans." },
+  { nom: "qwen3:8b", taille: 5.2, tags: ["internet"], desc: "Très bon en jasette et pour faire des plans. Bon avec Internet." },
+  { nom: "gpt-oss:20b", taille: 14, tags: ["internet", "open source"], desc: "IA open source (OpenAI, licence Apache 2.0) très forte pour chercher sur Internet et suivre des liens. Pour le PC (16 Go de RAM ou plus)." },
   { nom: "qwen3-vl:8b", taille: 6.1, tags: ["vision", "internet"], desc: "Voit les images ET peut chercher sur Internet." },
   { nom: "gemma3:4b", taille: 3.3, tags: ["vision"], desc: "Léger, voit les images (captures d'écran, photos)." },
   { nom: "qwen2.5vl:7b", taille: 6.0, tags: ["vision"], desc: "Lit très bien le texte dans les images." },
@@ -82,8 +83,8 @@ function rendreMarkdown(texte, avecActions = true) {
     .replace(/^#### (.*)$/gm, "<h4>$1</h4>").replace(/^### (.*)$/gm, "<h3>$1</h3>").replace(/^## (.*)$/gm, "<h3>$1</h3>").replace(/^# (.*)$/gm, "<h3>$1</h3>")
     .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
     .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
   h = h.replace(/(?:^|\n)((?:[-*] .*(?:\n|$))+)/g, (_, l) => "\n<ul>" + l.trim().split("\n").map((x) => "<li>" + x.replace(/^[-*] /, "") + "</li>").join("") + "</ul>");
   h = h.replace(/(?:^|\n)((?:\d+[.)] .*(?:\n|$))+)/g, (_, l) => "\n<ol>" + l.trim().split("\n").map((x) => "<li>" + x.replace(/^\d+[.)] /, "") + "</li>").join("") + "</ol>");
   h = h.split(/\n{2,}/).map((p) => (/^\s*<(h\d|ul|ol)/.test(p) || p.includes("\u0000") ? p : "<p>" + p.replace(/\n/g, "<br>") + "</p>")).join("\n");
@@ -411,6 +412,7 @@ function creerChat(conteneur, mode) {
     const contenu = auCentre ? ouvrirSortieCentre(sel.value, plan) : $(".contenu", d), etapes = $(".etapes", d);
     let reponse = "";
     const modifies = new Set();
+    const sources = []; // pages web consultees par l'IA
     const toujours = { actif: false }; // « ne plus demander » pour cette demande seulement
     const zoneDefile = auCentre ? $("#sc-corps") : fil;
     const ecrivain = machineAEcrire(contenu, () => { if (pres) zoneDefile.scrollTop = zoneDefile.scrollHeight; });
@@ -438,7 +440,13 @@ function creerChat(conteneur, mode) {
         if (o.fichier) { carteFichier(etapes, o.fichier); modifies.add(o.fichier.chemin); montrerAuCentre(o.fichier); }
         if (o.autorisation) carteAutorisation(etapes, o.autorisation, toujours);
         if (o.commande) sortieCommande(o.commande);
-        if (o.liens) etapes.insertAdjacentHTML("beforeend", o.liens.slice(0, 3).map((u) => `<div class="etape" style="padding-left:24px"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></div>`).join(""));
+        if (o.liens) o.liens.forEach((l) => {
+          const lien = typeof l === "string" ? { url: l, titre: l } : l;
+          if (!/^https?:\/\//i.test(lien.url)) return;
+          const deja = sources.find((x) => x.url === lien.url);
+          if (deja) { deja.lu = deja.lu || lien.lu; return; }
+          sources.push(lien);
+        });
         if (o.sources) etapes.insertAdjacentHTML("beforeend", `<div class="etape">${ic("memoire")}Mémoire : ${esc(o.sources.join(", "))}</div>`);
         if (o.erreur) ecrivain.erreur(o.erreur);
         if (o.jetons_s) $(".qui", d).insertAdjacentHTML("beforeend", `<span>· ${o.jetons_s} jetons/s</span>`);
@@ -457,6 +465,7 @@ function creerChat(conteneur, mode) {
       btEnvoyer.setAttribute("aria-label", "Envoyer");
     }
     if (reponse) hist.push({ role: "assistant", content: reponse });
+    if (sources.length) carteSources(d, sources);
     sauverSession();
     if (modifies.size) apresModifs(modifies);
     if (reponse && plan === "planifier" && facon === "auto" && !planForce) {
@@ -467,8 +476,15 @@ function creerChat(conteneur, mode) {
     if (reponse && plan === "planifier") {
       const a = document.createElement("div");
       a.className = "plan-actions";
-      a.innerHTML = `<button class="btn prim petit">Envoyer au Codex</button><button class="btn petit">Corriger le plan</button>`;
-      const [ok, corriger] = $$("button", a);
+      a.innerHTML = `<button class="btn prim petit">Envoyer au Codex</button><button class="btn petit">🧐 Avis sur le plan</button><button class="btn petit">Corriger le plan</button>`;
+      const [ok, avis, corriger] = $$("button", a);
+      avis.onclick = () => {
+        avis.disabled = true;
+        envoyer("Avant que je valide, donne-moi ton avis HONNÊTE sur ce plan, comme un développeur senior qui le relit :\n" +
+          "1. ✅ Ce qui est juste\n2. ⚠️ Ce qui cloche ou est dépassé (outils, modèles, étapes inutiles)\n" +
+          "3. ❓ Ce qui manque\n4. Verdict clair : « Valide-le » ou « Ne le valide pas tel quel », puis le plan corrigé en quelques étapes.\n" +
+          "Ne sois pas complaisant : si le plan est mauvais, dis-le.\n\nLe plan :\n" + reponse, "planifier");
+      };
       // Le plan se fait dans la Jasette, le code dans le Codex
       ok.onclick = () => { a.remove(); allerA("codex"); codex.envoyer("Réalise ce plan dans le projet :\n\n" + reponse); };
       corriger.onclick = () => { a.remove(); zone.placeholder = "Dis ce qu'il faut changer dans le plan…"; zone.focus(); };
@@ -509,6 +525,19 @@ function sortieCommande(c) {
   else out.textContent += `\n[agent] ${etat.projet || ""}> ${c.commande}\n${c.sortie}${c.code ? `\n[code ${c.code}]` : ""}\n`;
   out.scrollTop = out.scrollHeight;
   if (etat.projet) choisirProjetSilencieux().catch(() => {});
+}
+
+/* ------------------------------------------------------------ sources web cliquables */
+function carteSources(apres, sources) {
+  const domaine = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+  const el = document.createElement("div");
+  el.className = "carte-sources";
+  el.innerHTML = `<div class="cs-tete">🔗 Sources consultées sur le web (${sources.length})</div>` + sources.map((l) => `
+    <a class="cs-lien" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">
+      <span aria-hidden="true">🌐</span>
+      <span><b>${esc(l.titre || l.url)}</b>${l.lu ? ' <span class="tag vert">lue par l\'IA</span>' : ""}<small>${esc(domaine(l.url))}${l.extrait ? " — " + esc(l.extrait) : ""}</small></span>
+    </a>`).join("");
+  apres.appendChild(el);
 }
 
 /* ------------------------------------------------------------ envoyer un projet sur GitHub */
