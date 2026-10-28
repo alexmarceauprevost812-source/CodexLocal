@@ -157,6 +157,7 @@ const CONSIGNE = "Tu es l'IA locale du Ti-Labo, un laboratoire de developpeur qu
   "Si on te donne des resultats Internet, appuie-toi dessus et cite les sources [titre](adresse).";
 const CONSIGNE_WEB = " Si tu as besoin d'une information recente ou que tu ne connais pas, ecris seul sur une ligne : " +
   "=== CHERCHER: mots-cles === puis arrete ta reponse : tu recevras les resultats.";
+const QUESTION_CODE = /\b(code|coder|fonction|function|script|python|javascript|js|html|css|kotlin|java|react|bash|sql|api|erreur|error|bug|class|méthode|methode|librairie|biblioth[eè]que|npm|pip)\b/i;
 const QUESTION_PLAN = /\b(plan|sch[ée]ma|diagramme|organigramme|flowchart|architecture|[ée]tapes)\b/i;
 const QUESTION_AGENDA = /agenda|rendez-vous|\brdv\b|qu.est-ce que j.ai|ai-je (quelque chose|des)|mon horaire|ma semaine|cette semaine|mon calendrier|suis-je libre|occup[ée]/i;
 const CONSIGNE_PLAN = "\n\nOn te demande un PLAN. Reponds ainsi : une phrase d'intro avec un emoji, le plan en etapes numerotees " +
@@ -273,7 +274,9 @@ async function envoyer(texte){
     }
   } else if (TL.internet && web) {
     entete = document.createElement("div");
-    const ctx = await rechercher(texte.slice(0, 120), entete);
+    // question de code : on vise les exemples de code (docs, Stack Overflow, MDN…)
+    const q = QUESTION_CODE.test(texte) && !/\b(exemple|example|code)\b/i.test(texte) ? texte.slice(0, 100) + " exemple code" : texte.slice(0, 120);
+    const ctx = await rechercher(q, entete);
     message = ctx + "Question : " + texte;
   }
   // Memoire : souvenirs et extraits de projets utiles a la question

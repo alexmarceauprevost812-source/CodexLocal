@@ -302,7 +302,11 @@ class TiLaboActivity : Activity() {
 
     @Deprecated("API Activity")
     override fun onBackPressed() {
-        if (vue.canGoBack()) vue.goBack() else super.onBackPressed()
+        // Sur le bureau, Retour reduit d'abord la fenetre ouverte (comme Windows), puis on quitte
+        vue.evaluateJavascript("(window.tlRetour && window.tlRetour()) ? 1 : 0") { r ->
+            if (r == "1") return@evaluateJavascript
+            if (vue.canGoBack()) vue.goBack() else super.onBackPressed()
+        }
     }
 
     // ------------------------------------------------------------------ pages locales
@@ -334,6 +338,15 @@ class TiLaboActivity : Activity() {
         @JavascriptInterface fun plusTard() = principal.post { attendAcces = false; ouvrirBureau() }.let { }
         @JavascriptInterface fun complet() = principal.post { lancer() }.let { }
         @JavascriptInterface fun retour() = principal.post { finish() }.let { }
+
+        /** Un choix du menu de CodexLocal (Codex, Chat, Studio, Reglages…) touche sur le bureau : CodexLocal le fait. */
+        @JavascriptInterface fun actionCodexLocal(cle: String) = principal.post {
+            if (com.codexlocal.bureau.ActionBureau.depuisCle(cle) == null) return@post
+            startActivity(Intent(this@TiLaboActivity, com.codexlocal.MainActivity::class.java)
+                .putExtra(com.codexlocal.bureau.BureauActivity.EXTRA_ACTION, cle)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            finish()
+        }.let { }
         /** Partager un fichier, ou tout le projet en .zip (chemin vide). */
         @JavascriptInterface fun partager(projet: String, chemin: String) {
             Thread {

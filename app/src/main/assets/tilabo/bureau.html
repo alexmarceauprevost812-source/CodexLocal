@@ -91,6 +91,17 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font-f
 /* menu contextuel du bureau */
 #ctx{position:fixed;z-index:40;display:none;background:rgba(18,18,18,.96);border:1px solid #333;border-radius:12px;padding:6px;min-width:200px;box-shadow:0 12px 30px rgba(0,0,0,.6)}
 #ctx div{padding:9px 12px;border-radius:8px;font-size:14px;cursor:pointer}#ctx div:hover{background:rgba(255,122,26,.15)}
+/* telephone : les applis s'ouvrent dans des fenetres plein ecran, la barre des taches reste visible (comme Windows) */
+.fen.tel{border-radius:0;border:0;min-width:0;min-height:0;box-shadow:none;animation:ouvreTel .18s ease-out}
+.fen.tel .tb{cursor:default;height:34px}
+.fen.tel [data-b="max"],.fen.tel .poignee{display:none}
+@keyframes ouvreTel{from{transform:translateY(18px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.fen,.fen.tel,#menu{animation:none}}
+#chipMeteo{display:flex;align-items:center;gap:4px;height:36px;padding:0 8px;border-radius:10px;border:1px solid transparent;background:transparent;color:#fff;font:inherit;font-size:13px;cursor:pointer}
+#chipMeteo:hover,#chipMeteo:focus-visible{background:rgba(255,122,26,.15);border-color:rgba(255,122,26,.3);outline:none}
+#chipMeteo .e{font-size:18px}
+@media (max-width:420px){#demarrer span{display:none}#demarrer{padding:0 8px}#ptWeb{display:none}#horloge small{display:none}.tache{padding:0 7px;min-width:36px}}
+#menu .tag{font-size:10px;color:#5eead4;border:1px solid #134e4a;border-radius:6px;padding:0 5px;margin-left:6px;vertical-align:1px}
 .bulleMaj{position:fixed;right:12px;bottom:calc(var(--barre) + 10px);z-index:25;background:#1a0c02;border:1px solid var(--or);border-radius:14px;padding:10px 14px;font-size:13.5px;max-width:300px}
 </style>
 </head>
@@ -114,7 +125,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font-f
 <div id="barre">
   <button id="demarrer" title="Démarrer"><img src="/logo.png" alt=""><span>Ti-Labo</span></button>
   <div id="taches"></div>
-  <div id="zoneEtat"><span title="IA"><span class="pt" id="ptIA"></span></span><span id="ptWeb" title="Internet">🌐</span><div id="horloge"></div></div>
+  <div id="zoneEtat"><button id="chipMeteo" title="Météo" hidden><span class="e">🌡️</span><span class="v">--°</span></button><span title="IA"><span class="pt" id="ptIA"></span></span><span id="ptWeb" title="Internet">🌐</span><div id="horloge"></div></div>
 </div>
 
 <script src="/menu.js"></script>
@@ -127,6 +138,8 @@ const SUR_PC = !window.TiLaboApp;
 const APPS = [
   {id: "jasette", e: "💬", n: "Jasette", u: "/jasette", c1: "#c2410c", c2: "#FF7A1A"},
   {id: "codex", e: "🧑‍💻", n: "Codex", u: "/codex", c1: "#1d4ed8", c2: "#60a5fa"},
+  {id: "ecriture", e: "📝", n: "Écriture", u: "/ecriture", c1: "#57534e", c2: "#d6d3d1"},
+  {id: "meteo", e: "🌤️", n: "Météo", u: "/meteo", c1: "#1d4ed8", c2: "#7dd3fc"},
   {id: "agenda", e: "🗓️", n: "Agenda", u: "/agenda", c1: "#b45309", c2: "#fdba74"},
   {id: "cle", e: "🔌", n: "Clé USB-C", u: "/cle", c1: "#15803d", c2: "#4ade80"},
   {id: "github", e: "🐙", n: "GitHub", u: "/github", c1: "#334155", c2: "#94a3b8"},
@@ -137,6 +150,22 @@ const APPS = [
   {id: "complet", e: "🎬", n: "Studio, Mémoire…", action: () => $("#tl-complet") && $("#tl-complet").click(), c1: "#be123c", c2: "#fb7185"},
 ];
 const appCodexLocal = {id: "codexlocal", e: "↩️", n: "CodexLocal", action: () => window.TiLaboApp && TiLaboApp.retour && TiLaboApp.retour(), c1: "#0f766e", c2: "#5eead4"};
+// Les choix de CodexLocal (ActionBureau) : le bureau les renvoie a l'appli, qui fait l'action
+const actionCL = cle => () => { if (window.TiLaboApp && TiLaboApp.actionCodexLocal) TiLaboApp.actionCodexLocal(cle); };
+const APPS_CL = [
+  {id: "cl:codex", e: "💻", n: "Codex", cle: "codex", bureau: true},
+  {id: "cl:chat", e: "💬", n: "Chat", cle: "chat", bureau: true},
+  {id: "cl:equipe", e: "⛑️", n: "Équipe IA", cle: "equipe", bureau: true},
+  {id: "cl:studio", e: "🛠️", n: "Studio", cle: "studio", bureau: true},
+  {id: "cl:tester", e: "▶️", n: "Tester l'app", cle: "tester"},
+  {id: "cl:projets", e: "📁", n: "Projets", cle: "projets"},
+  {id: "cl:dossier", e: "📂", n: "Ouvrir un dossier", cle: "dossier"},
+  {id: "cl:nouvelle", e: "🆕", n: "Nouvelle session", cle: "nouvelle"},
+  {id: "cl:reglages", e: "🔧", n: "Réglages", cle: "reglages"},
+  {id: "cl:maj", e: "🔄", n: "Mises à jour", cle: "maj"},
+  {id: "cl:partager", e: "🔗", n: "Partager", cle: "partager"},
+].map(a => ({...a, sous: "CodexLocal", c1: "#0f766e", c2: "#5eead4", action: actionCL(a.cle)}));
+const AVEC_MENU_CL = () => DANS_CODEXLOCAL() && !!TiLaboApp.actionCodexLocal;
 let projets = [];
 
 // ------------------------------------------------------------ fenetres (grand ecran) ou plein ecran (telephone)
@@ -145,20 +174,30 @@ const fenetres = new Map(); let zMax = 10;
 function ouvrir(app){
   fermerMenu();
   if (app.action) return app.action();
-  if (!grandEcran()) { location.href = app.u; return; }
-  if (fenetres.has(app.id)) return activer(app.id, true);
+  const tel = !grandEcran();
+  if (fenetres.has(app.id)) {
+    const w = fenetres.get(app.id);
+    if (app.recharger) { w.f.querySelector("iframe").src = adresse(app); return activer(app.id); }
+    return activer(app.id, !tel);
+  }
+  // telephone : on garde au plus 4 applis ouvertes (la plus ancienne en arriere-plan se ferme)
+  if (tel && fenetres.size >= 4) {
+    const vieille = [...fenetres.values()].sort((a, b) => (+a.f.style.zIndex) - (+b.f.style.zIndex))[0];
+    if (vieille) fermer(vieille.app.id);
+  }
   const n = fenetres.size;
-  const f = document.createElement("div"); f.className = "fen";
+  const f = document.createElement("div"); f.className = "fen" + (tel ? " tel max" : "");
   const L = Math.min(980, window.innerWidth - 140), H = Math.min(720, window.innerHeight - 140);
   Object.assign(f.style, {left: (110 + n * 28) + "px", top: (30 + n * 24) + "px", width: L + "px", height: H + "px"});
   f.innerHTML = `<div class="tb"><span class="e">${app.e}</span><b>${echap(app.n)}</b><button title="Réduire" data-b="min">—</button><button title="Agrandir" data-b="max">▢</button><button class="x" title="Fermer" data-b="x">✕</button></div>
-    <iframe src="${app.u}${app.u.includes("?") ? "&" : "?"}fenetre=1" title="${echap(app.n)}"></iframe><div class="poignee"></div>`;
+    <iframe src="${adresse(app)}" title="${echap(app.n)}"></iframe><div class="poignee"></div>`;
   document.body.appendChild(f);
   fenetres.set(app.id, {f, app});
   f.addEventListener("pointerdown", () => activer(app.id));
-  f.querySelector('[data-b="x"]').onclick = () => { f.remove(); fenetres.delete(app.id); dessinerTaches(); };
+  f.querySelector('[data-b="x"]').onclick = () => fermer(app.id);
   f.querySelector('[data-b="min"]').onclick = e => { e.stopPropagation(); f.classList.add("min"); dessinerTaches(); };
   f.querySelector('[data-b="max"]').onclick = () => f.classList.toggle("max");
+  if (tel) { activer(app.id); return; }
   glisser(f.querySelector(".tb"), (dx, dy, x0, y0) => { if (!f.classList.contains("max")) { f.style.left = (x0 + dx) + "px"; f.style.top = Math.max(0, y0 + dy) + "px"; } },
     () => [f.offsetLeft, f.offsetTop]);
   glisser(f.querySelector(".poignee"), (dx, dy, w0, h0) => { f.style.width = Math.max(320, w0 + dx) + "px"; f.style.height = Math.max(240, h0 + dy) + "px"; },
@@ -166,6 +205,24 @@ function ouvrir(app){
   f.querySelector(".tb").ondblclick = () => f.classList.toggle("max");
   activer(app.id);
 }
+/** /jasette#ia -> /jasette?fenetre=1#ia (le ?fenetre=1 va avant le #) */
+function adresse(app){
+  const [base, diese] = app.u.split("#");
+  return base + (base.includes("?") ? "&" : "?") + "fenetre=1" + (diese ? "#" + diese : "");
+}
+function fermer(id){
+  const w = fenetres.get(id); if (!w) return;
+  w.f.remove(); fenetres.delete(id); dessinerTaches();
+}
+/** Bouton Retour du telephone : reduit la fenetre active (retour au bureau), comme Windows. */
+window.tlRetour = () => {
+  if ($("#menu").classList.contains("ouvert")) { fermerMenu(); return true; }
+  const actives = [...fenetres.values()].filter(w => !w.f.classList.contains("min"));
+  if (!actives.length) return false;
+  const haut = actives.sort((a, b) => (+b.f.style.zIndex) - (+a.f.style.zIndex))[0];
+  haut.f.classList.add("min"); haut.f.classList.remove("active"); dessinerTaches();
+  return true;
+};
 function glisser(el, bouger, depart){
   el.addEventListener("pointerdown", e => {
     if (e.target.closest("button")) return;
@@ -187,7 +244,7 @@ function activer(id, basculer){
   dessinerTaches();
 }
 function dessinerTaches(){
-  const epinglees = ["jasette", "codex", "agenda", "cle"];
+  const epinglees = ["jasette", "codex", "ecriture", "agenda"];
   const liste = [...new Set([...epinglees, ...fenetres.keys()])].map(id => APPS.find(a => a.id === id)).filter(Boolean);
   $("#taches").innerHTML = "";
   liste.forEach(a => {
@@ -224,6 +281,7 @@ function dessinerBureau(){
   const B = $("#bureau"); B.innerHTML = "";
   APPS.filter(a => !(SUR_PC && a.telephone)).forEach(a => B.appendChild(icone(a)));
   if (DANS_CODEXLOCAL()) B.appendChild(icone(appCodexLocal));
+  if (AVEC_MENU_CL()) APPS_CL.filter(a => a.bureau).forEach(a => B.appendChild(icone(a)));
   appsProjet().forEach(a => {
     const d = icone(a, " dossier");
     // clic droit / appui long : Ouvrir, Partager
@@ -252,6 +310,16 @@ function dessinerMenu(q){
     C.insertAdjacentHTML("beforeend", "<h5>Applis</h5>");
     const g = document.createElement("div"); g.className = "grille"; apps.forEach(a => g.appendChild(icone(a))); C.appendChild(g);
   }
+  const cl = AVEC_MENU_CL() ? APPS_CL.filter(a => ok(a.n) || ok("codexlocal")) : [];
+  if (cl.length) {
+    C.insertAdjacentHTML("beforeend", "<h5>CodexLocal</h5>");
+    cl.forEach(a => {
+      const l = document.createElement("div"); l.className = "ligne";
+      l.innerHTML = `<span class="e">${a.e}</span><span><b>${echap(a.n)}</b></span>`;
+      l.onclick = () => { fermerMenu(); a.action(); };
+      C.appendChild(l);
+    });
+  }
   const ps = projets.filter(p => ok(p.nom) || ok(p.ou));
   if (ps.length) {
     C.insertAdjacentHTML("beforeend", "<h5>Projets (" + ps.length + ")</h5>");
@@ -266,8 +334,16 @@ function dessinerMenu(q){
     C.insertAdjacentHTML("beforeend", "<h5>Demander</h5>");
     const l = document.createElement("div"); l.className = "ligne";
     l.innerHTML = `<span class="e">💬</span><span><b>Demander à la Jasette</b><small>« ${echap($("#cherche").value)} »</small></span>`;
-    l.onclick = () => { localStorage.setItem("tilabo-question", $("#cherche").value); fermerMenu(); ouvrir(APPS[0]); };
+    l.onclick = () => { localStorage.setItem("tilabo-question", $("#cherche").value); fermerMenu(); ouvrir({...APPS[0], recharger: true}); };
     C.appendChild(l);
+    // « Normandin », « météo Paris » : voir la météo de cette ville, cherchée sur le web
+    const ville = $("#cherche").value.replace(/^\s*(la\s+)?m[ée]t[ée]o\s*(à|a|de|du|au|pour)?\s*/i, "").trim();
+    if (ville && ville.length < 50) {
+      const m = document.createElement("div"); m.className = "ligne";
+      m.innerHTML = `<span class="e">🌤️</span><span><b>Météo à ${echap(ville)}</b><small>Cherchée sur le web</small></span>`;
+      m.onclick = () => { fermerMenu(); ouvrir({...APPS.find(a => a.id === "meteo"), u: "/meteo?ville=" + encodeURIComponent(ville), recharger: true}); };
+      C.appendChild(m);
+    }
   }
 }
 function ouvrirMenu(){ $("#menu").classList.add("ouvert"); $("#cherche").value = ""; dessinerMenu(""); if (grandEcran()) setTimeout(() => $("#cherche").focus(), 50); }
@@ -337,13 +413,18 @@ async function gadgets(){
     try {
       const m = await TL.meteo(null), x = TL.codeMeteo(m.actuel.weather_code, m.actuel.is_day);
       $("#gMeteo").hidden = false;
+      $("#chipMeteo").hidden = false;
+      $("#chipMeteo .e").textContent = x.emoji;
+      $("#chipMeteo .v").textContent = Math.round(m.actuel.temperature_2m) + "°";
+      $("#chipMeteo").title = m.lieu.split(",")[0] + " · " + x.desc;
       $("#gMeteo .met").innerHTML = `<span class="e">${x.emoji}</span><span><b style="font-size:20px">${Math.round(m.actuel.temperature_2m)}°C</b><br><span style="color:#a3a3a3;font-size:12px">${echap(m.lieu.split(",")[0])} · ${x.desc}</span></span>`;
     } catch (_) {}
   }
   $("#ptWeb").style.opacity = window.TL && TL.internet ? 1 : .3;
 }
 $("#gAgenda").onclick = () => ouvrir(APPS.find(a => a.id === "agenda"));
-$("#gMeteo").onclick = () => { localStorage.setItem("tilabo-question", "Quelle est la météo ?"); ouvrir(APPS[0]); };
+$("#gMeteo").onclick = () => ouvrir(APPS.find(a => a.id === "meteo"));
+$("#chipMeteo").onclick = () => ouvrir(APPS.find(a => a.id === "meteo"));
 
 // l'ancien menu du Ti-Labo (☰) n'est pas utile sur le bureau : le bouton Démarrer le remplace
 document.querySelectorAll(".tl-burger").forEach(b => b.style.display = "none");
