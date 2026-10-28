@@ -133,8 +133,7 @@ class TiLaboActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        // L'IA du Ti-Labo se charge en memoire des qu'on ouvre le Ti-Labo : reponses rapides
-        Moteur.precharger(this)
+
         if (attendAcces && Environment.isExternalStorageManager()) {
             attendAcces = false
             demarrer()
@@ -168,10 +167,12 @@ class TiLaboActivity : Activity() {
     private fun ouvrirBureau() {
         afficher(page("Démarrage…", "<p>On prépare le moteur d'IA du téléphone.</p><div class='roue'></div>"))
         Thread {
-            for (n in 0 until 40) {
+            for (n in 0 until 60) {
                 if (vivant(URL_AUTONOME + "tilabo/etat")) {
                     val page = if (intent?.getStringExtra("page") == "agenda") "agenda" else ""
                     principal.post { vue.loadUrl(URL_AUTONOME + page) }
+                    // Une fois le bureau affiche, l'IA du Ti-Labo se charge en memoire (reponses rapides)
+                    principal.postDelayed({ Moteur.precharger(applicationContext) }, 2500)
                     return@Thread
                 }
                 try { Thread.sleep(250) } catch (e: InterruptedException) { break }
@@ -265,7 +266,7 @@ class TiLaboActivity : Activity() {
     private fun vivant(url: String): Boolean = try {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 800
-        c.readTimeout = 1500
+        c.readTimeout = 4000
         val ok = c.responseCode == 200
         c.disconnect()
         ok

@@ -36,8 +36,12 @@ object LocalEngine {
     var enChargement: String? = null
         private set
 
-    /** Un seul chargement a la fois (le prechargement au demarrage et un envoi peuvent se croiser). */
-    private val verrouChargement = kotlinx.coroutines.sync.Mutex()
+    /**
+     * UN seul verrou pour tout changement de modele dans l'appli (CodexLocal ET Ti-Labo partagent le
+     * meme moteur llama.cpp) : deux chargements en meme temps pouvaient faire planter l'appli.
+     * Ordre a respecter : ce verrou d'abord, puis celui du Ti-Labo (Moteur).
+     */
+    val verrouModele = kotlinx.coroutines.sync.Mutex()
 
     private var systemPromptSent = false
     private var appliedTemperature = Float.NaN
@@ -89,7 +93,7 @@ object LocalEngine {
         cfg: AppConfig,
         repartirDeZero: Boolean = false,
         onStatus: (String) -> Unit
-    ) = verrouChargement.withLock { chargerSansVerrou(context, modelPath, cfg, repartirDeZero, onStatus) }
+    ) = verrouModele.withLock { chargerSansVerrou(context, modelPath, cfg, repartirDeZero, onStatus) }
 
     private suspend fun chargerSansVerrou(
         context: Context,

@@ -101,6 +101,7 @@ object Moteur {
         val app = ctx.applicationContext
         val f = dernier(app) ?: return
         if (chemin == f || enChargement != null || com.codexlocal.LocalEngine.enChargement != null) return
+        if (com.codexlocal.LocalEngine.verrouModele.isLocked) return // un autre chargement ou une reponse en cours
         Thread {
             runCatching { kotlinx.coroutines.runBlocking { charger(app, f) } }
             TiLaboService.majNotification(app)
@@ -123,7 +124,8 @@ object Moteur {
     }
 
     /** Charge un .gguf (attend la fin du chargement). Renvoie le nom du fichier. */
-    suspend fun charger(ctx: Context, cheminModele: String): String = verrou.withLock { chargerInterne(ctx, cheminModele) }
+    suspend fun charger(ctx: Context, cheminModele: String): String =
+        com.codexlocal.LocalEngine.verrouModele.withLock { verrou.withLock { chargerInterne(ctx, cheminModele) } }
 
     private suspend fun chargerInterne(ctx: Context, cheminModele: String): String {
         prendreLeMoteur()
@@ -185,7 +187,7 @@ object Moteur {
         temperature: Float?,
         maxJetons: Int?
     ): Flow<String> = flow {
-        verrou.withLock {
+        com.codexlocal.LocalEngine.verrouModele.withLock { verrou.withLock {
             val e = engine(ctx)
             // CodexLocal a pu prendre le moteur entre-temps : on recharge le dernier .gguf du Ti-Labo
             if (com.codexlocal.LocalEngine.loadedPath != null || chemin == null) {
@@ -233,7 +235,7 @@ object Moteur {
                 connus = listOf(Msg("?", "?"))
                 throw ex
             }
-        }
+        } }
     }
 
     /**

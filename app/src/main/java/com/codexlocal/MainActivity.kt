@@ -227,6 +227,9 @@ class MainActivity : AppCompatActivity() {
         if (cfg.provider != ProviderType.LOCAL || cfg.localModelPath.isBlank()) return
         if (!File(cfg.localModelPath).isFile) return
         if (LocalEngine.isLoadedFor(cfg.localModelPath) || LocalEngine.enChargement != null) return
+        // Le Ti-Labo se sert du moteur (ou charge son IA) : on ne lui enleve pas, CodexLocal chargera au besoin
+        if (com.codexlocal.tilabo.Moteur.chemin != null || com.codexlocal.tilabo.Moteur.enChargement != null) return
+        if (LocalEngine.verrouModele.isLocked) return
         if (job?.isActive == true || prechargement?.isActive == true) return
         prechargement = lifecycleScope.launch {
             binding.status.text = "⏳ Chargement de l'IA en mémoire… (" + File(cfg.localModelPath).name + ")"
