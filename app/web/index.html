@@ -8,6 +8,18 @@
 <link rel="stylesheet" href="/web/devoirs.css">
 <link rel="stylesheet" href="/web/agenda.css">
 <script>window.TILABO_JETON = "__JETON__";</script>
+<script>
+// Ouvert dans une fenetre du bureau facon Windows : on cache l'en-tete et le panneau de gauche,
+// et on reprend la session du bureau (aucun mot de passe a retaper).
+(function () {
+  var q = new URLSearchParams(location.search);
+  if (q.get("cadre") && window.parent !== window) {
+    document.documentElement.classList.add("cadre");
+    try { if (!window.TILABO_JETON && window.parent.TILABO_JETON) window.TILABO_JETON = window.parent.TILABO_JETON; } catch (e) {}
+  }
+})();
+</script>
+<style>html.cadre header.barre,html.cadre #gauche{display:none!important}</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -48,6 +60,7 @@
     <span class="pastille" id="p-ia"><i class="pt"></i>IA : …</span>
     <span class="pastille" id="p-net"><i class="pt"></i>Internet</span>
     <span class="pastille ok"><svg class="ic" style="width:14px;height:14px;color:var(--green)"><use href="#i-cle"/></svg><span id="p-cle">Clé USB-C</span></span>
+    <a class="btn" href="/bureau" id="bt-bureau-windows" title="Passer au bureau façon Windows (tu peux revenir quand tu veux)" style="text-decoration:none">🪟 Bureau Windows</a>
     <button class="btn-ic actif" id="bt-gauche" aria-label="Ouvrir ou fermer le panneau de gauche" aria-pressed="true"><svg class="ic"><use href="#i-gauche"/></svg></button>
   </header>
 

@@ -71,6 +71,7 @@ PARAMS_DEFAUT = {
     "internet": True,                         # l'IA locale peut aller chercher sur Internet
     "anthropic_key": "",                      # cle API Claude (optionnelle)
     "mot_de_passe": "",                       # empreinte PBKDF2 du mot de passe d'entree
+    "interface": "",                          # "bureau" (facon Windows), "classique" ou "" (on demande au demarrage)
 }
 
 
@@ -1657,8 +1658,13 @@ class Gestion(BaseHTTPRequestHandler):
             return self.erreur("Hote refuse", 403)
         u = urllib.parse.urlparse(self.path)
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
-        if u.path in ("/", "/index.html"):
-            with open(os.path.join(WEB, "index.html"), "r", encoding="utf-8") as f:
+        if u.path in ("/", "/index.html", "/bureau", "/classique"):
+            # « / » : le bureau facon Windows ; « /index.html » ou « /classique » : l'interface classique (panneau de gauche)
+            if u.path == "/":
+                nom = "index.html" if lire_params().get("interface") == "classique" else "bureau.html"
+            else:
+                nom = "bureau.html" if u.path == "/bureau" else "index.html"
+            with open(os.path.join(WEB, nom), "r", encoding="utf-8") as f:
                 page = f.read().replace("__JETON__", "" if mdp_actif() else JETON)
             return self.envoyer(200, page, "text/html; charset=utf-8")
         if u.path.startswith("/web/"):
@@ -1762,7 +1768,7 @@ class Gestion(BaseHTTPRequestHandler):
         if not p.startswith(os.path.realpath(WEB) + os.sep) or not os.path.isfile(p):
             return self.erreur("Introuvable", 404)
         types = {".css": "text/css", ".js": "text/javascript", ".txt": "text/plain; charset=utf-8", ".svg": "image/svg+xml",
-                 ".png": "image/png", ".woff2": "font/woff2", ".ico": "image/x-icon"}
+                 ".png": "image/png", ".woff2": "font/woff2", ".ico": "image/x-icon", ".webp": "image/webp"}
         with open(p, "rb") as f:
             self.envoyer(200, f.read(), types.get(os.path.splitext(p)[1], "application/octet-stream"))
 
@@ -3678,7 +3684,8 @@ def main():
     threading.Thread(target=demarrer_ollama, daemon=True).start()
     serveur = ThreadingHTTPServer(("127.0.0.1", PORT_APP), Gestion)
     serveur.daemon_threads = True
-    url = "http://127.0.0.1:%d/" % PORT_APP
+    # Deux bureaux : le bureau facon Windows (par defaut) ou l'interface classique (--classique)
+    url = "http://127.0.0.1:%d/%s" % (PORT_APP, "classique" if "--classique" in sys.argv else "")
     print("  Ouvert dans ton navigateur : %s" % url)
     print("  Ferme cette fenetre pour arreter le Ti-Labo.")
     if "--sans-navigateur" not in sys.argv:

@@ -808,6 +808,12 @@ function allerA(vue) {
   if (vue === "codex") { rendreCodexProjets(); setTimeout(() => codex.zone.focus(), 30); }
 }
 $$(".nav").forEach((n) => (n.onclick = () => allerA(n.dataset.vue)));
+// Changer de bureau : on retient le choix sur la cle, puis on ouvre le bureau facon Windows
+if ($("#bt-bureau-windows")) $("#bt-bureau-windows").onclick = async (e) => {
+  e.preventDefault();
+  try { await api("parametres", { interface: "bureau" }); } catch (_) {}
+  location.href = "/bureau";
+};
 $$("[data-aller]").forEach((n) => (n.onclick = () => allerA(n.dataset.aller)));
 function bascule(bt, panneau) {
   bt.onclick = () => {
@@ -1927,6 +1933,12 @@ function deverrouiller() {
   await deverrouiller();
   await rafraichirEtat();
   rendreBureau();
+  // Fenetre du bureau facon Windows : ?vue=codex&projet=nom
+  const qCadre = new URLSearchParams(location.search);
+  if (qCadre.get("vue")) {
+    if (qCadre.get("projet")) { try { await choisirProjet(qCadre.get("projet")); } catch (_) {} }
+    allerA(qCadre.get("vue"));
+  }
   codex.prechauffer(); // l'IA du Codex est prete avant le premier message
   // Le moteur peut prendre quelques secondes à démarrer : on revérifie.
   let essais = 0;

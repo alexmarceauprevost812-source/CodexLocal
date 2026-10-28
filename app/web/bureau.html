@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ti-Labo — Bureau</title>
+<link rel="icon" href="/web/logo.png">
+<script>window.TILABO_JETON = "__JETON__";</script>
+<style>
+:root{--or:#FF7A1A;--or2:#ff9a4d;--txt:#f5f5f5;--doux:#a3a3a3;--ligne:rgba(255,255,255,.09);--verre:rgba(18,18,20,.74);--barre:52px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--txt);font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:14px;user-select:none}
+button{font:inherit;color:inherit}
+/* fond */
+#fond{position:fixed;inset:0;z-index:0;background:var(--fond-img,radial-gradient(1200px 760px at 72% 12%,#3a1606 0%,#140803 46%,#050505 80%))}
+#fond::after{content:"";position:absolute;left:50%;top:45%;width:min(440px,60vw);aspect-ratio:1;transform:translate(-50%,-50%);background:url(/web/logo.png) center/contain no-repeat;opacity:.11}
+/* bureau : icones a gauche, colonne d'infos a droite (comme Windows) */
+#bureau{position:fixed;left:0;top:0;bottom:var(--barre);right:min(400px,36vw);z-index:1;padding:14px 10px;display:grid;
+  grid-template-rows:repeat(auto-fill,100px);grid-auto-flow:column;grid-auto-columns:92px;gap:4px 8px;align-content:start}
+.ico{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;border-radius:8px;border:1px solid transparent;background:none;cursor:default;text-align:center}
+.ico:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.08)}
+.ico:focus-visible,.ico.choisi{background:rgba(255,122,26,.16);border-color:rgba(255,122,26,.45);outline:none}
+.ico .b{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;font-size:26px;
+  background:linear-gradient(150deg,var(--c2,#ff9a4d),var(--c1,#c2410c));box-shadow:0 6px 16px -6px var(--c1,#c2410c),inset 0 1px 0 rgba(255,255,255,.25)}
+.ico .t{font-size:12px;line-height:1.2;max-width:86px;text-shadow:0 1px 3px #000}
+/* colonne de droite */
+#gadgets{position:fixed;right:16px;top:14px;bottom:calc(var(--barre) + 14px);width:min(370px,calc(36vw - 24px));z-index:1;display:flex;flex-direction:column;gap:12px;overflow:auto;scrollbar-width:none}
+.horloge-g{text-align:right;padding:2px 4px 6px;text-shadow:0 2px 14px rgba(0,0,0,.5)}
+.horloge-g .h{font-size:clamp(54px,6vw,86px);font-weight:600;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums}
+.horloge-g .d{font-size:17px;color:#e5e5e5;margin-top:6px;text-transform:capitalize}
+.gad{background:var(--verre);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--ligne);border-radius:14px;padding:14px 16px}
+.gad h4{margin:0 0 8px;font-size:11.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--or);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.gad h4 button{background:none;border:0;color:var(--doux);font-size:12px;text-transform:none;letter-spacing:0;cursor:pointer;padding:2px 4px;border-radius:6px}
+.gad h4 button:hover{color:var(--txt);background:rgba(255,255,255,.08)}
+.met{display:flex;align-items:center;gap:14px}.met .e{font-size:42px;line-height:1}.met b{font-size:30px;font-weight:600}
+.met small{display:block;color:var(--doux);font-size:12.5px}
+.jours{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.jours div{background:rgba(255,255,255,.05);border-radius:9px;padding:6px;text-align:center;font-size:12px}
+.jours div span{display:block;font-size:18px}
+.ev{display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--ligne);font-size:13px}.ev:first-child{border-top:0}
+.ev b{color:var(--or2);min-width:44px;font-weight:600}
+.proj{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:13px}
+.proj:hover{background:rgba(255,255,255,.07)}.proj small{color:var(--doux);margin-left:auto}
+.etat{display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px}
+.pastille{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border-radius:99px;padding:4px 10px}
+.pt{width:8px;height:8px;border-radius:50%;background:#666}.pt.on{background:#4ade80;box-shadow:0 0 8px #4ade80}.pt.warn{background:#facc15}
+.vide{color:var(--doux);font-size:13px}
+@media (max-width:900px){#gadgets{display:none}#bureau{right:0}}
+/* barre des taches (centree comme Windows 11) */
+#barre{position:fixed;left:0;right:0;bottom:0;height:var(--barre);z-index:50;display:flex;align-items:center;padding:0 10px;
+  background:rgba(16,16,18,.86);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid var(--ligne)}
+#centre{flex:1;display:flex;justify-content:center;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.tache{position:relative;width:44px;height:40px;border:0;border-radius:7px;background:transparent;display:grid;place-items:center;font-size:21px;cursor:default;flex:none}
+.tache:hover{background:rgba(255,255,255,.08)}.tache.active{background:rgba(255,255,255,.1)}
+.tache.ouverte::after{content:"";position:absolute;bottom:3px;left:17px;right:17px;height:3px;border-radius:3px;background:#9ca3af}
+.tache.active::after{left:13px;right:13px;background:var(--or)}
+#demarrer img{width:26px;height:26px;object-fit:contain}
+.sep{width:1px;height:24px;background:var(--ligne);margin:0 4px;flex:none}
+#zone{display:flex;align-items:center;gap:10px;font-size:12px;color:#e5e5e5;white-space:nowrap}
+#zone .h{text-align:right;line-height:1.25}
+/* menu demarrer */
+#menu{position:fixed;left:50%;bottom:calc(var(--barre) + 10px);transform:translateX(-50%);z-index:60;width:min(620px,calc(100vw - 20px));max-height:min(660px,calc(100vh - var(--barre) - 24px));
+  display:none;flex-direction:column;background:rgba(24,24,27,.95);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);border:1px solid var(--ligne);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.6);animation:monte .16s ease-out}
+#menu.ouvert{display:flex}
+@keyframes monte{from{transform:translate(-50%,16px);opacity:0}}
+#menu .rech{padding:20px 24px 10px}
+#menu input{width:100%;background:#0f0f11;border:1px solid #2c2c30;border-bottom:2px solid var(--or);border-radius:8px;padding:11px 14px;color:#fff;font:inherit;outline:none}
+#menu .corps{overflow:auto;padding:4px 18px 14px}
+#menu h5{margin:12px 8px 8px;font-size:13px;font-weight:600}
+#menu .grille{display:grid;grid-template-columns:repeat(6,1fr);gap:2px}
+@media (max-width:560px){#menu .grille{grid-template-columns:repeat(4,1fr)}}
+#menu .grille .ico .b{width:40px;height:40px;font-size:21px;border-radius:11px}
+#menu .pied{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 24px;border-top:1px solid var(--ligne);background:rgba(0,0,0,.25);border-radius:0 0 12px 12px}
+#menu .pied button{background:transparent;border:1px solid transparent;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px}
+#menu .pied button:hover{background:rgba(255,255,255,.08)}
+/* fenetres */
+.fen{position:fixed;z-index:10;display:flex;flex-direction:column;background:#0b0b0c;border:1px solid #2c2c30;border-radius:9px;overflow:hidden;box-shadow:0 22px 60px rgba(0,0,0,.6);min-width:360px;min-height:240px;animation:ouvre .14s ease-out}
+.fen.active{border-color:rgba(255,122,26,.55)}
+@keyframes ouvre{from{transform:scale(.97);opacity:0}}
+.fen.max{left:0!important;top:0!important;width:100%!important;height:calc(100% - var(--barre))!important;border-radius:0;border-width:0}
+.fen.min{display:none}
+.fen .tb{height:34px;flex:none;display:flex;align-items:center;gap:8px;padding-left:12px;background:#161618;cursor:default;touch-action:none}
+.fen .tb .e{font-size:15px}.fen .tb b{flex:1;font-size:12.5px;font-weight:400;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.fen .tb button{width:46px;height:34px;border:0;background:transparent;color:#ddd;font-size:13px;cursor:default}
+.fen .tb button:hover{background:#2a2a2e}.fen .tb button.x:hover{background:#c42b1c;color:#fff}
+.fen iframe{flex:1;border:0;width:100%;background:#0b0b0c}
+.fen .cache-iframe{position:absolute;inset:34px 0 0;display:none}
+body.glisse .fen .cache-iframe{display:block}
+.fen .poignee{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;touch-action:none}
+.notes{flex:1;width:100%;resize:none;border:0;outline:none;background:#0f0f11;color:#e5e5e5;padding:14px 16px;font:14px/1.6 "Cascadia Code",Consolas,monospace;user-select:text}
+/* menu contextuel */
+#ctx{position:fixed;z-index:70;display:none;background:rgba(28,28,31,.97);border:1px solid var(--ligne);border-radius:9px;padding:5px;min-width:220px;box-shadow:0 14px 34px rgba(0,0,0,.6)}
+#ctx div{padding:8px 12px;border-radius:6px;font-size:13px;cursor:default}#ctx div:hover{background:rgba(255,255,255,.08)}
+/* choix du bureau (premier demarrage) */
+#choix{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(5,5,5,.86);backdrop-filter:blur(10px)}
+#choix[hidden]{display:none}
+#choix .boite{max-width:900px;width:100%;text-align:center}
+#choix h1{font-size:clamp(24px,3.4vw,34px);margin:0 0 6px}#choix .sous{color:var(--doux);margin:0 0 26px}
+#choix .options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px}
+#choix .opt{background:#141416;border:2px solid #2c2c30;border-radius:16px;padding:18px;cursor:pointer;text-align:left;transition:border-color .15s,transform .15s}
+#choix .opt:hover,#choix .opt:focus-visible{border-color:var(--or);transform:translateY(-3px);outline:none}
+#choix .opt h2{margin:14px 0 4px;font-size:19px}#choix .opt p{margin:0;color:var(--doux);font-size:13.5px;line-height:1.5}
+.mini{height:150px;border-radius:10px;position:relative;overflow:hidden;background:radial-gradient(400px 220px at 70% 10%,#3a1606,#0a0a0a 80%)}
+.mini .ic{position:absolute;left:10px;width:22px;height:22px;border-radius:6px;background:linear-gradient(150deg,#ff9a4d,#c2410c)}
+.mini .fe{position:absolute;left:62px;top:16px;width:52%;height:58%;border-radius:6px;background:#1b1b1e;border:1px solid #333}
+.mini .fe::before{content:"";position:absolute;left:0;right:0;top:0;height:12px;background:#26262a;border-radius:6px 6px 0 0}
+.mini .dr{position:absolute;right:10px;top:12px;width:22%;height:66%;border-radius:6px;background:rgba(255,255,255,.07)}
+.mini .tb{position:absolute;left:0;right:0;bottom:0;height:16px;background:#161618;display:flex;justify-content:center;gap:4px;align-items:center}
+.mini .tb i{width:9px;height:9px;border-radius:3px;background:#555}.mini .tb i:first-child{background:var(--or)}
+.mini.cl{background:#0d0d0f}.mini.cl .gp{position:absolute;left:0;top:0;bottom:0;width:26%;background:#141416;border-right:1px solid #262626}
+.mini.cl .gp i{display:block;margin:10px 8px 0;height:7px;border-radius:3px;background:#2e2e33}.mini.cl .gp i:nth-child(2){background:var(--or)}
+.mini.cl .hd{position:absolute;left:0;right:0;top:0;height:16px;background:#141416;border-bottom:1px solid #262626}
+.mini.cl .ct{position:absolute;left:31%;right:6%;top:26px;bottom:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mini.cl .ct i{border-radius:5px;background:#1b1b1e}
+/* verrouillage */
+#verrou{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(900px 600px at 50% 30%,#3a1606,#050505 75%)}
+#verrou[hidden]{display:none}
+#verrou img{width:110px;height:110px;object-fit:contain}
+#verrou .h{font-size:64px;font-weight:600;letter-spacing:-2px}
+#verrou input{width:260px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-bottom:2px solid var(--or);border-radius:8px;padding:11px 14px;color:#fff;font:inherit;outline:none;text-align:center}
+#verrou p{margin:0;color:#fca5a5;min-height:1.2em;font-size:13px}
+</style>
+</head>
+<body>
+<div id="fond"></div>
+<div id="bureau" aria-label="Bureau"></div>
+<aside id="gadgets">
+  <div class="horloge-g"><div class="h" id="gHeure">--:--</div><div class="d" id="gDate"></div></div>
+  <div class="gad" id="gMeteo"><h4>Météo <button id="btVille" title="Changer la ville">📍 <span id="nomVille">…</span></button></h4><div id="meteoCorps" class="vide">…</div></div>
+  <div class="gad" id="gAgenda" style="cursor:pointer"><h4>🗓️ Aujourd'hui</h4><div id="gEvts" class="vide">…</div></div>
+  <div class="gad"><h4>Projets récents <button data-ouvre="projets">Tout voir</button></h4><div id="gProjets" class="vide">…</div></div>
+  <div class="gad"><h4>Ti-Labo</h4><div class="etat" id="gEtat"></div></div>
+</aside>
+
+<div id="menu" role="dialog" aria-label="Menu Démarrer">
+  <div class="rech"><input id="cherche" placeholder="🔎 Rechercher une appli ou un projet" autocomplete="off"></div>
+  <div class="corps" id="menuCorps"></div>
+  <div class="pied"><span style="display:flex;align-items:center;gap:10px"><img src="/web/logo.png" alt="" style="width:30px;height:30px"><b>Ti-Labo</b></span>
+    <span><button id="btClassique" title="Choisir entre le bureau façon Windows et l'interface classique">🔁 Changer de bureau</button><button id="btVerrou" hidden>🔒 Verrouiller</button></span></div>
+</div>
+<div id="ctx"></div>
+
+<div id="barre">
+  <div style="width:120px" aria-hidden="true"></div>
+  <div id="centre">
+    <button class="tache" id="demarrer" title="Démarrer"><img src="/web/logo.png" alt="Démarrer"></button>
+    <div id="taches" style="display:flex;gap:4px"></div>
+  </div>
+  <div id="zone">
+    <span class="pastille" title="Moteur IA de la clé"><i class="pt" id="ptIA"></i>IA</span>
+    <span id="ptNet" title="Internet">🌐</span>
+    <span id="libre" title="Espace libre sur la clé">💾 …</span>
+    <div class="h" id="horloge"></div>
+  </div>
+</div>
+
+<div id="choix" hidden>
+  <div class="boite">
+    <img src="/web/logo.png" alt="" style="width:76px;height:76px">
+    <h1>Quel bureau veux-tu ouvrir ?</h1>
+    <p class="sous">Les deux donnent accès aux mêmes outils, aux mêmes projets et aux mêmes IA. Tu pourras changer quand tu veux.</p>
+    <div class="options">
+      <button class="opt" data-choix="bureau"><div class="mini"><span class="ic" style="top:12px"></span><span class="ic" style="top:42px"></span><span class="ic" style="top:72px"></span><span class="fe"></span><span class="dr"></span><span class="tb"><i></i><i></i><i></i><i></i></span></div>
+        <h2>🪟 Bureau façon Windows</h2><p>Des icônes, des fenêtres que tu déplaces, une barre des tâches, un menu Démarrer, l'heure et la météo. Pour travailler comme sur ton PC.</p></button>
+      <button class="opt" data-choix="classique"><div class="mini cl"><span class="hd"></span><span class="gp"><i></i><i></i><i></i><i></i><i></i></span><span class="ct"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+        <h2>🗂️ Interface classique</h2><p>Un panneau à gauche et un grand espace au centre, une appli à la fois. Simple et direct, comme l'ancienne version du Ti-Labo.</p></button>
+    </div>
+    <p class="sous" style="margin:22px 0 0;font-size:13px">Pour changer plus tard : menu Démarrer › « Changer de bureau », ou le bouton « 🪟 Bureau Windows » dans l'interface classique.</p>
+  </div>
+</div>
+<div id="verrou" hidden>
+  <img src="/web/logo.png" alt="">
+  <div class="h" id="vHeure"></div>
+  <form id="formVerrou"><input type="password" id="vMdp" placeholder="Mot de passe" autocomplete="current-password" aria-label="Mot de passe"></form>
+  <p id="vMsg"></p>
+</div>
+
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+async function api(route, donnees) {
+  const r = await fetch("/api/" + route, {method: donnees === undefined ? "GET" : "POST",
+    headers: {"Content-Type": "application/json", "X-TiLabo": window.TILABO_JETON || ""}, body: donnees === undefined ? undefined : JSON.stringify(donnees)});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.erreur || "Erreur " + r.status);
+  return j;
+}
+
+// ------------------------------------------------------------ les applis
+const APPS = [
+  {id: "jasette", e: "💬", n: "Jasette", c1: "#c2410c", c2: "#ff9a4d"},
+  {id: "codex", e: "🧑‍💻", n: "Codex", c1: "#1d4ed8", c2: "#60a5fa"},
+  {id: "projets", e: "📁", n: "Mes projets", c1: "#b45309", c2: "#fcd34d"},
+  {id: "studio", e: "🎬", n: "Studio", c1: "#be123c", c2: "#fb7185"},
+  {id: "agenda", e: "🗓️", n: "Agenda", c1: "#c2410c", c2: "#fdba74"},
+  {id: "notes", e: "📝", n: "Notes", c1: "#4d7c0f", c2: "#a3e635", interne: true},
+  {id: "explorateur", e: "🗄️", n: "Explorateur", c1: "#a16207", c2: "#fde047", action: true, desc: "Ouvre le dossier des projets dans Windows"},
+  {id: "images", e: "🎨", n: "Images", c1: "#7e22ce", c2: "#c084fc"},
+  {id: "github", e: "🐙", n: "GitHub", c1: "#334155", c2: "#94a3b8"},
+  {id: "memoire", e: "🧠", n: "Mémoire", c1: "#be185d", c2: "#f472b6"},
+  {id: "nouvelles", e: "📰", n: "Nouvelles", c1: "#0f766e", c2: "#5eead4"},
+  {id: "devoirs", e: "📚", n: "Devoirs", c1: "#1e40af", c2: "#93c5fd"},
+  {id: "ia", e: "🤖", n: "IA locales", c1: "#6d28d9", c2: "#a78bfa"},
+  {id: "parametres", e: "⚙️", n: "Paramètres", c1: "#3f3f46", c2: "#a1a1aa"},
+];
+const EPINGLES = ["jasette", "codex", "projets", "agenda", "notes"];
+const app = (id) => APPS.find((a) => a.id === id);
+let projets = [], etatTL = {};
+
+function icone(a, petit) {
+  const b = document.createElement("button");
+  b.className = "ico"; b.title = a.desc || a.n;
+  b.innerHTML = `<span class="b" style="--c1:${a.c1};--c2:${a.c2}">${a.e}</span><span class="t">${esc(a.n)}</span>`;
+  if (petit) b.onclick = () => { fermerMenu(); lancer(a); };
+  else {
+    b.onclick = () => { document.querySelectorAll("#bureau .ico").forEach((x) => x.classList.remove("choisi")); b.classList.add("choisi"); };
+    b.ondblclick = () => lancer(a);
+    b.onkeydown = (e) => { if (e.key === "Enter") lancer(a); };
+    if (matchMedia("(pointer:coarse)").matches) b.onclick = () => lancer(a);
+  }
+  return b;
+}
+function dessinerBureau() {
+  const B = $("#bureau"); B.innerHTML = "";
+  APPS.forEach((a) => B.appendChild(icone(a)));
+}
+
+// ------------------------------------------------------------ fenetres
+let zMax = 20, fenetres = [], decal = 0;
+function lancer(a, opts = {}) {
+  if (a.action) return api("ouvrir-dossier", {chemin: ""}).catch((e) => alert(e.message));
+  const cle = a.id + (opts.projet ? ":" + opts.projet : "");
+  const deja = fenetres.find((f) => f.cle === cle);
+  if (deja) { deja.el.classList.remove("min"); activer(deja); return; }
+  const el = document.createElement("div"); el.className = "fen";
+  const w = Math.min(1100, Math.max(640, innerWidth * 0.62)), h = Math.min(720, innerHeight - 140);
+  decal = (decal + 28) % 168;
+  Object.assign(el.style, {left: Math.max(10, (innerWidth - w) / 2 - 84 + decal) + "px", top: Math.max(8, (innerHeight - h) / 2 - 60 + decal / 2) + "px", width: w + "px", height: h + "px"});
+  const titre = a.n + (opts.projet ? " — " + opts.projet : "");
+  el.innerHTML = `<div class="tb"><span class="e">${a.e}</span><b>${esc(titre)}</b><button class="mi" title="Réduire">—</button><button class="ma" title="Agrandir">▢</button><button class="x" title="Fermer">✕</button></div><div class="cache-iframe"></div><div class="poignee"></div>`;
+  if (a.interne) {
+    const t = document.createElement("textarea"); t.className = "notes"; t.spellcheck = false;
+    t.placeholder = "Tes notes de travail… (gardées dans ce navigateur, sur ce PC)";
+    try { t.value = localStorage.getItem("tilabo-notes") || ""; } catch (_) {}
+    t.oninput = () => { try { localStorage.setItem("tilabo-notes", t.value); } catch (_) {} };
+    el.insertBefore(t, el.querySelector(".cache-iframe"));
+    setTimeout(() => t.focus(), 60);
+  } else {
+    const f = document.createElement("iframe");
+    f.src = "/index.html?cadre=1&vue=" + encodeURIComponent(a.id) + (opts.projet ? "&projet=" + encodeURIComponent(opts.projet) : "");
+    f.title = titre;
+    el.insertBefore(f, el.querySelector(".cache-iframe"));
+  }
+  document.body.appendChild(el);
+  const fen = {cle, a, el, titre}; fenetres.push(fen);
+  if (innerWidth < 900) el.classList.add("max");
+  el.addEventListener("pointerdown", () => activer(fen), true);
+  el.querySelector(".x").onclick = () => fermer(fen);
+  el.querySelector(".mi").onclick = (e) => { e.stopPropagation(); el.classList.add("min"); dessinerTaches(); };
+  el.querySelector(".ma").onclick = () => el.classList.toggle("max");
+  const tb = el.querySelector(".tb");
+  tb.ondblclick = (e) => { if (e.target.tagName !== "BUTTON") el.classList.toggle("max"); };
+  glisser(tb, (dx, dy, o) => { if (el.classList.contains("max")) return; el.style.left = o.l + dx + "px"; el.style.top = Math.max(0, o.t + dy) + "px"; }, () => ({l: el.offsetLeft, t: el.offsetTop}));
+  glisser(el.querySelector(".poignee"), (dx, dy, o) => { el.style.width = Math.max(360, o.w + dx) + "px"; el.style.height = Math.max(240, o.h + dy) + "px"; }, () => ({w: el.offsetWidth, h: el.offsetHeight}));
+  activer(fen);
+}
+function glisser(poignee, bouger, depart) {
+  poignee.addEventListener("pointerdown", (e) => {
+    if (e.target.tagName === "BUTTON") return;
+    const x0 = e.clientX, y0 = e.clientY, o = depart();
+    document.body.classList.add("glisse");
+    const mv = (ev) => bouger(ev.clientX - x0, ev.clientY - y0, o);
+    const fin = () => { document.body.classList.remove("glisse"); removeEventListener("pointermove", mv); removeEventListener("pointerup", fin); };
+    addEventListener("pointermove", mv); addEventListener("pointerup", fin);
+  });
+}
+function activer(fen) {
+  fenetres.forEach((f) => f.el.classList.toggle("active", f === fen));
+  fen.el.style.zIndex = ++zMax; dessinerTaches();
+}
+function fermer(fen) {
+  fen.el.remove(); fenetres = fenetres.filter((f) => f !== fen);
+  const reste = fenetres.filter((f) => !f.el.classList.contains("min")).pop();
+  reste ? activer(reste) : dessinerTaches();
+}
+function dessinerTaches() {
+  const T = $("#taches"); T.innerHTML = "";
+  const ids = [...EPINGLES];
+  fenetres.forEach((f) => { if (!ids.includes(f.cle)) ids.push(f.cle); });
+  ids.forEach((cle) => {
+    const fen = fenetres.find((f) => f.cle === cle), a = fen ? fen.a : app(cle);
+    const b = document.createElement("button"); b.className = "tache"; b.textContent = a.e; b.title = fen ? fen.titre : a.n;
+    if (fen) { b.classList.add("ouverte"); if (fen.el.classList.contains("active") && !fen.el.classList.contains("min")) b.classList.add("active"); }
+    b.onclick = () => {
+      if (!fen) return lancer(a);
+      if (fen.el.classList.contains("min")) { fen.el.classList.remove("min"); activer(fen); }
+      else if (fen.el.classList.contains("active")) { fen.el.classList.add("min"); fen.el.classList.remove("active"); dessinerTaches(); }
+      else activer(fen);
+    };
+    T.appendChild(b);
+  });
+}
+
+// ------------------------------------------------------------ menu demarrer
+function ouvrirMenu() { $("#menu").classList.add("ouvert"); remplirMenu(""); $("#cherche").value = ""; setTimeout(() => $("#cherche").focus(), 30); }
+function fermerMenu() { $("#menu").classList.remove("ouvert"); }
+function remplirMenu(q) {
+  q = q.trim().toLowerCase();
+  const C = $("#menuCorps"); C.innerHTML = "";
+  const as = APPS.filter((a) => !q || a.n.toLowerCase().includes(q));
+  if (as.length) {
+    C.insertAdjacentHTML("beforeend", "<h5>" + (q ? "Applis" : "Épinglées") + "</h5>");
+    const g = document.createElement("div"); g.className = "grille"; as.forEach((a) => g.appendChild(icone(a, true))); C.appendChild(g);
+  }
+  const ps = projets.filter((p) => !q || p.nom.toLowerCase().includes(q)).slice(0, q ? 20 : 6);
+  if (ps.length) {
+    C.insertAdjacentHTML("beforeend", "<h5>" + (q ? "Projets" : "Projets récents") + "</h5>");
+    ps.forEach((p) => {
+      const d = document.createElement("div"); d.className = "proj";
+      d.innerHTML = `📁 <span>${esc(p.nom)}</span><small>${esc(p.langage || "")} · ${p.fichiers} fichiers</small>`;
+      d.onclick = () => { fermerMenu(); lancer(app("codex"), {projet: p.nom}); };
+      C.appendChild(d);
+    });
+  }
+  if (!as.length && !ps.length) C.insertAdjacentHTML("beforeend", '<p class="vide" style="padding:8px">Rien trouvé.</p>');
+}
+$("#demarrer").onclick = (e) => { e.stopPropagation(); $("#menu").classList.contains("ouvert") ? fermerMenu() : ouvrirMenu(); };
+$("#cherche").oninput = (e) => remplirMenu(e.target.value);
+$("#cherche").onkeydown = (e) => { if (e.key === "Enter") { const b = $("#menuCorps .ico, #menuCorps .proj"); if (b) b.click(); } if (e.key === "Escape") fermerMenu(); };
+document.addEventListener("pointerdown", (e) => {
+  if (!e.target.closest("#menu") && !e.target.closest("#demarrer")) fermerMenu();
+  if (!e.target.closest("#ctx")) $("#ctx").style.display = "none";
+});
+addEventListener("keydown", (e) => { if (e.key === "Meta" || (e.ctrlKey && e.key === "Escape")) { e.preventDefault(); ouvrirMenu(); } });
+async function choisirBureau(v) {
+  try { await api("parametres", {interface: v}); } catch (_) {}
+  if (v === "classique") location.href = "/classique";
+  else $("#choix").hidden = true;
+}
+function demanderBureau() {
+  $("#choix").hidden = false;
+  return new Promise((ok) => document.querySelectorAll("#choix .opt").forEach((b) => (b.onclick = async () => { await choisirBureau(b.dataset.choix); ok(); })));
+}
+$("#btClassique").onclick = () => { fermerMenu(); demanderBureau(); };
+$("#btVerrou").onclick = () => { window.TILABO_JETON = ""; fenetres.slice().forEach(fermer); verrouiller(); };
+document.querySelectorAll("[data-ouvre]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); lancer(app(b.dataset.ouvre)); }));
+$("#gAgenda").onclick = () => lancer(app("agenda"));
+
+// menu contextuel du bureau
+$("#bureau").addEventListener("contextmenu", (e) => {
+  if (e.target.closest(".ico")) return;
+  e.preventDefault();
+  const m = $("#ctx");
+  m.innerHTML = "<div data-c='rafr'>🔄 Actualiser</div><div data-c='fond'>🖼️ Changer le fond d'écran</div><div data-c='explo'>🗄️ Ouvrir le dossier des projets</div><div data-c='param'>⚙️ Paramètres</div>" +
+    (window.TiNoel ? "<div data-c='noel'>🎄 Thème de Noël : " + (TiNoel.actif() ? "désactiver" : "activer") + "</div>" : "");
+  Object.assign(m.style, {display: "block", left: Math.min(e.clientX, innerWidth - 240) + "px", top: Math.min(e.clientY, innerHeight - 220) + "px"});
+  m.onclick = (ev) => {
+    const c = ev.target.dataset.c; m.style.display = "none";
+    if (c === "rafr") rafraichir();
+    if (c === "fond") changerFond();
+    if (c === "explo") lancer(app("explorateur"));
+    if (c === "param") lancer(app("parametres"));
+    if (c === "noel" && window.TiNoel) TiNoel.basculer();
+  };
+});
+const FONDS = ["", "radial-gradient(1000px 700px at 20% 85%,#4a1606,#050505 70%)", "linear-gradient(160deg,#0b1026,#050505 62%)", "radial-gradient(900px 700px at 70% 10%,#0f2a17,#050505 70%)", "linear-gradient(135deg,#1f2937,#0b0b0c 70%)"];
+function changerFond() {
+  let i = 0; try { i = (+localStorage.getItem("tilabo-fond-pc") + 1) % FONDS.length; localStorage.setItem("tilabo-fond-pc", i); } catch (_) {}
+  appliquerFond(i);
+}
+function appliquerFond(i) { $("#fond").style.setProperty("--fond-img", FONDS[i] || null); if (!FONDS[i]) $("#fond").style.removeProperty("--fond-img"); }
+
+// ------------------------------------------------------------ heure, meteo, agenda, projets
+function heure() {
+  const d = new Date(), h = d.toLocaleTimeString("fr-CA", {hour: "2-digit", minute: "2-digit"});
+  $("#gHeure").textContent = h; $("#vHeure").textContent = h;
+  $("#gDate").textContent = d.toLocaleDateString("fr-CA", {weekday: "long", day: "numeric", month: "long", year: "numeric"});
+  $("#horloge").innerHTML = h + "<br>" + d.toLocaleDateString("fr-CA");
+}
+const CODES = [[0, "☀️", "Ensoleillé"], [1, "🌤️", "Plutôt clair"], [2, "⛅", "Partiellement nuageux"], [3, "☁️", "Nuageux"], [48, "🌫️", "Brouillard"],
+  [57, "🌦️", "Bruine"], [67, "🌧️", "Pluie"], [77, "❄️", "Neige"], [82, "🌧️", "Averses"], [86, "🌨️", "Averses de neige"], [99, "⛈️", "Orages"]];
+const code = (c) => CODES.find(([n]) => c <= n) || CODES[CODES.length - 1];
+function ville() { try { return localStorage.getItem("tilabo-ville") || "Normandin"; } catch (_) { return "Normandin"; } }
+async function meteo() {
+  $("#nomVille").textContent = ville();
+  const C = $("#meteoCorps");
+  if (!(etatTL.params && etatTL.params.internet)) {
+    C.className = "vide";
+    C.innerHTML = "La météo utilise Internet. Le Ti-Labo est en mode 100 % hors-ligne : permets Internet dans <a href='#' id='lienParam' style='color:var(--or2)'>Paramètres</a> pour l'afficher.";
+    $("#lienParam").onclick = (e) => { e.preventDefault(); lancer(app("parametres")); };
+    return;
+  }
+  try {
+    const g = await (await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=fr&name=" + encodeURIComponent(ville()))).json();
+    const l = g.results && g.results[0]; if (!l) throw new Error("Ville introuvable");
+    const m = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${l.latitude}&longitude=${l.longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=4`)).json();
+    const [, e, desc] = code(m.current.weather_code);
+    const jours = m.daily.time.slice(1, 4).map((t, i) => {
+      const k = i + 1, [, ej] = code(m.daily.weather_code[k]);
+      return `<div>${new Date(t + "T12:00").toLocaleDateString("fr-CA", {weekday: "short"})}<span>${ej}</span>${Math.round(m.daily.temperature_2m_max[k])}° / ${Math.round(m.daily.temperature_2m_min[k])}°</div>`;
+    }).join("");
+    C.className = "";
+    C.innerHTML = `<div class="met"><span class="e">${e}</span><div><b>${Math.round(m.current.temperature_2m)}°C</b><small>${desc} · ressenti ${Math.round(m.current.apparent_temperature)}° · vent ${Math.round(m.current.wind_speed_10m)} km/h</small><small>${esc(l.name)}${l.admin1 ? ", " + esc(l.admin1) : ""}</small></div></div><div class="jours">${jours}</div>`;
+  } catch (err) { C.className = "vide"; C.textContent = "Météo indisponible pour le moment (" + err.message + ")."; }
+}
+$("#btVille").onclick = () => {
+  const v = prompt("Ville pour la météo :", ville());
+  if (v && v.trim()) { try { localStorage.setItem("tilabo-ville", v.trim()); } catch (_) {} meteo(); }
+};
+const jourISO = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+async function agenda() {
+  try {
+    const j = await api("agenda"), s = jourISO(new Date());
+    let l = (j.evenements || []).filter((e) => (e.debut || "").slice(0, 10) === s);
+    if (window.TiAgenda && TiAgenda.occurrences) l = (TiAgenda.occurrences(j.evenements || [], s, s)[s] || []).map((o) => o.ev);
+    l.sort((a, b) => (a.debut || "").localeCompare(b.debut || ""));
+    $("#gEvts").className = l.length ? "" : "vide";
+    $("#gEvts").innerHTML = l.length ? l.slice(0, 5).map((e) => `<div class="ev"><b>${e.journee || (e.debut || "").length <= 10 ? "Jour" : e.debut.slice(11, 16)}</b><span>${esc(e.titre)}</span></div>`).join("") : "Rien de prévu aujourd'hui ✨";
+  } catch (_) { $("#gEvts").textContent = "—"; }
+}
+async function chargerProjets() {
+  try { projets = await api("projets"); } catch (_) { projets = []; }
+  const P = $("#gProjets");
+  P.className = projets.length ? "" : "vide";
+  P.innerHTML = projets.length ? "" : "Aucun projet pour l'instant. Ouvre 📁 Mes projets pour en créer un.";
+  projets.slice(0, 5).forEach((p) => {
+    const d = document.createElement("div"); d.className = "proj";
+    d.innerHTML = `📁 <span>${esc(p.nom)}</span><small>${esc(p.langage || "")}</small>`;
+    d.onclick = () => lancer(app("codex"), {projet: p.nom});
+    P.appendChild(d);
+  });
+}
+async function etat() {
+  try {
+    etatTL = await api("etat");
+    $("#ptIA").className = "pt" + (etatTL.ollama ? " on" : "");
+    $("#ptNet").style.opacity = etatTL.params.internet ? 1 : .35;
+    $("#ptNet").title = etatTL.params.internet ? "Internet permis" : "100 % hors-ligne";
+    $("#libre").textContent = "💾 " + etatTL.libre_go + " Go";
+    $("#btVerrou").hidden = !etatTL.params.mot_de_passe;
+    $("#gEtat").innerHTML = `<span class="pastille"><i class="pt ${etatTL.ollama ? "on" : ""}"></i>IA ${etatTL.ollama ? "en marche" : "arrêtée"}</span>` +
+      `<span class="pastille"><i class="pt ${etatTL.params.internet ? "warn" : "on"}"></i>${etatTL.params.internet ? "Internet permis" : "100 % hors-ligne"}</span>` +
+      `<span class="pastille">💾 ${etatTL.libre_go} Go libres · ${esc(etatTL.lecteur || "")}</span>`;
+  } catch (_) {}
+}
+async function rafraichir() { await etat(); chargerProjets(); agenda(); meteo(); }
+
+// ------------------------------------------------------------ verrouillage (le meme mot de passe que le Ti-Labo)
+function verrouiller() {
+  return new Promise((ok) => {
+    const v = $("#verrou"), champ = $("#vMdp"), msg = $("#vMsg");
+    v.hidden = false; msg.textContent = ""; setTimeout(() => champ.focus(), 50);
+    $("#formVerrou").onsubmit = async (e) => {
+      e.preventDefault(); msg.textContent = "Vérification…";
+      try {
+        const r = await fetch("/api/verrou/entrer", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({mot_de_passe: champ.value})});
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.erreur || "Mot de passe refusé");
+        window.TILABO_JETON = j.jeton; champ.value = ""; v.hidden = true; ok();
+      } catch (err) { msg.textContent = err.message; champ.select(); }
+    };
+  });
+}
+
+(async () => {
+  heure(); setInterval(heure, 10000);
+  try { appliquerFond(+localStorage.getItem("tilabo-fond-pc") || 0); } catch (_) {}
+  if (!window.TILABO_JETON) await verrouiller();
+  dessinerBureau(); dessinerTaches();
+  await rafraichir();
+  if (etatTL.params && !etatTL.params.interface) await demanderBureau();
+  setInterval(etat, 30000); setInterval(agenda, 120000); setInterval(meteo, 30 * 60000);
+  const q = new URLSearchParams(location.search).get("ouvrir");
+  if (q && app(q)) lancer(app(q));
+})();
+</script>
+<script src="/web/agenda.js"></script>
+<script src="/web/noel.js" data-barre="52px"></script>
+</body>
+</html>
