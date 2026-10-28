@@ -9,7 +9,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 /**
- * Fond d'écran de la conversation : le logo MARCEAU par défaut, ou une image
+ * Fond d'écran de la conversation : les yeux de démon par défaut, ou une image
  * choisie par l'utilisateur, affichée à 35 % de visibilité (réglable).
  */
 object FondEcran {
@@ -63,7 +63,7 @@ object FondEcran {
             vue.setImageBitmap(bitmap)
         } else {
             vue.scaleType = ImageView.ScaleType.FIT_CENTER
-            vue.setImageResource(R.drawable.logo_marceau)
+            vue.setImageResource(R.drawable.yeux_demon)
         }
         vue.imageAlpha = opacitePourcent.coerceIn(0, 100) * 255 / 100
     }

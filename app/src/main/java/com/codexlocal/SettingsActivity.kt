@@ -94,6 +94,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.etGithubToken.setText(prefs.githubToken)
         setupCommon()
         setupFond()
+        setupYeux()
         setupLocal()
         setupCatalog()
         setupProvider()
@@ -227,6 +228,55 @@ class SettingsActivity : AppCompatActivity() {
             it.isEnabled = isLocal
             it.alpha = if (isLocal) 1f else 0.4f
         }
+    }
+
+    // --------------------------------------------------------------- yeux
+
+    private fun setupYeux() {
+        val densite = resources.displayMetrics.density
+        val taille = (44 * densite).toInt()
+        val espace = (10 * densite).toInt()
+        val pastilles = mutableListOf<Pair<String, View>>()
+
+        fun rafraichir() {
+            val cle = prefs.yeuxCouleur
+            val choix = YeuxDemon.COULEURS.firstOrNull { it.cle == cle } ?: YeuxDemon.COULEURS.first()
+            binding.tvYeuxCouleur.text = getString(R.string.yeux_couleur, choix.nom)
+            for ((c, vue) in pastilles) {
+                val coul = YeuxDemon.COULEURS.first { it.cle == c }.couleur
+                vue.background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(coul)
+                    if (c == choix.cle) setStroke((3 * densite).toInt(), 0xFFECECEC.toInt())
+                }
+            }
+            binding.apercuYeux.appliquerReglages()
+        }
+
+        for (choix in YeuxDemon.COULEURS) {
+            val pastille = View(this).apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(taille, taille).apply {
+                    marginEnd = espace
+                }
+                contentDescription = choix.nom
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    prefs.yeuxCouleur = choix.cle
+                    rafraichir()
+                    binding.apercuYeux.reagir()
+                }
+            }
+            pastilles += choix.cle to pastille
+            binding.rangeeCouleursYeux.addView(pastille)
+        }
+
+        binding.swYeuxAnimes.isChecked = prefs.yeuxToujoursAnimes
+        binding.swYeuxAnimes.setOnCheckedChangeListener { _, actif ->
+            prefs.yeuxToujoursAnimes = actif
+            binding.apercuYeux.appliquerReglages()
+        }
+        rafraichir()
     }
 
     // ---------------------------------------------------------- fond d'ecran

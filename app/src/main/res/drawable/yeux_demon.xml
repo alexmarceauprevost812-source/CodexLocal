@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Les deux yeux de démon orange (petit format : barre du haut, tiroir) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="16dp"
+    android:viewportWidth="150"
+    android:viewportHeight="60">
+    <path android:fillColor="#FFFF7A00"
+        android:pathData="M4,10 L68,30 C64,46 50,54 34,52 C16,50 6,36 4,10 Z" />
+    <path android:fillColor="#FFFF7A00"
+        android:pathData="M146,10 L82,30 C86,46 100,54 116,52 C134,50 144,36 146,10 Z" />
+</vector>
