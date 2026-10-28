@@ -831,6 +831,8 @@ def annuler_changement(ident):
 INVITE_JASETTE = ("Tu es l'IA locale du Ti-Labo d'Alex, qui roule sur sa cle USB-C. "
                   "Reponds en francais quebecois naturel, clair et direct.")
 INVITE_CODEX = ("Tu es le Codex du Ti-Labo : un assistant de programmation local. Reponds en francais. "
+                "Tu fais du CODE seulement : pas de schema, pas de diagramme mermaid, pas de long plan "
+                "(les plans et schemas se font dans la Jasette). "
                 "Explique simplement, donne du code complet et pret a coller dans des blocs ``` avec le langage. "
                 "Quand on te donne un fichier, base-toi dessus et indique precisement quoi changer.")
 INVITE_OUTILS = ("\n\nTu as des outils : recherche_web, lire_page, chercher_code_github, chercher_mes_projets. "
@@ -1151,7 +1153,10 @@ class Gestion(BaseHTTPRequestHandler):
             outils += OUTILS_COMMANDE
             systeme += INVITE_AGENT
             self._tours = 30
-        systeme += INVITE_SCHEMA if d.get("schema") else INVITE_SCHEMA_TOUJOURS
+        if mode == "codex":
+            d["plan"] = None if d.get("plan") != "executer" else "executer"
+        else:
+            systeme += INVITE_SCHEMA if d.get("schema") else INVITE_SCHEMA_TOUJOURS
         if d.get("plan") == "planifier":
             systeme += INVITE_PLAN
         elif d.get("plan") == "executer":

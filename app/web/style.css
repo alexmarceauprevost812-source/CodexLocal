@@ -268,3 +268,13 @@ label.lib{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 .carte-autorisation{border:1px solid var(--accent);border-radius:10px;background:var(--accent-bg);padding:10px 12px;margin:4px 0;display:flex;flex-direction:column;gap:8px}
 .carte-autorisation > div:first-child{display:flex;align-items:center;gap:8px;color:var(--accent)}
 .carte-autorisation pre{margin:0;padding:8px 10px;background:#000;border:1px solid var(--border);border-radius:8px;font:13px var(--mono);white-space:pre-wrap;word-break:break-all;color:#fff}
+
+/* ---------- Codex au centre (meme interface que la Jasette) */
+.droite{display:none}
+#v-codex{flex-direction:column}
+.barre-codex{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--panel)}
+.barre-codex .contexte{border:none;padding:0}
+#v-codex .resultats-trouve{padding:10px 14px;background:var(--panel)}
+.apercu-fichier{margin:2px 0 8px}
+.apercu-fichier pre{max-height:320px}
+#v-codex.actif{gap:0}

@@ -37,14 +37,13 @@
     <div class="points" aria-hidden="true"><span style="background:#FF5F3A"></span><span style="background:#FFB020"></span><span style="background:var(--green)"></span></div>
     <div class="logo">
       <svg class="ic" style="width:26px;height:26px;color:var(--accent)"><use href="#i-terminal"/></svg>
-      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v2.4</span><small>mon ti-univers · laboratoire de dev local</small>
+      <b>Ti-Labo</b><span class="tag or" title="Version du Ti-Labo">v2.5</span><small>mon ti-univers · laboratoire de dev local</small>
     </div>
     <div class="espace"></div>
     <span class="pastille" id="p-ia"><i class="pt"></i>IA : …</span>
     <span class="pastille" id="p-net"><i class="pt"></i>Internet</span>
     <span class="pastille ok"><svg class="ic" style="width:14px;height:14px;color:var(--green)"><use href="#i-cle"/></svg><span id="p-cle">Clé USB-C</span></span>
     <button class="btn-ic actif" id="bt-gauche" aria-label="Ouvrir ou fermer le panneau de gauche" aria-pressed="true"><svg class="ic"><use href="#i-gauche"/></svg></button>
-    <button class="btn-ic actif" id="bt-droite" aria-label="Ouvrir ou fermer le Codex à droite" aria-pressed="true"><svg class="ic"><use href="#i-droite"/></svg></button>
   </header>
 
   <div class="corps">
@@ -53,6 +52,7 @@
       <button class="nav actif" data-vue="bureau"><svg class="ic"><use href="#i-bureau"/></svg>Bureau</button>
       <button class="nav" data-vue="projets"><svg class="ic"><use href="#i-dossier"/></svg>Mes projets<span class="compte" id="nb-projets"></span></button>
       <button class="nav" data-vue="jasette"><svg class="ic"><use href="#i-bulle"/></svg>Jasette</button>
+      <button class="nav" data-vue="codex"><svg class="ic"><use href="#i-terminal"/></svg>Codex</button>
       <button class="nav" data-vue="studio"><svg class="ic"><use href="#i-studio"/></svg>Studio</button>
       <button class="nav" data-vue="images"><svg class="ic"><use href="#i-pinceau"/></svg>Images</button>
       <div class="section-nav">La clé</div>
@@ -131,6 +131,20 @@
 
       <!-- Jasette -->
       <section class="vue plein" id="v-jasette" aria-label="Jasette"><div class="chat" id="chat-jasette"></div></section>
+
+      <!-- Codex : meme interface que la Jasette -->
+      <section class="vue plein" id="v-codex" aria-label="Codex">
+        <div class="barre-codex">
+          <label class="sous" for="codex-projet" style="margin:0">Projet</label>
+          <select class="champ" id="codex-projet" style="width:auto;min-width:180px"></select>
+          <span class="contexte" id="codex-contexte">aucun fichier ouvert</span>
+          <span class="espace" style="flex:1"></span>
+          <input class="champ" id="trouve-q" placeholder="Trouve mes projets… (ex. scanner wifi)" aria-label="Retrouver un projet" style="max-width:280px">
+          <button class="btn petit" id="bt-trouve" aria-label="Chercher dans mes projets"><svg class="ic"><use href="#i-loupe"/></svg></button>
+        </div>
+        <div class="resultats-trouve" id="trouve-res"></div>
+        <div class="chat" id="chat-codex"></div>
+      </section>
 
       <!-- Studio -->
       <section class="vue" id="v-studio" aria-label="Studio">
@@ -251,17 +265,6 @@
       </section>
     </main>
 
-    <!-- ================= panneau droit : Codex -->
-    <aside class="droite" id="droite" aria-label="Codex">
-      <div class="titre-codex"><svg class="ic" style="color:var(--accent)"><use href="#i-terminal"/></svg><b>Codex</b><span class="sous" style="margin:0;font-size:12px">assistant de code local</span></div>
-      <div class="trouve">
-        <input class="champ" id="trouve-q" placeholder="Trouve mes projets… (ex. scanner wifi)" aria-label="Retrouver un projet">
-        <button class="btn petit" id="bt-trouve" aria-label="Chercher dans mes projets"><svg class="ic"><use href="#i-loupe"/></svg></button>
-      </div>
-      <div class="resultats-trouve" id="trouve-res"></div>
-      <div class="contexte" id="codex-contexte">Contexte : aucun fichier</div>
-      <div class="chat" id="chat-codex"></div>
-    </aside>
   </div>
 </div>
 <div id="verrou" hidden>

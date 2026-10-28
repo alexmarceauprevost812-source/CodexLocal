@@ -177,15 +177,15 @@ function creerChat(conteneur, mode) {
   conteneur.innerHTML = `
     <div class="options">
       <select class="champ" aria-label="Modèle d'IA"></select>
-      <select class="champ" data-s="plan" aria-label="Façon de travailler" title="Plan : l'IA réfléchit d'abord à un plan" style="width:auto">
+      ${mode === "codex" ? "" : `<select class="champ" data-s="plan" aria-label="Façon de travailler" title="Plan : l'IA réfléchit d'abord à un plan" style="width:auto">
         <option value="direct">Direct</option>
         <option value="auto">Plan puis code (sans attendre)</option>
         <option value="valider">Plan à valider</option>
-      </select>
+      </select>`}
       ${mode === "codex" ? `<label class="interrupteur" title="Le Codex crée et modifie les fichiers du projet ouvert"><input type="checkbox" data-o="ecriture"><span class="rail"></span>${ic("dossier")}Écrire les fichiers</label>
       <label class="interrupteur" title="Agent : travaille seul jusqu'au bout, teste son code avec des commandes (tu autorises chaque commande)"><input type="checkbox" data-o="agent"><span class="rail"></span>${ic("terminal")}Agent</label>` : ""}
       <label class="interrupteur" title="L'IA peut chercher sur Internet si elle en a besoin"><input type="checkbox" data-o="internet"><span class="rail"></span>${ic("globe")}Internet</label>
-      <label class="interrupteur" title="L'IA répond avec un schéma animé (exportable en vidéo)"><input type="checkbox" data-o="schema"><span class="rail"></span>${ic("studio")}Schéma</label>
+      ${mode === "codex" ? "" : `<label class="interrupteur" title="L'IA répond avec un schéma animé (exportable en vidéo)"><input type="checkbox" data-o="schema"><span class="rail"></span>${ic("studio")}Schéma</label>`}
       <label class="interrupteur" title="Utiliser la mémoire de la clé"><input type="checkbox" data-o="memoire"><span class="rail"></span>${ic("memoire")}Mémoire</label>
       <span class="espace"></span>
       <button class="btn petit" data-o="vider">Nouvelle jasette</button>
@@ -204,7 +204,8 @@ function creerChat(conteneur, mode) {
   const apercus = $(".apercus", conteneur), entreeImg = $(`#${id}-img`, conteneur);
   const btEnvoyer = $('[data-o="envoyer"]', conteneur);
   const cases = Object.fromEntries($$("input[data-o]", conteneur).map((c) => [c.dataset.o, c]));
-  const choixPlan = $('[data-s="plan"]', conteneur);
+  // Le Codex n'a pas de plan ni de schema : ca se fait dans la Jasette
+  const choixPlan = $('[data-s="plan"]', conteneur) || { value: "direct", addEventListener() {} };
   const cleStock = "tilabo-" + mode;
   let hist = [], images = [], controleur = null;
 
@@ -276,8 +277,8 @@ function creerChat(conteneur, mode) {
 
   function accueil() {
     fil.innerHTML = `<div class="vide">${mode === "codex"
-      ? "Le Codex travaille dans le projet ouvert : il lit, crée et modifie les fichiers lui-même.<br>Chaque changement peut être annulé. Choisis « Plan à valider » si tu veux approuver avant."
-      : "Jase avec ton IA locale. Joins une image pour qu'elle la regarde (modèle « vision »)."}</div>`;
+      ? "Choisis un projet en haut. Le Codex écrit le code directement dans tes fichiers et te le montre ici.<br>Chaque changement peut être annulé. Pour les plans et les schémas, va dans la Jasette."
+      : "Jase avec ton IA locale : idées, plans et schémas animés (exportables en vidéo).<br>Joins une image pour qu'elle la regarde (modèle « vision »)."}</div>`;
   }
   accueil();
 
@@ -300,11 +301,11 @@ function creerChat(conteneur, mode) {
     const facon = choixPlan.value;
     const plan = planForce ?? (facon === "direct" ? null : "planifier");
     if (mode === "codex" && cases.ecriture?.checked && !etat.projet && !texteForce)
-      toast("Ouvre un projet dans « Mes projets » pour que le Codex puisse écrire dans tes fichiers.");
+      toast("Choisis un projet en haut du Codex pour qu'il puisse écrire dans tes fichiers.");
 
     const d = document.createElement("div");
     d.className = "msg assistant";
-    const auCentre = mode === "codex";
+    const auCentre = false; // Codex et Jasette : meme interface, tout dans la conversation
     d.innerHTML = `<div class="qui">${esc(sel.value)}${plan === "planifier" ? ' <span class="tag or">plan</span>' : ""}</div><div class="etapes"></div>` +
       (auCentre ? `<div class="renvoi">${ic("bureau")}Réponse écrite au centre</div>` : `<div class="contenu curseur"></div>`);
     fil.appendChild(d);
@@ -324,7 +325,7 @@ function creerChat(conteneur, mode) {
     try {
       const r = await api("jasette", {
         mode, modele: sel.value, messages: hist, plan,
-        internet: cases.internet.checked, memoire: cases.memoire.checked, schema: cases.schema.checked,
+        internet: cases.internet.checked, memoire: cases.memoire.checked, schema: !!cases.schema?.checked,
         fichier: mode === "codex" ? etat.fichier : null, projet: etat.projet,
         ecriture: mode === "codex" && (!!cases.ecriture?.checked || !!cases.agent?.checked),
         agent: mode === "codex" && !!cases.agent?.checked,
@@ -345,7 +346,7 @@ function creerChat(conteneur, mode) {
       if (e.name !== "AbortError") { await ecrivain.terminer(); contenu.insertAdjacentHTML("beforeend", `<p style="color:var(--red)">${esc(e.message)}</p>`); }
     } finally {
       await ecrivain.terminer();
-      if (window.TiSchemas) TiSchemas.activer(contenu).catch(() => {});
+      if (window.TiSchemas && mode !== "codex") TiSchemas.activer(contenu).catch(() => {});
       zoneDefile.removeEventListener("scroll", surDefilement);
       contenu.classList.remove("curseur");
       if (auCentre) $("#sc-etat").textContent = "";
@@ -363,9 +364,10 @@ function creerChat(conteneur, mode) {
     if (reponse && plan === "planifier") {
       const a = document.createElement("div");
       a.className = "plan-actions";
-      a.innerHTML = `<button class="btn prim petit">Approuver et coder</button><button class="btn petit">Corriger le plan</button>`;
+      a.innerHTML = `<button class="btn prim petit">Envoyer au Codex</button><button class="btn petit">Corriger le plan</button>`;
       const [ok, corriger] = $$("button", a);
-      ok.onclick = () => { a.remove(); envoyer("Le plan est approuvé. Vas-y, code-le.", "executer"); };
+      // Le plan se fait dans la Jasette, le code dans le Codex
+      ok.onclick = () => { a.remove(); allerA("codex"); codex.envoyer("Réalise ce plan dans le projet :\n\n" + reponse); };
       corriger.onclick = () => { a.remove(); zone.placeholder = "Dis ce qu'il faut changer dans le plan…"; zone.focus(); };
       d.appendChild(a);
     }
@@ -406,6 +408,19 @@ function sortieCommande(c) {
   if (etat.projet) choisirProjetSilencieux().catch(() => {});
 }
 
+/* ------------------------------------------------------------ projet du Codex */
+async function rendreCodexProjets() {
+  await chargerListeProjets();
+  const sel = $("#codex-projet");
+  sel.innerHTML = `<option value="">— choisis un projet —</option>` +
+    etat.projets.map((p) => `<option ${p.nom === etat.projet ? "selected" : ""}>${esc(p.nom)}</option>`).join("");
+  sel.onchange = async () => {
+    if (!sel.value) return;
+    await choisirProjet(sel.value);
+    $("#codex-contexte").textContent = etat.fichier ? "fichier ouvert : " + etat.fichier.split("/").slice(1).join("/") : "aucun fichier ouvert";
+  };
+}
+
 /* ------------------------------------------------------------ sortie du Codex au centre */
 function ouvrirSortieCentre(modele, plan) {
   if (!$("#v-projets").classList.contains("actif")) {
@@ -441,6 +456,13 @@ function carteFichier(zone, f) {
   el.innerHTML = `${ic("dossier")}<span><b>${verbe}</b> <code>${esc(f.chemin)}</code> <span class="plus">+${f.plus}</span> <span class="moins">−${f.moins}</span></span>
     <span class="espace" style="flex:1"></span>
     <button class="btn petit" data-f-ouvrir>Ouvrir</button><button class="btn petit danger" data-f-annuler>Annuler</button>`;
+  const apercu = document.createElement("div");
+  apercu.className = "bloc-code apercu-fichier";
+  apercu.innerHTML = `<pre><code>…</code></pre>`;
+  api("fichier?chemin=" + encodeURIComponent(f.chemin)).then((r) => {
+    $("code", apercu).innerHTML = TiCouleurs.colorer(r.contenu, TiCouleurs.langueDe(f.chemin));
+  }).catch(() => apercu.remove());
+  setTimeout(() => el.after(apercu), 0);
   $("[data-f-ouvrir]", el).onclick = async () => {
     allerA("projets");
     const projet = f.chemin.split("/")[0];
@@ -453,6 +475,7 @@ function carteFichier(zone, f) {
     try {
       await api("fichier/annuler", { sauvegarde: f.sauvegarde });
       el.classList.add("annule");
+      apercu.remove();
       b.textContent = "Annulé";
       apresModifs(new Set([f.chemin]));
     } catch (err) { toast(err.message); b.disabled = false; }
@@ -483,11 +506,8 @@ function montrerAuCentre(f) {
 async function ecrireAuCentre(f) {
   if (etat.modifie) return; // ne jamais ecraser du travail non enregistre
   const projet = f.chemin.split("/")[0];
-  if (!$("#v-projets").classList.contains("actif")) {
-    $$(".vue").forEach((v) => v.classList.toggle("actif", v.id === "v-projets"));
-    $$(".nav").forEach((n) => n.classList.toggle("actif", n.dataset.vue === "projets"));
-    await chargerProjets();
-  }
+  // Depuis la vue Codex, on reste dans la conversation : l'apercu du code est dans la carte du fichier
+  if (!$("#v-projets").classList.contains("actif")) return;
   if (etat.projet !== projet) await choisirProjet(projet);
   else await choisirProjetSilencieux().catch(() => {});
   const changeDeFichier = etat.fichier !== f.chemin;
@@ -496,7 +516,7 @@ async function ecrireAuCentre(f) {
   if (changeDeFichier) await animerChangement(f);
   etat.fichier = f.chemin;
   $("#nom-fichier").textContent = f.chemin;
-  $("#codex-contexte").textContent = "Projet : " + projet + " · fichier ouvert : " + f.chemin.split("/").slice(1).join("/");
+  $("#codex-contexte").textContent = "fichier ouvert : " + f.chemin.split("/").slice(1).join("/");
   ["#bt-expliquer", "#bt-dossier", "#bt-sauver"].forEach((x) => ($(x).disabled = false));
   $$("#arbre [data-f]").forEach((b) => b.classList.toggle("actif", b.dataset.f === f.chemin));
   const nouveau = r.contenu;
@@ -556,13 +576,6 @@ function fermerSurMobile(panneau, bouton) {
 }
 function allerA(vue) {
   fermerSurMobile("#gauche", "#bt-gauche");
-  if (vue !== "codex") fermerSurMobile("#droite", "#bt-droite");
-  if (vue === "codex") {
-    $("#droite").classList.remove("ferme");
-    $("#bt-droite").classList.add("actif");
-    codex.zone.focus();
-    return;
-  }
   $$(".vue").forEach((v) => v.classList.toggle("actif", v.id === "v-" + vue));
   $$(".nav").forEach((n) => n.classList.toggle("actif", n.dataset.vue === vue));
   if (vue === "projets") chargerProjets();
@@ -573,6 +586,7 @@ function allerA(vue) {
   if (vue === "parametres") rendreParametres();
   if (vue === "images") rendreImages();
   if (vue === "bureau") rendreBureau();
+  if (vue === "codex") { rendreCodexProjets(); setTimeout(() => codex.zone.focus(), 30); }
 }
 $$(".nav").forEach((n) => (n.onclick = () => allerA(n.dataset.vue)));
 $$("[data-aller]").forEach((n) => (n.onclick = () => allerA(n.dataset.aller)));
@@ -580,15 +594,14 @@ function bascule(bt, panneau) {
   bt.onclick = () => {
     const ferme = $(panneau).classList.toggle("ferme");
     if (!ferme && mobile()) {
-      const autre = panneau === "#gauche" ? ["#droite", "#bt-droite"] : ["#gauche", "#bt-gauche"];
-      fermerSurMobile(...autre);
+      /* un seul panneau maintenant */
     }
     bt.classList.toggle("actif", !ferme);
     bt.setAttribute("aria-pressed", String(!ferme));
   };
 }
 bascule($("#bt-gauche"), "#gauche");
-bascule($("#bt-droite"), "#droite");
+
 
 /* ------------------------------------------------------------ état général */
 async function rafraichirEtat() {
@@ -678,7 +691,8 @@ async function ouvrirFichier(chemin) {
     etat.fichier = chemin;
     $("#editeur").value = f.contenu;
     $("#nom-fichier").textContent = chemin;
-    $("#codex-contexte").textContent = "Projet : " + chemin.split("/")[0] + " · fichier ouvert : " + chemin.split("/").slice(1).join("/");
+    $("#codex-contexte").textContent = "fichier ouvert : " + chemin.split("/").slice(1).join("/");
+    if ($("#codex-projet")) $("#codex-projet").value = chemin.split("/")[0];
     ["#bt-expliquer", "#bt-dossier", "#bt-sauver"].forEach((s) => ($(s).disabled = false));
     $$("#arbre [data-f]").forEach((b) => b.classList.toggle("actif", b.dataset.f === chemin));
     marquerModifie(false);
@@ -1184,8 +1198,9 @@ $("#trouve-q").addEventListener("keydown", (e) => { if (e.key === "Enter") trouv
 
 /* ------------------------------------------------------------ démarrage */
 if (mobile()) {
-  ["#gauche", "#droite"].forEach((p) => $(p).classList.add("ferme"));
-  ["#bt-gauche", "#bt-droite"].forEach((b) => { $(b).classList.remove("actif"); $(b).setAttribute("aria-pressed", "false"); });
+  $("#gauche").classList.add("ferme");
+  $("#bt-gauche").classList.remove("actif");
+  $("#bt-gauche").setAttribute("aria-pressed", "false");
 }
 const jasette = creerChat($("#chat-jasette"), "jasette");
 const codex = creerChat($("#chat-codex"), "codex");
