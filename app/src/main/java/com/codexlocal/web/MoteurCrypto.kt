@@ -13,7 +13,10 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.codexlocal.agent.Reflexion
 import kotlin.math.abs
+import kotlin.math.floor
+import kotlin.math.log10
 
 /**
  * Prix des cryptomonnaies en direct (CoinGecko, sans clé).
@@ -70,8 +73,11 @@ object MoteurCrypto {
         val heure: Long,
     ) {
         private fun prix(valeur: Double, devise: String): String {
+            // Sous 1 $ : assez de décimales pour garder 4 chiffres significatifs (0,00000042 reste lisible).
+            val decimales = if (valeur >= 1 || valeur <= 0) 2
+            else (3 - floor(log10(valeur)).toInt()).coerceIn(2, 14)
             val format = NumberFormat.getNumberInstance(Locale.CANADA_FRENCH).apply {
-                maximumFractionDigits = if (valeur >= 1) 2 else 6
+                maximumFractionDigits = decimales
                 minimumFractionDigits = if (valeur >= 1) 2 else 0
             }
             return format.format(valeur) + " " + devise
@@ -109,7 +115,20 @@ object MoteurCrypto {
         fun annoter(message: Message) {
             require(!message.isUser)
             if (message.envoi == null) message.envoi = message.content
-            message.content = carte() + "\n\n" + message.content
+            message.content = avecCarte(message.content, carte())
+        }
+    }
+
+    /**
+     * Place la carte au début de la vraie réponse : après le raisonnement d'un modèle qui
+     * « réfléchit » (`<think>…</think>`), sinon elle serait repliée avec lui et invisible.
+     */
+    internal fun avecCarte(contenu: String, carte: String): String {
+        val decoupe = Reflexion.separer(contenu)
+        return when {
+            decoupe.reflexion == null -> carte + "\n\n" + contenu
+            decoupe.enCours -> contenu.trimEnd() + "\n</think>\n\n" + carte
+            else -> contenu.removeSuffix(decoupe.reponse).trimEnd() + "\n\n" + carte + "\n\n" + decoupe.reponse
         }
     }
 

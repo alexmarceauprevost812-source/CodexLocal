@@ -84,4 +84,26 @@ class ChatRicheTest {
         assertTrue(r.toString().contains(":feu: https://x.com"))
         assertEquals(0, r.getSpans(0, r.length, URLSpan::class.java).size)
     }
+
+    @Test fun cryptoCardStaysVisibleAfterReasoning() {
+        val carte = "![Bitcoin](https://coin-images.coingecko.com/b.png) **Bitcoin (BTC)**"
+        val apres = MoteurCrypto.avecCarte("<think>je calcule</think>\nLe prix monte.", carte)
+        assertTrue(apres, apres.indexOf(carte) > apres.indexOf("</think>"))
+        val rendu = MarkdownLite.format(apres).toString()
+        assertTrue(rendu, rendu.contains("Bitcoin (BTC)") && rendu.contains("Le prix monte."))
+        assertTrue(MoteurCrypto.avecCarte("Réponse.", carte).startsWith(carte))
+    }
+
+    @Test fun tinyPricesKeepSignificantDigits() = runBlocking {
+        val cours = MoteurCrypto.obtenir("pepe") { url ->
+            if (url.contains("/coins/markets")) {
+                """[{"id":"pepe","symbol":"pepe","name":"Pepe","image":"https://coin-images.coingecko.com/p.png","current_price":0.00000042,"price_change_percentage_24h":null}]"""
+            } else {
+                """{"pepe":{"usd":0.0000003}}"""
+            }
+        }
+        val carte = cours.carte()
+        assertTrue(carte, carte.contains("0,00000042"))
+        assertFalse(carte, carte.contains(": 0 $"))
+    }
 }

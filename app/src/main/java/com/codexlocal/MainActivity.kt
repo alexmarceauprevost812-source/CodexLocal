@@ -1121,7 +1121,11 @@ class MainActivity : AppCompatActivity() {
         val baseConfig = prefs.config().forMode(mode)
         var consignes = baseConfig.systemPrompt
         if (prefs.rechercheWebAuto) consignes += "\n\n" + RechercheWeb.CONSIGNE
-        if (mode == AssistantMode.CHAT) consignes += "\n\n" + CONSIGNE_CHAT_RICHE
+        if (mode == AssistantMode.CHAT) {
+            consignes += "\n\n" + CONSIGNE_CHAT_RICHE
+            // Les logos sont téléchargés : seulement si l'utilisateur permet Internet.
+            if (prefs.rechercheWebAuto) consignes += " " + CONSIGNE_LOGOS
+        }
         val cfg = if (consignes != baseConfig.systemPrompt) baseConfig.copy(systemPrompt = consignes) else baseConfig
 
         binding.input.setText("")
@@ -1711,5 +1715,9 @@ class MainActivity : AppCompatActivity() {
 private const val CONSIGNE_CHAT_RICHE =
     "Mise en forme : ajoute quelques émojis pertinents (🙂🚀🔥) pour rendre tes réponses vivantes, sans exagérer. " +
         "Pour un lien, écris [texte](https://adresse) ; donne seulement des adresses que tu connais avec certitude. " +
-        "Pour montrer le logo d'un site, d'une appli ou d'une marque, écris ![logo](logo:domaine.com) juste avant son nom, " +
-        "par exemple ![logo](logo:github.com) GitHub. Si un cours de crypto t'est fourni, utilise exactement ses chiffres."
+        "Si un cours de crypto t'est fourni, utilise exactement ses chiffres."
+
+/** Logos de sites dans les réponses (ajouté seulement quand Internet est permis). */
+private const val CONSIGNE_LOGOS =
+    "Pour montrer le logo d'un site, d'une appli ou d'une marque, écris ![logo](logo:domaine.com) juste avant son nom, " +
+        "par exemple ![logo](logo:github.com) GitHub."

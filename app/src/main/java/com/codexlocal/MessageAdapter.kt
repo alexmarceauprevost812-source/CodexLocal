@@ -46,7 +46,10 @@ class MessageAdapter(
                 bulle.text = if (msg.content.isEmpty()) {
                     bulle.context.getString(R.string.ia_travaille)
                 } else {
+                    // Hors ligne (Recherche Internet décochée) : aucune image n'est téléchargée.
+                    val enLigne = Prefs(bulle.context).rechercheWebAuto
                     MarkdownLite.format(msg.content) { source ->
+                        if (!enLigne) return@format null
                         ImagesChat.drawable(bulle.resources, source, taille) {
                             // L'image vient d'arriver : on redessine ce message s'il est encore là.
                             val index = items.indexOf(msg)
