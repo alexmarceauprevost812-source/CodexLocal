@@ -110,6 +110,7 @@ let doc = docs.find(d => d.id === actuel) || docs[0];
 const T = $("#texte");
 
 function charger(d){
+  if (typeof fermerProp === "function" && $("#prop").classList.contains("ouvert")) fermerProp();
   doc = d; ecrire("tilabo-ecriture-actuel", d.id);
   $("#titre").value = d.titre; T.value = d.texte; ajuster();
 }
@@ -192,7 +193,9 @@ async function demanderIA(consigne, texte, sortie){
 /** Le texte vise : la selection s'il y en a une, sinon tout le texte. */
 function cible(){
   const a = T.selectionStart, b = T.selectionEnd;
-  return a !== b ? {a, b, t: T.value.slice(a, b), sel: true} : {a: 0, b: T.value.length, t: T.value, sel: false};
+  const c = a !== b ? {a, b, t: T.value.slice(a, b), sel: true} : {a: 0, b: T.value.length, t: T.value, sel: false};
+  c.doc = doc.id; c.avant = T.value; // pour verifier plus tard que c'est encore le meme texte
+  return c;
 }
 function remplacer(c, nouveau){ T.value = T.value.slice(0, c.a) + nouveau + T.value.slice(c.b); ajuster(); sauver(); }
 
@@ -205,6 +208,7 @@ function demanderChoix(titre, options){
   });
 }
 
+const MAX_IA = 6000;
 const POUVOIRS = {
   continuer: {t: "✍️ Suite du texte", consigne: () => "Continue ce texte avec un ou deux paragraphes dans le meme ton et le meme style. Donne seulement la suite.", ajout: true},
   corriger: {t: "✅ Texte corrigé", consigne: () => "Corrige l'orthographe, la grammaire et la ponctuation, sans changer le sens ni le style. Donne le texte corrige au complet."},
@@ -220,16 +224,28 @@ async function pouvoir(nom){
   if (ctrl) return;
   if (nom === "lire") return lireAVoixHaute();
   if (nom === "web") return chercherWeb();
-  const P = POUVOIRS[nom], c = cible();
+  const P = POUVOIRS[nom];
+  let c = cible();
+  // Texte trop long pour l'IA : on travaille sur les 6000 premiers caracteres seulement,
+  // et « Remplacer » ne touche qu'a ce morceau (la suite du texte reste intacte).
+  const coupe = !P.ajout && c.t.length > MAX_IA;
+  if (coupe) {
+    // ne pas couper un emoji en deux (paire UTF-16) : on recule d'un cran si besoin
+    let n = MAX_IA;
+    const k = c.t.charCodeAt(n - 1);
+    if (k >= 0xD800 && k <= 0xDBFF) n -= 1;
+    c = {...c, b: c.a + n, t: c.t.slice(0, n)};
+  }
   if (!c.t.trim()) { $("#etat").textContent = "Écris quelque chose d'abord ✍️"; T.focus(); return; }
   let option = null;
   if (P.choix) { option = await demanderChoix(P.t, P.choix); if (!option) return; }
   const C = $("#propC"), A = $("#propA");
-  $("#propT").textContent = P.t + (option ? " — " + option : "") + (c.sel ? " (sélection)" : "");
+  $("#propT").textContent = P.t + (option ? " — " + option : "") + (c.sel ? " (sélection)" : "") +
+    (coupe ? " · les " + MAX_IA + " premiers caractères" : "");
   C.textContent = "…"; A.innerHTML = ""; $("#propStop").hidden = false;
   $("#prop").classList.add("ouvert");
   try {
-    const rep = await demanderIA(P.consigne(option), P.ajout ? T.value.slice(-4000) : c.t.slice(0, 6000), C);
+    const rep = await demanderIA(P.consigne(option), P.ajout ? T.value.slice(-4000) : c.t, C);
     C.textContent = rep || "(rien)";
     actions(rep, P, c);
   } catch (e) {
@@ -241,11 +257,20 @@ async function pouvoir(nom){
 }
 function actions(rep, P, c){
   const A = $("#propA"); A.innerHTML = "";
-  const bouton = (txt, sec, f) => { const b = document.createElement("button"); b.textContent = txt; if (sec) b.className = "sec"; b.onclick = f; A.appendChild(b); };
+  // La proposition ne s'applique qu'au texte d'origine : autre texte ouvert ou texte modifie -> on refuse
+  const garde = (exact, f) => () => {
+    if (doc.id !== c.doc || (exact && T.value !== c.avant)) {
+      $("#propT").textContent = "⚠ Le texte a changé depuis la demande : copie la proposition ou relance le pouvoir.";
+      A.querySelectorAll("button[data-applique]").forEach(b => b.disabled = true);
+      return;
+    }
+    f();
+  };
+  const bouton = (txt, sec, f, applique) => { const b = document.createElement("button"); b.textContent = txt; if (sec) b.className = "sec"; if (applique) b.dataset.applique = "1"; b.onclick = f; A.appendChild(b); };
   if (rep) {
-    if (P.ajout) bouton("➕ Ajouter à la suite", false, () => { remplacer({a: T.value.length, b: T.value.length}, (T.value && !/\s$/.test(T.value) ? "\n\n" : "") + rep); fermerProp(); });
-    else if (!P.apart) bouton(c.sel ? "↔️ Remplacer la sélection" : "↔️ Remplacer le texte", false, () => { remplacer(c, rep); fermerProp(); });
-    if (P.apart || !P.ajout) bouton("➕ Ajouter à la fin", !!(!P.apart), () => { remplacer({a: T.value.length, b: T.value.length}, "\n\n" + rep); fermerProp(); });
+    if (P.ajout) bouton("➕ Ajouter à la suite", false, garde(false, () => { remplacer({a: T.value.length, b: T.value.length}, (T.value && !/\s$/.test(T.value) ? "\n\n" : "") + rep); fermerProp(); }), true);
+    else if (!P.apart) bouton(c.sel ? "↔️ Remplacer la sélection" : "↔️ Remplacer le texte", false, garde(true, () => { remplacer(c, rep); fermerProp(); }), true);
+    if (P.apart || !P.ajout) bouton("➕ Ajouter à la fin", !!(!P.apart), garde(false, () => { remplacer({a: T.value.length, b: T.value.length}, "\n\n" + rep); fermerProp(); }), true);
     bouton("📋 Copier", true, () => navigator.clipboard && navigator.clipboard.writeText(rep).catch(() => {}));
   }
   bouton("✕ Fermer", true, fermerProp);
