@@ -330,9 +330,9 @@ function remplirMenu(q) {
     });
   }
   // « Normandin », « météo Paris » : la météo de cette ville, cherchée sur le web
-  const v = q.replace(/^(la\s+)?m[ée]t[ée]o\s*(à|a|de|du|au|pour)?\s*/i, "").trim();
+  const v = q.replace(/^(la\s+)?m[ée]t[ée]o(?:\s+(?:à|a|de|du|au|pour)(?=\s))?\s*/i, "").trim();
   if (q && v && v.length < 50) {
-    const vraie = $("#cherche").value.trim().replace(/^(la\s+)?m[ée]t[ée]o\s*(à|a|de|du|au|pour)?\s*/i, "").trim();
+    const vraie = $("#cherche").value.trim().replace(/^(la\s+)?m[ée]t[ée]o(?:\s+(?:à|a|de|du|au|pour)(?=\s))?\s*/i, "").trim();
     C.insertAdjacentHTML("beforeend", "<h5>Météo</h5>");
     const d = document.createElement("div"); d.className = "proj";
     d.innerHTML = `🌤️ <span>Météo à ${esc(vraie)}</span><small>Cherchée sur le web</small>`;
