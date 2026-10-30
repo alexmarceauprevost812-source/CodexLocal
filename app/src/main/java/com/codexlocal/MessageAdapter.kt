@@ -1,8 +1,10 @@
 package com.codexlocal
 
+import android.text.method.LinkMovementMethod
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.codexlocal.chat.ImagesChat
 import com.codexlocal.databinding.ItemMessageAssistantBinding
 import com.codexlocal.databinding.ItemMessageUserBinding
 
@@ -22,7 +24,10 @@ class MessageAdapter(
         return if (viewType == TYPE_USER) {
             UserHolder(ItemMessageUserBinding.inflate(inflater, parent, false))
         } else {
-            AssistantHolder(ItemMessageAssistantBinding.inflate(inflater, parent, false))
+            AssistantHolder(ItemMessageAssistantBinding.inflate(inflater, parent, false)).also {
+                // Liens cliquables dans les réponses (le texte reste sélectionnable).
+                it.binding.bubble.movementMethod = LinkMovementMethod.getInstance()
+            }
         }
     }
 
@@ -36,8 +41,22 @@ class MessageAdapter(
                 )
             }
             is AssistantHolder -> {
-                holder.binding.bubble.text =
-                    if (msg.content.isEmpty()) "…" else MarkdownLite.format(msg.content)
+                val bulle = holder.binding.bubble
+                val taille = (bulle.lineHeight * 1.25f).toInt().coerceAtLeast(24)
+                bulle.text = if (msg.content.isEmpty()) {
+                    bulle.context.getString(R.string.ia_travaille)
+                } else {
+                    // Hors ligne (Recherche Internet décochée) : aucune image n'est téléchargée.
+                    val enLigne = Prefs(bulle.context).rechercheWebAuto
+                    MarkdownLite.format(msg.content) { source ->
+                        if (!enLigne) return@format null
+                        ImagesChat.drawable(bulle.resources, source, taille) {
+                            // L'image vient d'arriver : on redessine ce message s'il est encore là.
+                            val index = items.indexOf(msg)
+                            if (index >= 0) notifyItemChanged(index)
+                        }
+                    }
+                }
                 holder.binding.bubble.setBackgroundResource(
                     if (chatMode) R.drawable.bg_assistant_chat else R.drawable.bg_assistant
                 )

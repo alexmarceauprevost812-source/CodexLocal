@@ -358,4 +358,6 @@
     <string name="web_auto">Recherche Internet automatique</string>
     <string name="web_auto_detail">Consulte de la documentation quand une technologie connue est mentionnée avec une demande de recherche, de version ou d’aide technique. Seuls des termes techniques sont envoyés, jamais ton code ni la conversation. Les sources apparaissent dans le chat. Décoche pour rester hors ligne.</string>
     <string name="web_recherche">Recherche de documentation sur Internet…</string>
+    <string name="ia_travaille">⚙️ L\'IA travaille…</string>
+    <string name="crypto_recherche">💰 Je vérifie le prix en direct…</string>
 </resources>
