@@ -57,6 +57,19 @@ class ChatLayoutTest {
         assertTrue(b.messages.height > 0)
     }
 
+    @Test fun composerReturnsToNormalAfterKeyboardCloses() {
+        val b = screen()
+        layout(b, 360, 640, keyboard = 300)
+        assertEquals(300, b.mainContent.paddingBottom)
+        assertEquals(3, b.input.maxLines)
+        assertEquals(View.GONE, b.status.visibility)
+        layout(b, 360, 640)
+        assertEquals(24, b.mainContent.paddingBottom)
+        assertEquals(6, b.input.maxLines)
+        assertEquals(View.VISIBLE, b.status.visibility)
+        assertTrue(bounds(b, b.input).bottom <= 616)
+    }
+
     @Test fun tabletContentIsCenteredAndWidthIsLimited() {
         val b = screen()
         layout(b, 1200, 1000)
