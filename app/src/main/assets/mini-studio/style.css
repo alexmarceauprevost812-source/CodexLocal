@@ -1,0 +1,11 @@
+:root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#080808;color:#f7f7f7}
+*{box-sizing:border-box}body{margin:0}.shell{max-width:820px;margin:auto;padding:24px 16px 48px}
+header{margin-bottom:22px}h1{font-size:2rem;margin:4px 0}header p,footer{color:#b5b5b5}
+.overline{font-size:.75rem;letter-spacing:.15em;color:#ff9b42}footer{font-size:.8rem;margin-top:18px}
+.panel{background:#121212;border:1px solid #343434;border-radius:18px;padding:18px;display:grid;gap:12px}
+label{font-weight:650}input,textarea,select{min-width:0;width:100%;background:#070707;color:white;border:1px solid #595959;border-radius:10px;padding:12px;font:inherit}
+textarea{min-height:250px;resize:vertical;font-family:ui-monospace,monospace;line-height:1.5}
+:focus-visible{outline:3px solid #ffab5f;outline-offset:2px}.tools{display:flex;flex-wrap:wrap;gap:8px}.tools select{flex:1 1 170px}
+button{background:#ff871f;color:#080808;border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:700;min-height:44px;cursor:pointer}
+button.muted{background:#303030;color:#fff}button:disabled{opacity:.5}#status{min-height:1.5em;color:#ffbc83}
+@media(max-width:420px){.shell{padding:16px 10px}.panel{padding:12px}button{flex:1 1 auto}}
