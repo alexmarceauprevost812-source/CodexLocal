@@ -20,7 +20,8 @@ internal object ChatWindowInsets {
             // Keep the drawer clear of system bars, independently of the keyboard.
             binding.tiroir.setPadding(safe.left, safe.top, safe.right, safe.bottom)
 
-            val typing = insets.isVisible(WindowInsetsCompat.Type.ime())
+            // Certains claviers Android publient leur hauteur avant le drapeau isVisible.
+            val typing = insets.isVisible(WindowInsetsCompat.Type.ime()) || keyboard.bottom > safe.bottom
             val landscape = binding.root.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
             binding.status.isVisible = !typing
             // Le panneau de l'equipe (visible si PanneauEquipe l'a demande) s'efface en paysage

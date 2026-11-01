@@ -14,7 +14,9 @@ class ReaProtocolTest {
         assertEquals("https://rea.example/mcp", ReaProtocol.endpoint("https://rea.example/mcp"))
         for (bad in listOf("http://192.168.1.10:8766/mcp", "http://127.0.0.1.evil/mcp",
             "https://user:secret@rea.example/mcp", "https://rea.example/mcp?token=secret",
-            "file:///mcp", "https://rea.example/other")) {
+            "file:///mcp", "https://rea.example/other",
+            "http://rea.example/mcp", "https://rea.example/mcp#fragment",
+            "https://rea.example/mcp?auth=1", "http://localhost:8766/not-mcp")) {
             assertTrue(bad, runCatching { ReaProtocol.endpoint(bad) }.isFailure)
         }
     }
