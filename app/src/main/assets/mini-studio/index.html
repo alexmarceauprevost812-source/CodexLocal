@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Mini Studio LexOS</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header><p class="overline">LEXOS · BASE 0.1</p><h1>Mini Studio</h1><p>Projets et notes, sans compte ni connexion.</p></header>
+    <section class="panel">
+      <label for="project">Projet</label>
+      <div class="tools"><select id="project" aria-label="Choisir un projet"></select><button id="addProject" type="button">+ Projet</button><button id="deleteProject" class="muted" type="button">Supprimer</button></div>
+      <label for="title">Titre</label><input id="title" maxlength="100" placeholder="Nom de la note">
+      <label for="body">Notes / code</label><textarea id="body" spellcheck="false" placeholder="Écris ici…"></textarea>
+      <div class="tools"><button id="save" type="button">Enregistrer</button><button id="export" class="muted" type="button">Exporter .txt</button></div>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+    <footer>Tout reste dans le stockage local de cette application. Aucun modèle GGUF n’est lu ou envoyé.</footer>
+  </main>
+</body>
+</html>
