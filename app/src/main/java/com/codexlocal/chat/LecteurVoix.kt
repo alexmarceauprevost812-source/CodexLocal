@@ -89,7 +89,8 @@ object LecteurVoix {
     }
 
     /** Retire le Markdown, les liens, les images et le raisonnement pour une lecture naturelle. */
-    internal fun nettoyer(texte: String): String = texte
+    internal fun nettoyer(texte: String): String = com.codexlocal.agent.Reflexion.separer(texte).reponse
+        // Même frontière que l'affichage : le raisonnement caché n'est jamais lu.
         .replace(Regex("<think>.*?(</think>|$)", RegexOption.DOT_MATCHES_ALL), " ")
         .replace(Regex("```.*?```", RegexOption.DOT_MATCHES_ALL), " (bloc de code) ")
         .replace(Regex("!\\[[^\\]]*]\\([^)]*\\)"), "")

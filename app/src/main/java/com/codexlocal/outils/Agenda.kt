@@ -122,12 +122,13 @@ object AgendaStore {
         if (message.isUser || !ligneSuggestion.containsMatchIn(message.content)) return
         val lecture = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT)
         val affiche = SimpleDateFormat("EEE d MMM · HH:mm", Locale.CANADA_FRENCH)
-        if (message.envoi == null) message.envoi = message.content
-        message.content = ligneSuggestion.replace(message.content) { m ->
-            val heure = m.groupValues[2].padStart(5, '0')
-            val quand = runCatching { lecture.parse(m.groupValues[1] + " " + heure)!! }.getOrNull() ?: return@replace m.value
-            val titre = m.groupValues[3].take(80).replace("[", "(").replace("]", ")")
-            "📅 **${affiche.format(quand)}** — $titre · ➕ [Ajouter en 1 clic](${lienAjout(m.groupValues[1], heure, titre)})"
+        surLaReponse(message) { reponse ->
+            ligneSuggestion.replace(reponse) { m ->
+                val heure = m.groupValues[2].padStart(5, '0')
+                val quand = runCatching { lecture.parse(m.groupValues[1] + " " + heure)!! }.getOrNull() ?: return@replace m.value
+                val titre = m.groupValues[3].take(80).replace("[", "(").replace("]", ")")
+                "📅 **${affiche.format(quand)}** — $titre · ➕ [Ajouter en 1 clic](${lienAjout(m.groupValues[1], heure, titre)})"
+            }
         }
     }
 
@@ -152,18 +153,33 @@ object AgendaStore {
         }
     }
 
+    /**
+     * Applique [transformer] seulement à la vraie réponse, jamais au raisonnement caché
+     * (`<think>…</think>`) ni à une réflexion interrompue : un brouillon n'ajoute rien.
+     */
+    private fun surLaReponse(message: Message, transformer: (String) -> String) {
+        val decoupe = com.codexlocal.agent.Reflexion.separer(message.content)
+        if (decoupe.enCours) return
+        val nouvelle = transformer(decoupe.reponse)
+        if (nouvelle == decoupe.reponse) return
+        if (message.envoi == null) message.envoi = message.content
+        message.content = message.content.removeSuffix(decoupe.reponse) + nouvelle
+    }
+
     /** Ajoute les rendez-vous écrits par l'IA (« AGENDA+ … ») et les remplace par une confirmation. */
     fun appliquer(c: Context, message: Message) {
         if (message.isUser || !ligneAjout.containsMatchIn(message.content)) return
         val lecture = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT)
         val affiche = SimpleDateFormat("EEEE d MMMM · HH:mm", Locale.CANADA_FRENCH)
-        if (message.envoi == null) message.envoi = message.content
-        message.content = ligneAjout.replace(message.content) { m ->
-            val debut = runCatching { lecture.parse(m.groupValues[1] + " " + m.groupValues[2].padStart(5, '0'))!!.time }.getOrNull()
-                ?: return@replace m.value
-            val titre = m.groupValues[3].take(80)
-            ajouter(c, Evenement(System.nanoTime(), titre, debut, 30))
-            "✅ **Ajouté à l'agenda** : ${affiche.format(Date(debut))} — $titre (rappel 30 min avant)"
+        surLaReponse(message) { reponse ->
+            ligneAjout.replace(reponse) { m ->
+                val debut = runCatching { lecture.parse(m.groupValues[1] + " " + m.groupValues[2].padStart(5, '0'))!!.time }.getOrNull()
+                    ?: return@replace m.value
+                val titre = m.groupValues[3].take(80)
+                // Même rendez-vous déjà là (réponse rejouée) : on ne le double pas.
+                if (tous(c).none { it.debut == debut && it.titre == titre }) ajouter(c, Evenement(System.nanoTime(), titre, debut, 30))
+                "✅ **Ajouté à l'agenda** : ${affiche.format(Date(debut))} — $titre (rappel 30 min avant)"
+            }
         }
     }
 }

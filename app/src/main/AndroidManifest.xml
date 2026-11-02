@@ -69,6 +69,7 @@
         </activity>
         <activity
             android:name=".outils.AgendaActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
             android:exported="true"
             android:label="Agenda"
             android:launchMode="singleTop"
@@ -89,6 +90,7 @@
         </activity>
         <activity
             android:name=".outils.OutilsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
             android:exported="false"
             android:label="Outils"
             android:theme="@style/Theme.CodexLocal" />

@@ -66,6 +66,20 @@ class PersoTest {
         assertEquals("Souper (chez maman)", Uri.parse(ajout).getQueryParameter("t"))
     }
 
+    @Test fun agendaIgnoreLeRaisonnementCache() {
+        val c = org.robolectric.RuntimeEnvironment.getApplication()
+        val ligne = "AGENDA+ 2030-01-15 10:00 | Garage"
+        val message = Message.assistant().apply { content = "<think>brouillon\n$ligne\n</think>\nC'est noté!\n$ligne" }
+        com.codexlocal.outils.AgendaStore.appliquer(c, message)
+        assertEquals(1, com.codexlocal.outils.AgendaStore.tous(c).count { it.titre == "Garage" })
+        assertTrue(message.content.contains("Ajouté à l'agenda"))
+        // Réflexion interrompue : rien n'est ajouté.
+        val coupe = Message.assistant().apply { content = "<think>AGENDA+ 2030-02-01 09:00 | Brouillon" }
+        com.codexlocal.outils.AgendaStore.appliquer(c, coupe)
+        assertTrue(com.codexlocal.outils.AgendaStore.tous(c).none { it.titre == "Brouillon" })
+        assertEquals("Réponse", LecteurVoix.nettoyer("raisonnement sans balise ouvrante</think>Réponse"))
+    }
+
     @Test fun datesDansUnTexte() {
         val demain = Calendar.getInstance().apply { timeInMillis = DateTexte.trouver("Rendez-vous demain à 14h30")!! }
         val attendu = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
