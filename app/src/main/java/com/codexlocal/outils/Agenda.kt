@@ -111,8 +111,11 @@ object AgendaStore {
     fun concerne(message: String) = motsAgenda.containsMatchIn(message)
 
     /** Lien « ajouter en 1 clic » vers l'agenda. */
-    fun lienAjout(date: String, heure: String, titre: String): String =
-        "$SCHEME://ajout?d=" + android.net.Uri.encode(date) + "&h=" + android.net.Uri.encode(heure) + "&t=" + android.net.Uri.encode(titre)
+    fun lienAjout(date: String, heure: String, titre: String): String {
+        // Uri.encode garde « ( ) » : ils couperaient le lien Markdown, on les encode aussi.
+        fun enc(v: String) = android.net.Uri.encode(v).replace("(", "%28").replace(")", "%29")
+        return "$SCHEME://ajout?d=" + enc(date) + "&h=" + enc(heure) + "&t=" + enc(titre)
+    }
 
     /** Les suggestions de l'IA (« AGENDA? … ») deviennent des éléments à ajouter en un clic. */
     fun suggestions(message: Message) {

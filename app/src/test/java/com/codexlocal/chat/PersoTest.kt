@@ -55,6 +55,17 @@ class PersoTest {
         assertTrue(SchemaAnime.html(relu).contains("animateMotion"))
     }
 
+    @Test fun liensInternesCliquablesDansLeChat() {
+        val message = Message.assistant().apply { content = "```schema\nA -> B\n```" }
+        SchemaAnime.annoter(message)
+        val ajout = com.codexlocal.outils.AgendaStore.lienAjout("2026-11-05", "14:00", "Souper (chez maman)")
+        val rendu = com.codexlocal.MarkdownLite.format(message.content + "\n➕ [Ajouter en 1 clic]($ajout)") as android.text.Spanned
+        val liens = rendu.getSpans(0, rendu.length, android.text.style.URLSpan::class.java).map { it.url }
+        assertTrue(liens.toString(), liens.any { it.startsWith("com.codexlocal.schema://voir?d=") })
+        assertTrue(liens.toString(), liens.any { it == ajout })
+        assertEquals("Souper (chez maman)", Uri.parse(ajout).getQueryParameter("t"))
+    }
+
     @Test fun datesDansUnTexte() {
         val demain = Calendar.getInstance().apply { timeInMillis = DateTexte.trouver("Rendez-vous demain à 14h30")!! }
         val attendu = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }

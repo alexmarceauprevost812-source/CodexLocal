@@ -24,7 +24,8 @@ class MessageAdapter(
         set(v) { field = v; if (!v) projection.reinitialiser() }
 
     private val projection = ProjectionTexte()
-    private val animes = HashSet<Message>()
+    // Par identité : Message est une data class dont le contenu change pendant l'écriture.
+    private val animes: MutableSet<Message> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
 
     /** APK perso : les nouvelles bulles glissent et rebondissent à leur arrivée. */
     private fun animerEntree(vue: android.view.View, msg: Message) {
