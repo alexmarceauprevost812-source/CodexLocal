@@ -533,6 +533,7 @@ class MainActivity : AppCompatActivity() {
             ))
         }
 
+        if (!OutilsActivity.accordDemande(this)) OutilsActivity.demanderAccordRecherche(this)
         if (premierLancement && OutilsActivity.prenom(this).isBlank()) OutilsActivity.demanderPrenom(this)
         NotifNouvelles.programmer(this)
         if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -1265,7 +1266,7 @@ class MainActivity : AppCompatActivity() {
             if (BuildConfig.PERSO) {
                 consignes += "\n\n" + SchemaAnime.CONSIGNE
                 if (prefs.rechercheWebAuto) consignes += " " + com.codexlocal.chat.EmojisChat.CONSIGNE_CRYPTO
-                if (prefs.rechercheWebAuto) consignes += "\n\n" + RechercheRiche.CONSIGNE
+                if (prefs.rechercheWebAuto && OutilsActivity.rechercheRiche(this)) consignes += "\n\n" + RechercheRiche.CONSIGNE
             }
         }
         if (BuildConfig.PERSO) {
@@ -1324,8 +1325,8 @@ class MainActivity : AppCompatActivity() {
                         user.envoi = (user.envoi ?: user.content) + "\n\n" + AgendaStore.contexte(this@MainActivity)
                         carteAgenda = AgendaStore.carte(this@MainActivity)
                     }
-                    // Recherche riche : web, actualités, météo, vidéos, marché crypto.
-                    if (prefs.rechercheWebAuto) {
+                    // Recherche riche : web, actualités, météo, vidéos, marché crypto (avec l'accord donné).
+                    if (prefs.rechercheWebAuto && OutilsActivity.rechercheRiche(this@MainActivity)) {
                         binding.status.text = "🔎 Recherche riche en cours…"
                         val sp = getSharedPreferences("codexlocal", MODE_PRIVATE)
                         riche = try {

@@ -137,6 +137,13 @@ class OutilsActivity : AppCompatActivity() {
             }
         }
         ajouter(notif, 20)
+        ajouter(CheckBox(this).apply {
+            text = "🔎 Recherche riche (web, actualités, météo, vidéos)"
+            setTextColor(Color.WHITE); textSize = 15f
+            buttonTintList = android.content.res.ColorStateList.valueOf(orange)
+            isChecked = rechercheRiche(this@OutilsActivity)
+            setOnCheckedChangeListener { _, c -> definirRechercheRiche(this@OutilsActivity, c) }
+        }, 4)
         ajouter(bouton("🔊 Écouter les nouvelles (voix québécoise)") {
             com.codexlocal.chat.LecteurVoix.preparer(this)
             Thread {
@@ -159,6 +166,33 @@ class OutilsActivity : AppCompatActivity() {
     }
 
     companion object {
+        private fun prefsOutils(c: android.content.Context) = c.getSharedPreferences("outils", android.content.Context.MODE_PRIVATE)
+
+        /**
+         * Recherche riche (web, actualités, météo, vidéos) : les mots de la question partent vers
+         * Bing, Wikipédia, Google Actualités, YouTube ou Open-Meteo. Seulement avec l'accord donné.
+         */
+        fun rechercheRiche(c: android.content.Context): Boolean = prefsOutils(c).getBoolean("rechercheRiche", false)
+
+        fun accordDemande(c: android.content.Context): Boolean = prefsOutils(c).contains("rechercheRiche")
+
+        fun definirRechercheRiche(c: android.content.Context, actif: Boolean) =
+            prefsOutils(c).edit().putBoolean("rechercheRiche", actif).apply()
+
+        fun demanderAccordRecherche(c: android.content.Context) {
+            android.app.AlertDialog.Builder(c)
+                .setTitle("🔎 Recherche riche")
+                .setMessage(
+                    "Pour les recherches web, les actualités, la météo et les vidéos, les mots de tes questions " +
+                        "sont envoyés à Bing, Wikipédia, Google Actualités, YouTube ou Open-Meteo (gratuit, sans compte). " +
+                        "Tes conversations restent sur ton téléphone.\n\nTu peux changer d'idée dans 🧰 Outils, ou écrire « sans internet » dans un message."
+                )
+                .setPositiveButton("Activer") { _, _ -> definirRechercheRiche(c, true) }
+                .setNegativeButton("Non merci") { _, _ -> definirRechercheRiche(c, false) }
+                .setCancelable(false)
+                .show()
+        }
+
         /** Prénom de l'utilisateur : l'IA l'appelle par son nom. */
         fun prenom(c: android.content.Context): String =
             c.getSharedPreferences("outils", android.content.Context.MODE_PRIVATE).getString("prenom", "").orEmpty()
