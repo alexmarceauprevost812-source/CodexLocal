@@ -23,10 +23,27 @@ object EmojisChat {
         "warning" to "⚠️", "check" to "✅", "money" to "💰", "eyes" to "👀",
     )
 
+    /** Émojis crypto : `:btc:` devient le logo de la crypto (icône du site officiel). */
+    val CRYPTOS: Map<String, String> = linkedMapOf(
+        "btc" to "bitcoin.org", "eth" to "ethereum.org", "sol" to "solana.com", "doge" to "dogecoin.com",
+        "xrp" to "xrpl.org", "ada" to "cardano.org", "ltc" to "litecoin.org", "bnb" to "bnbchain.org",
+        "usdt" to "tether.to", "usdc" to "circle.com", "dot" to "polkadot.network", "link" to "chain.link",
+        "trx" to "tron.network", "xmr" to "getmonero.org", "avax" to "avax.network", "shib" to "shibatoken.com",
+        "pepe" to "pepe.vip", "ton" to "ton.org",
+    )
+
+    /** Consigne pour l'IA (mode Chat). */
+    val CONSIGNE_CRYPTO: String =
+        "Pour montrer le logo d'une cryptomonnaie, écris son code entre deux-points : " +
+            CRYPTOS.keys.joinToString(", ") { ":$it:" } + "."
+
     private val motif = Regex(":([a-z_]{2,20}):")
 
     fun remplacer(texte: String): String {
         if (!texte.contains(':')) return texte
-        return motif.replace(texte) { m -> CODES[m.groupValues[1]] ?: m.value }
+        return motif.replace(texte) { m ->
+            val code = m.groupValues[1]
+            CODES[code] ?: CRYPTOS[code]?.let { "![logo](logo:$it)" } ?: m.value
+        }
     }
 }

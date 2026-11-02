@@ -1267,6 +1267,7 @@ class MainActivity : AppCompatActivity() {
             if (prefs.rechercheWebAuto) consignes += " " + CONSIGNE_LOGOS
             if (BuildConfig.PERSO) {
                 consignes += "\n\n" + SchemaAnime.CONSIGNE
+                if (prefs.rechercheWebAuto) consignes += " " + com.codexlocal.chat.EmojisChat.CONSIGNE_CRYPTO
                 if (prefs.rechercheWebAuto) consignes += "\n\n" + RechercheRiche.CONSIGNE
             }
         }

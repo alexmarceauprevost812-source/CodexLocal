@@ -66,6 +66,10 @@ class PersoTest {
         assertNull(DateTexte.trouver("bonjour"))
     }
 
+    @Test fun emojisCryptoDeviennentDesLogos() {
+        assertEquals("Le ![logo](logo:bitcoin.org) monte", EmojisChat.remplacer("Le :btc: monte"))
+    }
+
     @Test fun lectureVoixSansMarkdown() {
         val propre = LecteurVoix.nettoyer("<think>blabla</think>**Salut** ![logo](logo:x.com) [Radio-Canada](https://ici.radio-canada.ca) 🎉")
         assertEquals("Salut Radio-Canada 🎉", propre)
