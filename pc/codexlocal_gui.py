@@ -426,8 +426,10 @@ class CodexDesktop:
             )
             self.process = process
             assert process.stdout is not None
-            for line in process.stdout:
-                self.events.put(("delta", line))
+            # Un modele peut envoyer des jetons sans retour a la ligne.
+            # Lire caractere par caractere evite l'attente d'une ligne complete.
+            for char in iter(lambda: process.stdout.read(1), ""):
+                self.events.put(("delta", char))
             code = process.wait()
             self.events.put(("done", code))
         except (OSError, RuntimeError, ValueError) as exc:
@@ -436,9 +438,31 @@ class CodexDesktop:
             self.process = None
 
     def _drain_queue(self) -> None:
+        # Regrouper les jetons avant de toucher au widget Tkinter :
+        # l'affichage reste fluide sans reconstruire toute la conversation.
+        chunks: list[str] = []
+
+        def flush() -> None:
+            if not chunks:
+                return
+            chunk = "".join(chunks)
+            chunks.clear()
+            conversation = self.conversations[self.mode]
+            if conversation and conversation[-1][0] == "assistant":
+                role, current = conversation[-1]
+                conversation[-1] = (role, current + chunk)
+                self.conversation.configure(state="normal")
+                self.conversation.insert("stream_pos", chunk, "assistant")
+                self.conversation.configure(state="disabled")
+                self.conversation.see("end")
+
         try:
-            for _ in range(150):
+            for _ in range(3000):
                 kind, data = self.events.get_nowait()
+                if kind == "delta":
+                    chunks.append(str(data))
+                    continue
+                flush()
                 if kind == "models":
                     models = list(data) if isinstance(data, list) else []
                     self.model_choice.configure(values=models)
@@ -446,16 +470,6 @@ class CodexDesktop:
                         self.model_var.set(choose_ollama_model(models))
                 elif kind == "agent":
                     self.status_var.set(f"Agent : {data} • génération…")
-                elif kind == "delta":
-                    chunk = str(data)
-                    conversation = self.conversations[self.mode]
-                    if conversation and conversation[-1][0] == "assistant":
-                        role, current = conversation[-1]
-                        conversation[-1] = (role, current + chunk)
-                        self.conversation.configure(state="normal")
-                        self.conversation.insert("stream_pos", chunk, "assistant")
-                        self.conversation.configure(state="disabled")
-                        self.conversation.see("end")
                 elif kind == "error":
                     self._finish(f"Erreur : {data}")
                 elif kind == "done":
@@ -466,8 +480,9 @@ class CodexDesktop:
                     self._finish(status)
         except queue.Empty:
             pass
+        flush()
         try:
-            self.root.after(80, self._drain_queue)
+            self.root.after(60, self._drain_queue)
         except tk.TclError:
             pass
 
