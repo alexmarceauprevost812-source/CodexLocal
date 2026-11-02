@@ -37,6 +37,28 @@ object EmojisChat {
         "Pour montrer le logo d'une cryptomonnaie, écris son code entre deux-points : " +
             CRYPTOS.keys.joinToString(", ") { ":$it:" } + "."
 
+    /** Émoji choisi selon le sujet d'un titre (nouvelles, rendez-vous, tâches, notes). */
+    private val SUJETS: List<Pair<Regex, String>> = listOf(
+        "hockey|canadiens?|nhl|lnh" to "🏒", "soccer|football|fifa|but\\b" to "⚽", "sport|match|séries|olymp" to "🏆",
+        "élection|politique|gouvernement|ministre|député|premier ministre|parlement|assemblée" to "🏛️",
+        "économie|bourse|inflation|taux|banque|argent|budget|prix|impôt|taxe" to "💰",
+        "crypto|bitcoin|ethereum" to "₿", "météo|tempête|neige|pluie|chaleur|froid|ouragan|verglas" to "🌦️",
+        "feu|incendie|pompier" to "🔥", "police|accident|collision|crime|procès|tribunal" to "🚨",
+        "santé|hôpital|médecin|clinique|vaccin|virus" to "🏥", "dentiste|dent" to "🦷",
+        "école|cours|examen|université|cégep|étude" to "🎓", "technolog|ia\\b|intelligence artificielle|apple|google|android|logiciel|code|appli" to "💻",
+        "espace|nasa|fusée|lune|mars\\b" to "🚀", "film|cinéma|série|netflix|spectacle|musique|concert|festival" to "🎬",
+        "voiture|auto|route|trafic|essence" to "🚗", "avion|vol\\b|aéroport|voyage|vacances" to "✈️",
+        "réunion|travail|bureau|client|rencontre|meeting|job|emploi" to "💼", "anniversaire|fête|party" to "🎂",
+        "épicerie|courses|magasin|achat|acheter" to "🛒", "souper|dîner|déjeuner|resto|restaurant|repas|manger" to "🍽️",
+        "sport|gym|entraînement|course|marche|vélo" to "🏃", "appel|téléphone|appeler" to "📞", "courriel|email|mail" to "📧",
+        "chien|chat|vétérinaire|animal" to "🐾", "ménage|nettoyer|lavage" to "🧹", "facture|payer|paiement|loyer" to "🧾",
+        "lire|livre|note|écrire" to "📝", "québec|montréal|saguenay|lac-saint-jean" to "⚜️", "guerre|armée|conflit" to "🕊️",
+        "environnement|climat|forêt|nature" to "🌲",
+    ).map { (motif, emoji) -> Regex("(?iU)\\b(?:$motif)") to emoji }
+
+    fun pourSujet(titre: String, defaut: String): String =
+        SUJETS.firstOrNull { it.first.containsMatchIn(titre) }?.second ?: defaut
+
     private val motif = Regex(":([a-z_]{2,20}):")
 
     fun remplacer(texte: String): String {

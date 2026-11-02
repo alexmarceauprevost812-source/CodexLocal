@@ -145,7 +145,7 @@ object AgendaStore {
         return buildString {
             append("📅 **Ton agenda · 7 prochains jours**\n")
             if (liste.isEmpty()) append("Rien de prévu 🎉")
-            liste.take(8).forEach { append("\n🕒 **").append(heure.format(Date(it.debut))).append("** · ").append(it.titre.replace("*", "")) }
+            liste.take(8).forEach { append("\n").append(com.codexlocal.chat.EmojisChat.pourSujet(it.titre, "🕒")).append(" **").append(heure.format(Date(it.debut))).append("** · ").append(it.titre.replace("*", "")) }
         }
     }
 
@@ -215,7 +215,7 @@ class RappelAgenda : BroadcastReceiver() {
         )
         val notif = NotificationCompat.Builder(context, CANAL)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("📅 $titre")
+            .setContentTitle(com.codexlocal.chat.EmojisChat.pourSujet(titre, "📅") + " $titre")
             .setContentText("À " + SimpleDateFormat("HH:mm", Locale.CANADA_FRENCH).format(Date(debut)))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
@@ -373,7 +373,7 @@ class AgendaActivity : AppCompatActivity() {
         val heure = SimpleDateFormat("HH:mm", Locale.CANADA_FRENCH)
         evts.forEach { e ->
             liste.addView(TextView(this).apply {
-                text = "🕒 ${heure.format(Date(e.debut))}  ${e.titre}" +
+                text = "${com.codexlocal.chat.EmojisChat.pourSujet(e.titre + " " + e.note, "🕒")} ${heure.format(Date(e.debut))}  ${e.titre}" +
                     (if (e.rappelMin >= 0) "\n🔔 rappel ${libelleRappel(e.rappelMin)}" else "") +
                     (if (e.note.isNotBlank()) "\n📝 ${e.note}" else "")
                 setTextColor(Color.WHITE); textSize = 15f

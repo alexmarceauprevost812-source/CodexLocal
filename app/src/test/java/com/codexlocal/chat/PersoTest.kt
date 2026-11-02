@@ -70,6 +70,12 @@ class PersoTest {
         assertEquals("Le ![logo](logo:bitcoin.org) monte", EmojisChat.remplacer("Le :btc: monte"))
     }
 
+    @Test fun emojisSelonLeSujet() {
+        assertEquals("🏒", EmojisChat.pourSujet("Les Canadiens gagnent en prolongation", "📰"))
+        assertEquals("🦷", EmojisChat.pourSujet("Dentiste", "🕒"))
+        assertEquals("📰", EmojisChat.pourSujet("Titre sans sujet connu", "📰"))
+    }
+
     @Test fun lectureVoixSansMarkdown() {
         val propre = LecteurVoix.nettoyer("<think>blabla</think>**Salut** ![logo](logo:x.com) [Radio-Canada](https://ici.radio-canada.ca) 🎉")
         assertEquals("Salut Radio-Canada 🎉", propre)

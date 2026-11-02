@@ -311,7 +311,7 @@ class OutilsActivity : AppCompatActivity() {
                 val o = a.getJSONObject(i)
                 val ligne = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                 val case = CheckBox(this).apply {
-                    text = o.optString("t"); isChecked = o.optBoolean("f")
+                    text = com.codexlocal.chat.EmojisChat.pourSujet(o.optString("t"), "📝") + " " + o.optString("t"); isChecked = o.optBoolean("f")
                     setTextColor(if (isChecked) Color.GRAY else Color.WHITE); textSize = 16f
                     buttonTintList = android.content.res.ColorStateList.valueOf(orange)
                     setOnCheckedChangeListener { _, c -> val b = lire(); b.getJSONObject(i).put("f", c); ecrire(b); dessiner() }

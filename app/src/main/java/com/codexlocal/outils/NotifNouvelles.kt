@@ -67,7 +67,7 @@ object NotifNouvelles {
             )
             val notif = NotificationCompat.Builder(c, CANAL)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("📰 " + source.ifBlank { "Nouvelles" })
+                .setContentTitle(com.codexlocal.chat.EmojisChat.pourSujet(titre, "📰") + " " + source.ifBlank { "Nouvelles" })
                 .setContentText(titre)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(titre))
                 .setGroup("nouvelles")

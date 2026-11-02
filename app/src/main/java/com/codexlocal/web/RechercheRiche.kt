@@ -265,7 +265,7 @@ object RechercheRiche {
             append("\n")
             items.forEach { n ->
                 val titre = n.titre.removeSuffix(" - ${n.source}")
-                append("\n")
+                append("\n").append(com.codexlocal.chat.EmojisChat.pourSujet(titre, "📰")).append(" ")
                 hote(n.sourceUrl)?.let { append("![logo](logo:").append(it).append(") ") }
                 append("**[").append(md(titre).take(110)).append("](").append(n.lien).append(")**")
                 val quand = runCatching { affiche.format(lecture.parse(n.date)!!) }.getOrNull()
