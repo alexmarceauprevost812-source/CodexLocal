@@ -200,8 +200,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Verification silencieuse des mises a jour au demarrage
-        // L'APK perso ne se met pas à jour avec l'APK standard (autre appli) : mise à jour manuelle.
-        if (prefs.autoUpdate && !BuildConfig.PERSO) {
+        // TVA LexOS cherche ses propres versions (releases « perso-v… ») : mise à jour en un clic.
+        if (prefs.autoUpdate) {
             UpdateFlow.verifier(lifecycleScope, this, silencieux = true) { message ->
                 runOnUiThread { binding.status.text = message }
             }
@@ -333,10 +333,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkUpdates() {
-        if (BuildConfig.PERSO) {
-            binding.status.text = "TVA LexOS : nouvelle version dans les releases « perso » de GitHub."
-            return
-        }
         UpdateFlow.verifier(lifecycleScope, this, silencieux = false) { message ->
             runOnUiThread { binding.status.text = message }
         }
@@ -526,6 +522,7 @@ class MainActivity : AppCompatActivity() {
             accueil.addView(rangee(
                 pastille("⬇️ IA gratuite", orange) { openSettings() },
                 pastille("🔑 Clé API", bleu) { openSettings() },
+                pastille("🔄 Mise à jour", orange) { checkUpdates() },
             ), android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = (18 * d).toInt() })
             binding.logoAccueil.setOnLongClickListener { choisirCouleurYeux(); true }
             binding.yeuxBarre.setOnLongClickListener { choisirCouleurYeux(); true }
