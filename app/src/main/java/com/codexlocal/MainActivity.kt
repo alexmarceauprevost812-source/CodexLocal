@@ -334,7 +334,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkUpdates() {
         if (BuildConfig.PERSO) {
-            binding.status.text = "CodexLocal Perso : nouvelle version dans les releases « perso » de GitHub."
+            binding.status.text = "TVA LexOS : nouvelle version dans les releases « perso » de GitHub."
             return
         }
         UpdateFlow.verifier(lifecycleScope, this, silencieux = false) { message ->
@@ -497,7 +497,7 @@ class MainActivity : AppCompatActivity() {
             (0 until accueil.childCount).map { accueil.getChildAt(it) }
                 .filterIsInstance<android.widget.TextView>()
                 .firstOrNull { it.text.toString() == getString(R.string.app_name) }
-                ?.text = "CodexLocal Perso"
+                ?.text = "TVA LexOS"
             val d = resources.displayMetrics.density
             fun pastille(texte: String, couleur: Int, action: () -> Unit) = android.widget.TextView(this).apply {
                 text = texte

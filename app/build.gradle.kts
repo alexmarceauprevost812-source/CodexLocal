@@ -32,7 +32,7 @@ android {
     defaultConfig {
         applicationId = if (perso) "com.codexlocal.perso" else "com.codexlocal"
         buildConfigField("boolean", "PERSO", perso.toString())
-        manifestPlaceholders["appLabel"] = if (perso) "CodexLocal Perso" else "CodexLocal"
+        manifestPlaceholders["appLabel"] = if (perso) "TVA LexOS" else "CodexLocal"
         minSdk = 33
         targetSdk = 36
         versionCode = if (ciRun != null) 100 + ciRun else 5

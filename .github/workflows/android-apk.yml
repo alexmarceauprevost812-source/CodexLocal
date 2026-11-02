@@ -167,7 +167,7 @@ jobs:
           cp "$(ls app/build/outputs/apk/debug/*.apk | head -n1)" "$RUNNER_TEMP/apk/CodexLocal.apk"
           ./gradlew :app:assembleDebug -Pperso --stacktrace --no-daemon 2>&1 | tee -a "$JOURNAL"
           mkdir -p perso-apk
-          cp "$(ls app/build/outputs/apk/debug/*.apk | head -n1)" perso-apk/CodexLocal-Perso.apk
+          cp "$(ls app/build/outputs/apk/debug/*.apk | head -n1)" perso-apk/TVA-LexOS.apk
           # L'APK standard reprend sa place pour les étapes de publication.
           cp "$RUNNER_TEMP/apk/CodexLocal.apk" "$(ls app/build/outputs/apk/debug/*.apk | head -n1)"
           ls -la perso-apk
@@ -213,21 +213,21 @@ jobs:
         run: |
           VERSION="1.5.${GITHUB_RUN_NUMBER}"
           TAG="perso-v$VERSION"
-          cp perso-apk/CodexLocal-Perso.apk "CodexLocal-Perso-$VERSION.apk"
-          gh release create "$TAG" "CodexLocal-Perso-$VERSION.apk" \
+          cp perso-apk/TVA-LexOS.apk "TVA-LexOS-$VERSION.apk"
+          gh release create "$TAG" "TVA-LexOS-$VERSION.apk" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --latest=false \
-            --title "CodexLocal Perso $VERSION" \
+            --title "TVA LexOS $VERSION" \
             --notes "APK personnelle (recherche riche, agenda, outils, voix). S'installe a cote de CodexLocal." \
-            || gh release upload "$TAG" "CodexLocal-Perso-$VERSION.apk" --repo "$GITHUB_REPOSITORY" --clobber
+            || gh release upload "$TAG" "TVA-LexOS-$VERSION.apk" --repo "$GITHUB_REPOSITORY" --clobber
       - name: Publier APK perso de test (si le quota le permet)
         if: github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: CodexLocal-Perso-APK
-          path: perso-apk/CodexLocal-Perso.apk
+          name: TVA-LexOS-APK
+          path: perso-apk/TVA-LexOS.apk
           if-no-files-found: error
           retention-days: 3
       # Sur une PR, le telechargement de test reste pratique mais facultatif :
