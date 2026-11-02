@@ -158,6 +158,19 @@ jobs:
           else
             echo "::warning title=Signature de l'APK::cle de test, sans mise a jour possible : SHA-256 $VU"
           fi
+      # APK personnelle « CodexLocal Perso » (autre identifiant : s'installe à côté de CodexLocal).
+      - name: Compiler APK perso (CodexLocal Perso)
+        run: |
+          set -o pipefail
+          JOURNAL="$RUNNER_TEMP/gradle.log"
+          mkdir -p "$RUNNER_TEMP/apk"
+          cp "$(ls app/build/outputs/apk/debug/*.apk | head -n1)" "$RUNNER_TEMP/apk/CodexLocal.apk"
+          ./gradlew :app:assembleDebug -Pperso --stacktrace --no-daemon 2>&1 | tee -a "$JOURNAL"
+          mkdir -p perso-apk
+          cp "$(ls app/build/outputs/apk/debug/*.apk | head -n1)" perso-apk/TVA-LexOS.apk
+          # L'APK standard reprend sa place pour les étapes de publication.
+          cp "$RUNNER_TEMP/apk/CodexLocal.apk" "$(ls app/build/outputs/apk/debug/*.apk | head -n1)"
+          ls -la perso-apk
       - name: Resume des erreurs
         if: failure()
         run: |
@@ -193,6 +206,30 @@ jobs:
               --title "CodexLocal $VERSION" \
               --notes "Version $VERSION, compilee et signee automatiquement. Installez-la par-dessus CodexLocal pour conserver vos modeles et reglages."
           fi
+      - name: Publier l'APK perso (release separee, jamais « latest »)
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="1.5.${GITHUB_RUN_NUMBER}"
+          TAG="perso-v$VERSION"
+          cp perso-apk/TVA-LexOS.apk "TVA-LexOS-$VERSION.apk"
+          gh release create "$TAG" "TVA-LexOS-$VERSION.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --latest=false \
+            --title "TVA LexOS $VERSION" \
+            --notes "APK personnelle (recherche riche, agenda, outils, voix). S'installe a cote de CodexLocal." \
+            || gh release upload "$TAG" "TVA-LexOS-$VERSION.apk" --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Publier APK perso de test (si le quota le permet)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: TVA-LexOS-APK
+          path: perso-apk/TVA-LexOS.apk
+          if-no-files-found: error
+          retention-days: 3
       # Sur une PR, le telechargement de test reste pratique mais facultatif :
       # un quota d'artefacts plein ne doit pas masquer le resultat des tests.
       - name: Publier APK de test (si le quota le permet)

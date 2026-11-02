@@ -142,6 +142,13 @@ class Prefs(context: Context) {
             sp.edit().putString(KEY_YEUX_COULEUR, v).apply()
         }
 
+    /** Modèle des yeux : « mechant », « gentil » ou « lunettes » (clé de YeuxDemon.MODELES). */
+    var yeuxModele: String
+        get() = sp.getString("yeuxModele", "mechant") ?: "mechant"
+        set(v) {
+            sp.edit().putString("yeuxModele", v).apply()
+        }
+
     /** Yeux toujours animés (sinon : ils s'animent seulement quand on les touche). */
     var yeuxToujoursAnimes: Boolean
         get() = sp.getBoolean(KEY_YEUX_ANIMES, true)

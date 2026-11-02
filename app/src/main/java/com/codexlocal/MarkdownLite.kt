@@ -45,7 +45,8 @@ object MarkdownLite {
 
     private val motifRiche = Regex(
         "!\\[([^\\]\\n]{0,80})\\]\\(([^)\\s]{1,300})\\)" +      // ![alt](source)
-            "|\\[([^\\]\\n]{1,200})\\]\\((https?://[^)\\s]{1,500})\\)" + // [texte](https://…)
+            "|\\[([^\\]\\n]{1,200})\\]\\((https?://[^)\\s]{1,500}|" + Regex.escape(BuildConfig.APPLICATION_ID) +
+            "\\.(?:schema|agenda)://[^)\\s]{1,4000})\\)" + // [texte](https://…) ou lien interne (schéma animé, agenda)
             "|(https?://[^\\s<>()\\[\\]\"]{3,500})"                      // adresse nue
     )
 

@@ -24,6 +24,24 @@ object ModelCatalog {
 
     val modeles = listOf(
         CatalogModel(
+            "Qwen2.5 3B — gratuit, chat + recherche (recommandé)",
+            "2,1 Go",
+            "$QWEN25/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+            "qwen2.5-3b-instruct-q4_k_m.gguf"
+        ),
+        CatalogModel(
+            "Qwen2.5 1.5B — gratuit, chat rapide",
+            "1,1 Go",
+            "$QWEN25/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+        ),
+        CatalogModel(
+            "Llama 3.2 3B — gratuit, généraliste",
+            "2,0 Go",
+            "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+            "Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+        ),
+        CatalogModel(
             "Qwen2.5-Coder 7B Q6_K — qualité MAX (plus lent)",
             "6,25 Go",
             "$QWEN25/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q6_k.gguf",

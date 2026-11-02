@@ -38,6 +38,25 @@ class YeuxDemon @JvmOverloads constructor(
             Couleur("rouge", "Rouge", 0xFFFF2A2A.toInt()),
             Couleur("jaune", "Jaune", 0xFFFFE14D.toInt()),
             Couleur("or", "Or", 0xFFE8B84A.toInt()),
+            Couleur("vert", "Vert néon", 0xFF00E676.toInt()),
+            Couleur("blanc", "Blanc", 0xFFF5F5F5.toInt()),
+            Couleur("cyan", "Cyan", 0xFF00E5FF.toInt()),
+            Couleur(ARC_EN_CIEL, "🌈 Arc-en-ciel (6 couleurs)", 0xFFFF7A00.toInt()),
+        )
+
+        const val ARC_EN_CIEL = "arcenciel"
+
+        /** Les 6 couleurs qui défilent en mode arc-en-ciel. */
+        private val ARC = intArrayOf(
+            0xFFFF2A2A.toInt(), 0xFFFF7A00.toInt(), 0xFFFFE14D.toInt(),
+            0xFF00E676.toInt(), 0xFF38BDF8.toInt(), 0xFFA855F7.toInt(),
+        )
+
+        /** Modèles de visage : clé → nom affiché. */
+        val MODELES = listOf(
+            "mechant" to "😈 Méchant",
+            "gentil" to "😊 Gentil",
+            "lunettes" to "😎 Lunettes turbo cool",
         )
 
         fun couleurDe(cle: String): Int =
@@ -45,7 +64,34 @@ class YeuxDemon @JvmOverloads constructor(
     }
 
     private var couleur = couleurDe(COULEUR_DEFAUT)
+    private var arcEnCiel = false
+    private var modele = "mechant"
     private var toujoursAnimes = true
+    private val pinceauReflet = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = 0xF0FFFFFF.toInt() }
+    private val pinceauVerre = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val pinceauCadre = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 5f; strokeJoin = Paint.Join.ROUND }
+
+    // Yeux gentils : grands ovales doux.
+    private val gentilGauche = Path().apply { addOval(android.graphics.RectF(14f, 8f, 62f, 56f), Path.Direction.CW) }
+    private val gentilDroit = Path().apply { addOval(android.graphics.RectF(88f, 8f, 136f, 56f), Path.Direction.CW) }
+
+    // Lunettes turbo cool : deux verres en trapèze arrondi + pont.
+    private val verreGauche = Path().apply {
+        moveTo(2f, 14f); lineTo(68f, 14f); cubicTo(70f, 34f, 62f, 54f, 40f, 54f)
+        cubicTo(16f, 54f, 4f, 40f, 2f, 14f); close()
+    }
+    private val verreDroit = Path().apply {
+        moveTo(148f, 14f); lineTo(82f, 14f); cubicTo(80f, 34f, 88f, 54f, 110f, 54f)
+        cubicTo(134f, 54f, 146f, 40f, 148f, 14f); close()
+    }
+
+    /** Couleur actuelle (qui défile en mode arc-en-ciel). */
+    private fun couleurActuelle(): Int {
+        if (!arcEnCiel) return couleur
+        val t = (android.os.SystemClock.uptimeMillis() % 9000L) / 9000f * ARC.size
+        val i = t.toInt() % ARC.size
+        return android.animation.ArgbEvaluator().evaluate(t - t.toInt(), ARC[i], ARC[(i + 1) % ARC.size]) as Int
+    }
 
     private val pinceau = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
@@ -100,6 +146,8 @@ class YeuxDemon @JvmOverloads constructor(
     private fun lireReglages() {
         val prefs = Prefs(context)
         couleur = couleurDe(prefs.yeuxCouleur)
+        arcEnCiel = prefs.yeuxCouleur == ARC_EN_CIEL
+        modele = prefs.yeuxModele
         toujoursAnimes = prefs.yeuxToujoursAnimes
     }
 
@@ -252,17 +300,66 @@ class YeuxDemon @JvmOverloads constructor(
         val dx = (width - 150f * echelle) / 2f
         val dy = (height - 60f * echelle) / 2f
 
-        pinceau.color = couleur
-        pinceau.setShadowLayer(16f * echelle * (lueur + eclat) + 3f, 0f, 0f, couleur)
+        val teinte = couleurActuelle()
+        pinceau.color = teinte
+        pinceau.setShadowLayer(16f * echelle * (lueur + eclat) + 3f, 0f, 0f, teinte)
 
         canvas.save()
         canvas.translate(dx + regard * 8f * echelle, dy)
         canvas.scale(echelle, echelle)
+        if (modele == "lunettes") {
+            dessinerLunettes(canvas, teinte, echelle)
+            canvas.restore()
+            if (arcEnCiel || modele == "lunettes") postInvalidateOnAnimation()
+            return
+        }
         // Clignement + plissement (+ léger plissement pendant l'éclat) autour du milieu des yeux.
         val hauteurOeil = ouverture * plissement * (1f - 0.15f * eclat.coerceAtMost(1f))
         canvas.scale(1f, hauteurOeil, 75f, 34f)
-        canvas.drawPath(oeilGauche, pinceau)
-        canvas.drawPath(oeilDroit, pinceau)
+        if (modele == "gentil") {
+            canvas.drawPath(gentilGauche, pinceau)
+            canvas.drawPath(gentilDroit, pinceau)
+            // Reflets brillants : un regard doux et vivant.
+            canvas.drawCircle(48f, 22f, 7f, pinceauReflet)
+            canvas.drawCircle(122f, 22f, 7f, pinceauReflet)
+            canvas.drawCircle(30f, 42f, 3.2f, pinceauReflet)
+            canvas.drawCircle(104f, 42f, 3.2f, pinceauReflet)
+        } else {
+            canvas.drawPath(oeilGauche, pinceau)
+            canvas.drawPath(oeilDroit, pinceau)
+        }
         canvas.restore()
+        if (arcEnCiel) postInvalidateOnAnimation()
+    }
+
+    /** Lunettes de soleil : verres sombres, monture lumineuse, reflet qui balaie les verres. */
+    private fun dessinerLunettes(canvas: Canvas, teinte: Int, echelle: Float) {
+        pinceauVerre.shader = android.graphics.LinearGradient(
+            0f, 14f, 0f, 54f, 0xFF1A1A1A.toInt(), 0xFF050505.toInt(), android.graphics.Shader.TileMode.CLAMP
+        )
+        canvas.drawPath(verreGauche, pinceauVerre)
+        canvas.drawPath(verreDroit, pinceauVerre)
+        pinceauCadre.color = teinte
+        pinceauCadre.setShadowLayer(12f * echelle * (lueur + eclat) / echelle + 3f, 0f, 0f, teinte)
+        canvas.drawPath(verreGauche, pinceauCadre)
+        canvas.drawPath(verreDroit, pinceauCadre)
+        canvas.drawLine(68f, 20f, 82f, 20f, pinceauCadre)
+        // Reflet « turbo » : une bande claire traverse les verres, plus vite quand l'IA travaille.
+        val cycle = if (pensee) 1300L else 2600L
+        val p = (android.os.SystemClock.uptimeMillis() % cycle) / cycle.toFloat()
+        val x = -30f + p * 220f
+        canvas.save()
+        val masque = Path().apply { addPath(verreGauche); addPath(verreDroit) }
+        canvas.clipPath(masque)
+        val reflet = Path().apply { moveTo(x, 10f); lineTo(x + 14f, 10f); lineTo(x - 6f, 58f); lineTo(x - 20f, 58f); close() }
+        canvas.drawPath(reflet, pinceauReflet.apply { alpha = 120 })
+        canvas.drawPath(Path().apply { moveTo(x + 20f, 10f); lineTo(x + 25f, 10f); lineTo(x + 5f, 58f); lineTo(x, 58f); close() }, pinceauReflet)
+        pinceauReflet.alpha = 240
+        canvas.restore()
+        // Petite lueur de couleur au bas des verres.
+        pinceau.alpha = 90
+        canvas.drawOval(20f, 44f, 56f, 52f, pinceau)
+        canvas.drawOval(94f, 44f, 130f, 52f, pinceau)
+        pinceau.alpha = 255
     }
 }
