@@ -3,6 +3,8 @@
 
     <!-- Fournisseurs distants + telechargement des modeles et des mises a jour -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Rappels de l agenda (APK perso) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Installation des mises a jour de l'appli -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -25,7 +27,7 @@
         android:extractNativeLibs="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${appLabel}"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
@@ -45,6 +47,51 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- APK perso : schémas animés (lien ▶️ dans le chat), agenda et outils. -->
+        <activity
+            android:name=".chat.SchemaActivity"
+            android:exported="true"
+            android:label="Schéma animé"
+            android:theme="@style/Theme.CodexLocal">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${applicationId}.schema" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".outils.AgendaActivity"
+            android:exported="true"
+            android:label="Agenda"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.CodexLocal">
+            <!-- ➕ « Ajouter en 1 clic » depuis le chat -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${applicationId}.agenda" />
+            </intent-filter>
+            <!-- Partager → Agenda depuis n'importe quelle appli -->
+            <intent-filter android:label="Ajouter à l’agenda">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".outils.OutilsActivity"
+            android:exported="false"
+            android:label="Outils"
+            android:theme="@style/Theme.CodexLocal" />
+        <receiver
+            android:name=".outils.RappelAgenda"
+            android:exported="false" />
+        <receiver
+            android:name=".outils.RecepteurNouvelles"
+            android:exported="false" />
 
         <activity
             android:name=".PartageActivity"

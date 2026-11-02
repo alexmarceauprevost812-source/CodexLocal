@@ -48,6 +48,12 @@ import com.codexlocal.studio.MoteurApplication
 import com.codexlocal.usage.CompteurUsage
 import com.codexlocal.web.MoteurCrypto
 import com.codexlocal.web.RechercheWeb
+import com.codexlocal.web.RechercheRiche
+import com.codexlocal.chat.SchemaAnime
+import com.codexlocal.outils.AgendaActivity
+import com.codexlocal.outils.AgendaStore
+import com.codexlocal.outils.NotifNouvelles
+import com.codexlocal.outils.OutilsActivity
 import com.codexlocal.web.ResultatWeb
 import com.codexlocal.rea.ReaClient
 import com.codexlocal.rea.ReaProtocol
@@ -169,6 +175,7 @@ class MainActivity : AppCompatActivity() {
         // la barre « Copier / Creer fichier » apparait en double et l'ecran saccade.
         (binding.messages.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
         updateEmptyState()
+        if (BuildConfig.PERSO) installerPerso(savedInstanceState == null)
 
         // ----- menu lateral -----
         binding.toolbar.setNavigationOnClickListener {
@@ -193,7 +200,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Verification silencieuse des mises a jour au demarrage
-        if (prefs.autoUpdate) {
+        // L'APK perso ne se met pas à jour avec l'APK standard (autre appli) : mise à jour manuelle.
+        if (prefs.autoUpdate && !BuildConfig.PERSO) {
             UpdateFlow.verifier(lifecycleScope, this, silencieux = true) { message ->
                 runOnUiThread { binding.status.text = message }
             }
@@ -211,6 +219,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         Updater.reprendreInstallation(this)
+        if (BuildConfig.PERSO) choisirModelePartage()
         appliquerFond()
         binding.yeuxBarre.appliquerReglages()
         binding.logoAccueil.appliquerReglages()
@@ -324,6 +333,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkUpdates() {
+        if (BuildConfig.PERSO) {
+            binding.status.text = "CodexLocal Perso : nouvelle version dans les releases « perso » de GitHub."
+            return
+        }
         UpdateFlow.verifier(lifecycleScope, this, silencieux = false) { message ->
             runOnUiThread { binding.status.text = message }
         }
@@ -463,6 +476,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setGenerating(on: Boolean) {
         isGenerating = on
+        adapter.enCours = on
         // Les yeux plissent et brillent plus fort pendant que l'IA travaille.
         binding.yeuxBarre.setPensee(on)
         binding.logoAccueil.setPensee(on)
@@ -473,6 +487,126 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Affiche le logo d'accueil tant qu'aucun message n'existe. */
+    /**
+     * APK perso : raccourcis sous l'accueil (même interface), notifications des nouvelles,
+     * modèles partagés avec CodexLocal.
+     */
+    private fun installerPerso(premierLancement: Boolean) {
+        val accueil = binding.logoAccueil.parent as? android.widget.LinearLayout
+        if (accueil != null) {
+            (0 until accueil.childCount).map { accueil.getChildAt(it) }
+                .filterIsInstance<android.widget.TextView>()
+                .firstOrNull { it.text.toString() == getString(R.string.app_name) }
+                ?.text = "CodexLocal Perso"
+            val d = resources.displayMetrics.density
+            fun pastille(texte: String, couleur: Int, action: () -> Unit) = android.widget.TextView(this).apply {
+                text = texte
+                textSize = 14f
+                setTextColor(couleur)
+                gravity = android.view.Gravity.CENTER
+                setPadding((14 * d).toInt(), (9 * d).toInt(), (14 * d).toInt(), (9 * d).toInt())
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = 22 * d
+                    setColor(0xFF0E0E0E.toInt())
+                    setStroke((1.5f * d).toInt(), couleur)
+                }
+                setOnClickListener { action() }
+            }
+            fun rangee(vararg vues: android.view.View) = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER
+                vues.forEach {
+                    addView(it, android.widget.LinearLayout.LayoutParams(-2, -2).apply {
+                        setMargins((4 * d).toInt(), (5 * d).toInt(), (4 * d).toInt(), (5 * d).toInt())
+                    })
+                }
+            }
+            val orange = getColor(R.color.orange)
+            val bleu = getColor(R.color.sky_blue)
+            accueil.addView(rangee(
+                pastille("⬇️ IA gratuite", orange) { openSettings() },
+                pastille("🔑 Clé API", bleu) { openSettings() },
+            ), android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = (18 * d).toInt() })
+            binding.logoAccueil.setOnLongClickListener { choisirCouleurYeux(); true }
+            binding.yeuxBarre.setOnLongClickListener { choisirCouleurYeux(); true }
+            accueil.addView(rangee(
+                pastille("👀 Yeux", orange) { choisirCouleurYeux() },
+                pastille("📅 Agenda", orange) { startActivity(Intent(this, AgendaActivity::class.java)) },
+                pastille("🧰 Outils", bleu) { startActivity(Intent(this, OutilsActivity::class.java)) },
+            ))
+        }
+
+        if (premierLancement && OutilsActivity.prenom(this).isBlank()) OutilsActivity.demanderPrenom(this)
+        NotifNouvelles.programmer(this)
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 31)
+        }
+
+        // Modèles partagés avec CodexLocal (/sdcard/CodexLocal/models) : demander l'accès une fois.
+        val sp = getSharedPreferences("codexlocal", MODE_PRIVATE)
+        if (premierLancement && !PartageModeles.peutPartager() && !sp.getBoolean("partageDemandePerso", false)) {
+            sp.edit().putBoolean("partageDemandePerso", true).apply()
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("🤝 Modèles partagés avec CodexLocal")
+                .setMessage(
+                    "Pour utiliser les IA déjà téléchargées dans CodexLocal (sans les retélécharger), " +
+                        "autorise « Accès à tous les fichiers ».\n\nDans CodexLocal, active aussi « Partager les modèles » " +
+                        "dans les réglages : les deux applis liront le même dossier."
+                )
+                .setPositiveButton("Autoriser") { _, _ ->
+                    runCatching {
+                        startActivity(
+                            Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                                .setData(android.net.Uri.parse("package:$packageName"))
+                        )
+                    }
+                }
+                .setNegativeButton("Plus tard", null)
+                .show()
+        }
+    }
+
+    /** APK perso : un modèle partagé est là mais aucun n'est choisi → on prend le premier. */
+    private fun choisirModelePartage() {
+        if (prefs.localModelPath.isBlank()) {
+            ModelStore.list(this).firstOrNull()?.let { prefs.localModelPath = it.absolutePath }
+        }
+    }
+
+    /** Menu 👀 : modèle des yeux (méchant, gentil, lunettes turbo cool) ou couleur. */
+    private fun choisirCouleurYeux() {
+        val modeles = YeuxDemon.MODELES
+        val items = modeles.map { (cle, nom) -> if (cle == prefs.yeuxModele) "$nom  ✔" else nom } + "🎨 Couleur des yeux…"
+        MaterialAlertDialogBuilder(this)
+            .setTitle("👀 Les yeux")
+            .setItems(items.toTypedArray()) { _, i ->
+                if (i < modeles.size) {
+                    prefs.yeuxModele = modeles[i].first
+                    binding.yeuxBarre.appliquerReglages()
+                    binding.logoAccueil.appliquerReglages()
+                    binding.logoAccueil.reagir()
+                } else {
+                    choisirTeinteYeux()
+                }
+            }
+            .show()
+    }
+
+    private fun choisirTeinteYeux() {
+        val choix = YeuxDemon.COULEURS
+        val actuel = choix.indexOfFirst { it.cle == prefs.yeuxCouleur }.coerceAtLeast(0)
+        MaterialAlertDialogBuilder(this)
+            .setTitle("👀 Couleur des yeux")
+            .setSingleChoiceItems(choix.map { it.nom }.toTypedArray(), actuel) { d, i ->
+                prefs.yeuxCouleur = choix[i].cle
+                binding.yeuxBarre.appliquerReglages()
+                binding.logoAccueil.appliquerReglages()
+                binding.logoAccueil.reagir()
+                d.dismiss()
+            }
+            .show()
+    }
+
     private fun updateEmptyState() {
         binding.emptyState.isVisible = messages.isEmpty()
     }
@@ -983,6 +1117,10 @@ class MainActivity : AppCompatActivity() {
         val nouveaux = mutableListOf<DrawerItem>()
 
         nouveaux.add(DrawerItem.Bouton(getString(R.string.drawer_studio), CLE_STUDIO))
+        if (BuildConfig.PERSO) {
+            nouveaux.add(DrawerItem.Bouton("📅 Agenda", CLE_AGENDA))
+            nouveaux.add(DrawerItem.Bouton("🧰 Outils", CLE_OUTILS))
+        }
         nouveaux.add(
             DrawerItem.Section(
                 getString(R.string.drawer_sessions), "＋", CLE_NOUVELLE_SESSION,
@@ -1102,6 +1240,8 @@ class MainActivity : AppCompatActivity() {
             cle == CLE_NOUVEAU_FICHIER -> dialogNouveauFichier()
             cle == CLE_NOUVEAU_DOSSIER -> dialogNouveauDossier()
             cle == CLE_STUDIO -> ouvrirStudio()
+            cle == CLE_AGENDA -> startActivity(Intent(this, AgendaActivity::class.java))
+            cle == CLE_OUTILS -> startActivity(Intent(this, OutilsActivity::class.java))
             cle == CLE_OUVRIR_DOSSIER -> choisirDossier.launch(null)
             cle == CLE_SUPPRIMER_SESSIONS -> choisirSessionsASupprimer()
             cle == CLE_SUPPRIMER_PROJETS -> choisirProjetsASupprimer()
@@ -1125,6 +1265,17 @@ class MainActivity : AppCompatActivity() {
             consignes += "\n\n" + CONSIGNE_CHAT_RICHE
             // Les logos sont téléchargés : seulement si l'utilisateur permet Internet.
             if (prefs.rechercheWebAuto) consignes += " " + CONSIGNE_LOGOS
+            if (BuildConfig.PERSO) {
+                consignes += "\n\n" + SchemaAnime.CONSIGNE
+                if (prefs.rechercheWebAuto) consignes += "\n\n" + RechercheRiche.CONSIGNE
+            }
+        }
+        if (BuildConfig.PERSO) {
+            val prenom = OutilsActivity.prenom(this)
+            if (prenom.isNotBlank()) {
+                consignes += "\n\nL'utilisateur s'appelle $prenom. Appelle-le par son prénom de façon naturelle " +
+                    "(par exemple au début d'une réponse), sans le répéter à chaque phrase."
+            }
         }
         val cfg = if (consignes != baseConfig.systemPrompt) baseConfig.copy(systemPrompt = consignes) else baseConfig
 
@@ -1140,6 +1291,8 @@ class MainActivity : AppCompatActivity() {
             val annulations = mutableListOf<Annulation>()
             var resultatWeb: ResultatWeb? = null
             var cours: MoteurCrypto.Cours? = null
+            var riche: RechercheRiche.Resultat? = null
+            var carteAgenda: String? = null
             try {
                 val requeteWeb = if (prefs.rechercheWebAuto) RechercheWeb.requete(text) else null
                 if (requeteWeb != null) {
@@ -1167,6 +1320,30 @@ class MainActivity : AppCompatActivity() {
                     }
                     cours?.let { user.envoi = (user.envoi ?: user.content) + "\n\n" + it.contexte() }
                 }
+                if (BuildConfig.PERSO && mode == AssistantMode.CHAT) {
+                    // Agenda : la liste des rendez-vous est donnée à l'IA (elle peut en ajouter).
+                    if (AgendaStore.concerne(text)) {
+                        user.envoi = (user.envoi ?: user.content) + "\n\n" + AgendaStore.contexte(this@MainActivity)
+                        carteAgenda = AgendaStore.carte(this@MainActivity)
+                    }
+                    // Recherche riche : web, actualités, météo, vidéos, marché crypto.
+                    if (prefs.rechercheWebAuto) {
+                        binding.status.text = "🔎 Recherche riche en cours…"
+                        val sp = getSharedPreferences("codexlocal", MODE_PRIVATE)
+                        riche = try {
+                            RechercheRiche.rechercher(text, cours != null, sp.getString("villeMeteo", null)) { v ->
+                                sp.edit().putString("villeMeteo", v).apply()
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            null
+                        }
+                        riche?.takeIf { it.blocs.isNotEmpty() }?.let {
+                            user.envoi = (user.envoi ?: user.content) + "\n\n" + it.contexte()
+                        }
+                    }
+                }
                 binding.status.text = getString(R.string.ia_travaille)
                 if (mode == AssistantMode.EQUIPE) {
                     jouerEquipe(user, cfg, annulations)
@@ -1180,8 +1357,22 @@ class MainActivity : AppCompatActivity() {
             } finally {
                 val reponse = messages.lastOrNull()
                 if (reponse != null && !reponse.isUser) {
+                    if (BuildConfig.PERSO) {
+                        SchemaAnime.annoter(reponse)
+                        AgendaStore.appliquer(this@MainActivity, reponse)
+                        AgendaStore.suggestions(reponse)
+                    }
                     cours?.annoter(reponse)
+                    riche?.annoter(reponse)
+                    carteAgenda?.let { carte ->
+                        if (reponse.envoi == null) reponse.envoi = reponse.content
+                        reponse.content = MoteurCrypto.avecCarte(reponse.content, carte)
+                    }
                     resultatWeb?.annoterReponse(reponse)
+                    // « Lis-moi les nouvelles », « à voix haute »… : la réponse est lue (voix québécoise).
+                    if (BuildConfig.PERSO && LIRE_A_VOIX.containsMatchIn(text.lowercase(Locale.ROOT))) {
+                        com.codexlocal.chat.LecteurVoix.lire(this@MainActivity, reponse.envoi ?: reponse.content)
+                    }
                     adapter.notifyItemChanged(messages.size - 1)
                 }
                 setGenerating(false)
@@ -1472,7 +1663,9 @@ class MainActivity : AppCompatActivity() {
             val now = System.currentTimeMillis()
             // Le rendu (Markdown + couleurs) refait tout le message : plus il est long,
             // moins on le rafraichit souvent, sinon l'ecran gele.
-            val intervalle = (80L + assistant.content.length / 40).coerceAtMost(500L)
+            // APK perso : écriture plus fluide (rafraîchi plus souvent), avec l'effet projection.
+            val intervalle = if (BuildConfig.PERSO) (33L + assistant.content.length / 80).coerceAtMost(260L)
+            else (80L + assistant.content.length / 40).coerceAtMost(500L)
             if (now - lastUiUpdate > intervalle) {
                 lastUiUpdate = now
                 val i = messages.indexOfFirst { it === assistant }
@@ -1705,11 +1898,16 @@ class MainActivity : AppCompatActivity() {
         private const val CLE_NOUVEAU_FICHIER = "nouveau_fichier"
         private const val CLE_NOUVEAU_DOSSIER = "nouveau_dossier"
         private const val CLE_STUDIO = "studio"
+        private const val CLE_AGENDA = "agenda"
+        private const val CLE_OUTILS = "outils"
         private const val CLE_OUVRIR_DOSSIER = "ouvrir_dossier"
         private const val CLE_SUPPRIMER_SESSIONS = "supprimer_sessions"
         private const val CLE_SUPPRIMER_PROJETS = "supprimer_projets"
     }
 }
+
+/** Demandes de lecture à voix haute (APK perso). */
+private val LIRE_A_VOIX = Regex("(?U)\\b(lis-moi|lis moi|lis-les|lis les|lire à voix|à voix haute|a voix haute|écouter|ecouter|dis-moi à voix)")
 
 /** Mise en forme vivante du mode Chat : émojis, liens et logos dans les réponses. */
 private const val CONSIGNE_CHAT_RICHE =

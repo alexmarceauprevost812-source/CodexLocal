@@ -8,6 +8,11 @@ plugins {
 // jour suit la precedente sans modifier ce fichier. En local : version 1.5 / code 5.
 val ciRun: Int? = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
 
+// APK personnelle : `./gradlew :app:assembleDebug -Pperso` donne « CodexLocal Perso »,
+// une appli séparée (autre identifiant) qui s'installe à côté de CodexLocal, avec la
+// recherche riche (web, actualités, météo, vidéos, crypto), les schémas animés et le chat animé.
+val perso: Boolean = project.hasProperty("perso")
+
 // Modele d'application pour le Studio : la « coquille » (module :shell) est compilee puis copiee
 // dans les assets de CodexLocal sous le nom modele-shell.apk (voir ConstructeurApk).
 val dossierModeleApk = layout.buildDirectory.dir("generated/modeleApk/assets")
@@ -25,7 +30,9 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.codexlocal"
+        applicationId = if (perso) "com.codexlocal.perso" else "com.codexlocal"
+        buildConfigField("boolean", "PERSO", perso.toString())
+        manifestPlaceholders["appLabel"] = if (perso) "CodexLocal Perso" else "CodexLocal"
         minSdk = 33
         targetSdk = 36
         versionCode = if (ciRun != null) 100 + ciRun else 5
@@ -82,6 +89,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     sourceSets.getByName("main").assets.srcDir(dossierModeleApk)

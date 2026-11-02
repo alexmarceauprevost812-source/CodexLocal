@@ -29,7 +29,11 @@ object ImagesChat {
         "assets.coingecko.com",
         "coin-images.coingecko.com",
         "icons.duckduckgo.com",
+        // Miniatures de la recherche riche (vidéos YouTube, photos Wikipédia), affichées en grand.
+        "i.ytimg.com",
+        "upload.wikimedia.org",
     )
+    private val GRANDES = setOf("i.ytimg.com", "upload.wikimedia.org")
     private val domaineValide = Regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
 
     private const val TAILLE_MAX = 512 * 1024
@@ -66,6 +70,13 @@ object ImagesChat {
         val url = resoudre(source) ?: return null
         val bitmap = cache.get(url)
         if (bitmap != null) {
+            val grande = runCatching { URI(url).host?.lowercase(Locale.ROOT) in GRANDES }.getOrDefault(false)
+            if (grande && bitmap.width > 0) {
+                // Miniature : large (environ la largeur d'une bulle), proportions gardées.
+                val largeur = minOf(taillePx * 9, (resources.displayMetrics.widthPixels * 0.7f).toInt())
+                val hauteur = largeur * bitmap.height / bitmap.width
+                return BitmapDrawable(resources, bitmap).apply { setBounds(0, 0, largeur, hauteur) }
+            }
             return BitmapDrawable(resources, bitmap).apply { setBounds(0, 0, taillePx, taillePx) }
         }
         charger(url, quandPrete)

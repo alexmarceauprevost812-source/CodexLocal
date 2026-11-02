@@ -43,7 +43,8 @@ object PartageModeles {
 
     /** Le partage est-il demande par l'utilisateur ? */
     fun demande(context: Context): Boolean =
-        prefs(context).getBoolean(CLE_PARTAGE, false)
+        // APK perso : partagé par défaut, pour utiliser les modèles déjà téléchargés par CodexLocal.
+        prefs(context).getBoolean(CLE_PARTAGE, BuildConfig.PERSO)
 
     /** Le partage est-il reellement actif (demande ET permission accordee) ? */
     fun actif(context: Context): Boolean = demande(context) && peutPartager()
