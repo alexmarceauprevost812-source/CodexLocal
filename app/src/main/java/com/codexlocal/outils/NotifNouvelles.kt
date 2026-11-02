@@ -25,7 +25,7 @@ object NotifNouvelles {
     const val CANAL = "nouvelles"
     private fun sp(c: Context) = c.applicationContext.getSharedPreferences("outils", Context.MODE_PRIVATE)
 
-    fun actives(c: Context) = sp(c).getBoolean("notifNouvelles", true)
+    fun actives(c: Context) = com.codexlocal.BuildConfig.PERSO && sp(c).getBoolean("notifNouvelles", true)
 
     fun definir(c: Context, actif: Boolean) {
         sp(c).edit().putBoolean("notifNouvelles", actif).apply()

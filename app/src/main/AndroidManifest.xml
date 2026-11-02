@@ -57,6 +57,7 @@
         <!-- APK perso : schémas animés (lien ▶️ dans le chat), agenda et outils. -->
         <activity
             android:name=".chat.SchemaActivity"
+            android:enabled="${persoActif}"
             android:exported="true"
             android:label="Schéma animé"
             android:theme="@style/Theme.CodexLocal">
@@ -69,6 +70,7 @@
         </activity>
         <activity
             android:name=".outils.AgendaActivity"
+            android:enabled="${persoActif}"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
             android:exported="true"
             android:label="Agenda"
@@ -90,18 +92,22 @@
         </activity>
         <activity
             android:name=".outils.OutilsActivity"
+            android:enabled="${persoActif}"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale"
             android:exported="false"
             android:label="Outils"
             android:theme="@style/Theme.CodexLocal" />
         <receiver
             android:name=".outils.RappelAgenda"
+            android:enabled="${persoActif}"
             android:exported="false" />
         <receiver
             android:name=".outils.RecepteurNouvelles"
+            android:enabled="${persoActif}"
             android:exported="false" />
         <receiver
             android:name=".outils.RedemarrageTelephone"
+            android:enabled="${persoActif}"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
