@@ -204,6 +204,15 @@ object DateTexte {
     }
 }
 
+/** Android efface les alarmes à l'arrêt : on reprogramme les rappels (et les nouvelles) au démarrage. */
+class RedemarrageTelephone : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        AgendaStore.tous(context).forEach { AgendaStore.programmerRappel(context, it) }
+        NotifNouvelles.programmer(context)
+    }
+}
+
 /** Notification de rappel d'un rendez-vous. */
 class RappelAgenda : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

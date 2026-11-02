@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Rappels de l agenda (APK perso) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Reprogrammer les rappels de l agenda apres un redemarrage -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Installation des mises a jour de l'appli -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -18,6 +20,10 @@
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- Voix (synthese vocale) pour lire les reponses et les nouvelles -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
     </queries>
 
@@ -92,6 +98,13 @@
         <receiver
             android:name=".outils.RecepteurNouvelles"
             android:exported="false" />
+        <receiver
+            android:name=".outils.RedemarrageTelephone"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".PartageActivity"
