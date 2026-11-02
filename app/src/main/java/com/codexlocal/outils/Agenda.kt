@@ -160,7 +160,10 @@ object AgendaStore {
     private fun surLaReponse(message: Message, transformer: (String) -> String) {
         val decoupe = com.codexlocal.agent.Reflexion.separer(message.content)
         if (decoupe.enCours) return
-        val nouvelle = transformer(decoupe.reponse)
+        // Les blocs de code (```…```) sont des exemples : on ne les exécute jamais.
+        val nouvelle = decoupe.reponse.split("```").mapIndexed { i, morceau ->
+            if (i % 2 == 0) transformer(morceau) else morceau
+        }.joinToString("```")
         if (nouvelle == decoupe.reponse) return
         if (message.envoi == null) message.envoi = message.content
         message.content = message.content.removeSuffix(decoupe.reponse) + nouvelle

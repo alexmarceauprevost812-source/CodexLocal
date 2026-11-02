@@ -78,6 +78,10 @@ class PersoTest {
         com.codexlocal.outils.AgendaStore.appliquer(c, coupe)
         assertTrue(com.codexlocal.outils.AgendaStore.tous(c).none { it.titre == "Brouillon" })
         assertEquals("Réponse", LecteurVoix.nettoyer("raisonnement sans balise ouvrante</think>Réponse"))
+        // Un exemple dans un bloc de code n'ajoute rien.
+        val exemple = Message.assistant().apply { content = "Format :\n```\nAGENDA+ 2030-03-01 08:00 | Exemple\n```" }
+        com.codexlocal.outils.AgendaStore.appliquer(c, exemple)
+        assertTrue(com.codexlocal.outils.AgendaStore.tous(c).none { it.titre == "Exemple" })
     }
 
     @Test fun datesDansUnTexte() {

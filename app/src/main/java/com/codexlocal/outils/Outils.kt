@@ -87,9 +87,10 @@ class OutilsActivity : AppCompatActivity() {
         setOnClickListener { action() }
     }
 
-    private fun champ(indice: String, nombre: Boolean = true) = EditText(this).apply {
+    private fun champ(indice: String, nombre: Boolean = true, signe: Boolean = false) = EditText(this).apply {
         hint = indice; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY); textSize = 18f
-        if (nombre) inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        if (nombre) inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or
+            (if (signe) InputType.TYPE_NUMBER_FLAG_SIGNED else 0)
     }
 
     private fun ajouter(v: View, haut: Int = 8) {
@@ -393,7 +394,7 @@ class OutilsActivity : AppCompatActivity() {
             adapter = ArrayAdapter(this@OutilsActivity, android.R.layout.simple_spinner_dropdown_item,
                 conversions.map { "${it.nom} : ${it.a} ⇄ ${it.b}" })
         }
-        val valeur = champ("Valeur")
+        val valeur = champ("Valeur (ex. -20)", signe = true)
         val resultat = texte("", or, 22f)
         val format = NumberFormat.getNumberInstance(Locale.CANADA_FRENCH).apply { maximumFractionDigits = 3 }
         ajouter(choix); ajouter(valeur)

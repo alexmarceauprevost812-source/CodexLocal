@@ -1356,7 +1356,8 @@ class MainActivity : AppCompatActivity() {
             } finally {
                 val reponse = messages.lastOrNull()
                 if (reponse != null && !reponse.isUser) {
-                    if (BuildConfig.PERSO) {
+                    // Actions d'agenda et schémas : seulement en mode Chat (jamais pendant du code).
+                    if (BuildConfig.PERSO && mode == AssistantMode.CHAT) {
                         SchemaAnime.annoter(reponse)
                         AgendaStore.appliquer(this@MainActivity, reponse)
                         AgendaStore.suggestions(reponse)
