@@ -1365,9 +1365,10 @@ class MainActivity : AppCompatActivity() {
                     }
                     cours?.annoter(reponse)
                     riche?.annoter(reponse)
-                    carteAgenda?.let { carte ->
+                    if (carteAgenda != null) {
+                        // Carte refaite après les ajouts de cette réponse : elle montre l'agenda à jour.
                         if (reponse.envoi == null) reponse.envoi = reponse.content
-                        reponse.content = MoteurCrypto.avecCarte(reponse.content, carte)
+                        reponse.content = MoteurCrypto.avecCarte(reponse.content, AgendaStore.carte(this@MainActivity))
                     }
                     resultatWeb?.annoterReponse(reponse)
                     // « Lis-moi les nouvelles », « à voix haute »… : la réponse est lue (voix québécoise).

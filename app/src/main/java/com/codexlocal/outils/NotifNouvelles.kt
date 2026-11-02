@@ -39,6 +39,11 @@ object NotifNouvelles {
     /** À appeler au démarrage de l'appli : (re)programme la tournée des nouvelles. */
     fun programmer(c: Context) {
         if (!actives(c)) return
+        // Déjà programmée : on garde la prochaine heure (rouvrir l'appli ne la repousse pas).
+        val existante = PendingIntent.getBroadcast(
+            c, 4242, Intent(c, RecepteurNouvelles::class.java), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (existante != null) return
         val intervalle = AlarmManager.INTERVAL_HOUR * 3
         (c.getSystemService(Context.ALARM_SERVICE) as AlarmManager).setInexactRepeating(
             AlarmManager.RTC, System.currentTimeMillis() + intervalle, intervalle, intention(c)
@@ -46,7 +51,9 @@ object NotifNouvelles {
     }
 
     fun annuler(c: Context) {
-        (c.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(intention(c))
+        val pi = intention(c)
+        (c.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)
+        pi.cancel()
     }
 
     /** Télécharge et notifie (bloquant, hors du fil principal). */
