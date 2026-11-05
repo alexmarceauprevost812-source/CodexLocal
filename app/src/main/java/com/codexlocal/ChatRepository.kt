@@ -41,6 +41,8 @@ object ChatRepository {
                     val rappel = RappelConversation.construire(history.subList(0, dernier))
                     if (rappel.isNotEmpty()) texte = rappel + "\n\n" + texte
                 }
+                // Mode Codex : rappel en derniere ligne, la partie que les petits modeles suivent le mieux.
+                if (cfg.systemPrompt.contains(CODEX_MARQUEUR)) texte = texte + "\n\n" + CODEX_RAPPEL
                 LocalEngine.stream(texte, cfg.maxTokens).collect { emit(it) }
             }
         } else {

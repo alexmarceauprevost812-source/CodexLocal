@@ -33,12 +33,35 @@ const val DEFAULT_SYSTEM_PROMPT =
         "avec le langage indique. Verifie que le code est complet et correct, " +
         "et signale les pieges ou les erreurs probables."
 
+/** Repere des consignes Codex : ChatRepository s'en sert pour ajouter le rappel au message. */
+const val CODEX_MARQUEUR = "Mode Codex :"
+
+/**
+ * Consignes du mode Codex. Courtes et directes : un petit modele local (1,5B a 7B)
+ * suit mal les longues consignes, mais tres bien les regles simples et numerotees.
+ */
+const val CODEX_CONSIGNE =
+    CODEX_MARQUEUR + " tu es un programmeur. Regles :\n" +
+        "1. Reponds TOUJOURS avec du code complet et fonctionnel, dans un bloc ``` avec le langage.\n" +
+        "2. Ne refuse jamais une demande de programmation. Si elle est floue, choisis la " +
+        "solution la plus simple et raisonnable, puis code-la.\n" +
+        "3. Donne le fichier en entier, jamais des morceaux ni « ... le reste ici ».\n" +
+        "4. Pour une page web : un seul fichier HTML avec le CSS et le JavaScript dedans.\n" +
+        "5. Avant le code : une phrase maximum. Apres le code : une ou deux phrases " +
+        "pour dire comment l'utiliser.\n" +
+        "6. L'utilisateur ecrit parfois en francais du Quebec familier : devine son intention."
+
+/** Rappel colle a la fin du message envoye au modele local : il retient mieux la derniere phrase. */
+const val CODEX_RAPPEL =
+    "(Reponds avec le code complet dans un bloc ```, sans le couper, et peu de texte.)"
+
 /** Instructions adaptees sans changer les parametres API ni le modele choisi. */
 fun AppConfig.forMode(mode: AssistantMode): AppConfig = when (mode) {
     AssistantMode.CODEX, AssistantMode.REA -> copy(
-        systemPrompt = systemPrompt +
-            "\n\nMode Codex : privilegie les solutions de programmation completes, " +
-            "les corrections expliquees et les blocs de code utilisables."
+        systemPrompt = systemPrompt + "\n\n" + CODEX_CONSIGNE,
+        // Code plus fiable (moins d'invention) et assez de place pour un fichier entier.
+        temperature = temperature.coerceAtMost(0.2f),
+        maxTokens = maxTokens.coerceAtLeast(2048)
     )
     AssistantMode.CHAT -> copy(systemPrompt = CHAT_SYSTEM_PROMPT)
     // Chaque role de l'equipe a ses propres consignes (voir agent/Equipe.kt).
