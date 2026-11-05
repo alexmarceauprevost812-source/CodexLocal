@@ -27,3 +27,4 @@ lib/src/main/cpp/llama.cpp/
 *.hprof
 .DS_Store
 Thumbs.db
+sorties/

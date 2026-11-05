@@ -31,7 +31,16 @@ android {
                 arguments += "-DLLAMA_OPENSSL=OFF"
                 arguments += "-DGGML_NATIVE=OFF"
                 arguments += "-DGGML_BACKEND_DL=ON"
-                arguments += "-DGGML_CPU_ALL_VARIANTS=ON"
+                // Compilation rapide (`-Prapide`, utilise par construire-apk.sh) : une seule variante
+                // du moteur CPU (armv8.2 + dotprod + fp16, supportee par le S25 Ultra et le A55)
+                // au lieu de toutes. La premiere compilation de llama.cpp est plusieurs fois plus courte.
+                // Sans -Prapide (GitHub, versions publiees) : toutes les variantes, comme avant.
+                if (project.hasProperty("rapide")) {
+                    arguments += "-DGGML_CPU_ALL_VARIANTS=OFF"
+                    arguments += "-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16"
+                } else {
+                    arguments += "-DGGML_CPU_ALL_VARIANTS=ON"
+                }
                 arguments += "-DGGML_LLAMAFILE=OFF"
             }
         }
