@@ -85,7 +85,6 @@ class MainActivity : AppCompatActivity() {
     private val messages = mutableListOf<Message>()
     private val adapter = MessageAdapter(messages, ::copyToClipboard, ::enregistrerReponseCommeFichier)
     private var job: Job? = null
-    private var lastUiUpdate = 0L
     private var isGenerating = false
     private var modelSessionId: String? = null
 
@@ -1652,30 +1651,40 @@ class MainActivity : AppCompatActivity() {
     ): Boolean {
         val local = cfg.provider == ProviderType.LOCAL
         var bouclee = false
-        ChatRepository.stream(history, cfg, CompteurUsage(this)).takeWhile { chunk ->
-            assistant.content += chunk
-            // Petit modele qui repete la meme ligne sans fin : on coupe les copies et on arrete.
-            if (local && chunk.indexOf('\n') >= 0) {
-                DetecteurBoucle.boucle(assistant.content)?.let { garder ->
-                    assistant.content = assistant.content.substring(0, garder)
-                    bouclee = true
+        val contenu = StringBuilder(assistant.content)
+        var derniereMiseAJour: Long? = null
+        try {
+            ChatRepository.stream(history, cfg, CompteurUsage(this)).takeWhile { chunk ->
+                contenu.append(chunk)
+                // Ne materialiser le texte que pour verifier une ligne ou rafraichir l'ecran.
+                var instantane: String? = null
+                if (local && chunk.indexOf('\n') >= 0) {
+                    val texte = contenu.toString()
+                    instantane = texte
+                    DetecteurBoucle.boucle(texte)?.let { garder ->
+                        contenu.setLength(garder)
+                        instantane = contenu.toString()
+                        bouclee = true
+                    }
                 }
-            }
-            val now = System.currentTimeMillis()
-            // Le rendu (Markdown + couleurs) refait tout le message : plus il est long,
-            // moins on le rafraichit souvent, sinon l'ecran gele.
-            // APK perso : écriture plus fluide (rafraîchi plus souvent), avec l'effet projection.
-            val intervalle = if (BuildConfig.PERSO) (33L + assistant.content.length / 80).coerceAtMost(260L)
-            else (80L + assistant.content.length / 40).coerceAtMost(500L)
-            if (now - lastUiUpdate > intervalle) {
-                lastUiUpdate = now
-                val i = messages.indexOfFirst { it === assistant }
-                if (i >= 0) adapter.notifyItemChanged(i)
-                scrollToEnd()
-                surProgres?.invoke(assistant.content)
-            }
-            !bouclee
-        }.collect()
+                val maintenant = android.os.SystemClock.elapsedRealtime()
+                val intervalle = if (BuildConfig.PERSO) (33L + contenu.length / 80).coerceAtMost(260L)
+                else (80L + contenu.length / 40).coerceAtMost(500L)
+                val precedente = derniereMiseAJour
+                if (precedente == null || maintenant - precedente >= intervalle) {
+                    derniereMiseAJour = maintenant
+                    assistant.content = instantane ?: contenu.toString()
+                    val i = messages.indexOfFirst { it === assistant }
+                    if (i >= 0) adapter.notifyItemChanged(i)
+                    scrollToEnd()
+                    surProgres?.invoke(assistant.content)
+                }
+                !bouclee
+            }.collect()
+        } finally {
+            // Garder aussi le dernier morceau en cas d'arret manuel ou d'erreur du fournisseur.
+            assistant.content = contenu.toString()
+        }
         if (bouclee) {
             var texte = assistant.content.trimEnd()
             // Boucle pendant la reflexion (<think> sans </think>) : on ferme la reflexion,
