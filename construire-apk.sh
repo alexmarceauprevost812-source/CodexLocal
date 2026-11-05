@@ -155,6 +155,6 @@ if [ "$INSTALLER" = "1" ]; then
   fi
   for apk in "${CONSTRUITS[@]}"; do
     info "Installation de $apk…"
-    "$ADB" install -r "$apk" && ok "Installé"
+    "$ADB" install -r -d "$apk" && ok "Installé"
   done
 fi
