@@ -374,8 +374,9 @@ class SettingsActivity : AppCompatActivity() {
 
         busyJob = lifecycleScope.launch {
             try {
-                LocalEngine.load(this@SettingsActivity, file.absolutePath, prefs.config()) { msg ->
-                    runOnUiThread { binding.tvLocalStatus.text = msg }
+                // L'animation occupe le texte d'etat pendant tout le chargement.
+                avecAnimationChargement(binding.tvLocalStatus, file.nameWithoutExtension) {
+                    LocalEngine.load(this@SettingsActivity, file.absolutePath, prefs.config()) { }
                 }
                 binding.tvLocalStatus.text = getString(R.string.msg_model_loaded, file.name)
             } catch (e: Exception) {
@@ -458,8 +459,8 @@ class SettingsActivity : AppCompatActivity() {
     /** Charge le modele juste apres son installation : un clic et c'est pret. */
     private suspend fun chargerLeModele(fichier: File) {
         try {
-            LocalEngine.load(this, fichier.absolutePath, prefs.config()) { msg ->
-                runOnUiThread { binding.tvLocalStatus.text = msg }
+            avecAnimationChargement(binding.tvLocalStatus, fichier.nameWithoutExtension) {
+                LocalEngine.load(this, fichier.absolutePath, prefs.config()) { }
             }
             binding.tvLocalStatus.text = getString(R.string.msg_model_loaded, fichier.name)
         } catch (e: Exception) {

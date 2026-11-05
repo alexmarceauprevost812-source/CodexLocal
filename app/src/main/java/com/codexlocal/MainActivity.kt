@@ -1621,9 +1621,13 @@ class MainActivity : AppCompatActivity() {
             return false
         }
         val dejaCharge = LocalEngine.isLoadedFor(cfg.localModelPath)
-        if (!dejaCharge) binding.status.text = getString(R.string.msg_loading_model)
-        LocalEngine.load(this, cfg.localModelPath, cfg, repartirDeZero) { msg ->
-            runOnUiThread { binding.status.text = msg }
+        if (dejaCharge) {
+            // Deja en memoire : seulement un changement de consignes, instantane.
+            LocalEngine.load(this, cfg.localModelPath, cfg, repartirDeZero) { }
+        } else {
+            avecAnimationChargement(binding.status, File(cfg.localModelPath).nameWithoutExtension) {
+                LocalEngine.load(this, cfg.localModelPath, cfg, repartirDeZero) { }
+            }
         }
         if (repartirDeZero) {
             // Les roles de l'equipe ne partagent pas de conversation : la suivante repart a zero.
