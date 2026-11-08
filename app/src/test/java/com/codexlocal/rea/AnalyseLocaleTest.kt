@@ -15,7 +15,7 @@ import java.util.zip.ZipOutputStream
 @Config(sdk = [35])
 class AnalyseLocaleTest {
     private fun zip(vararg e: Pair<String, String>): File {
-        val f = File.createTempFile("t", ".zip")
+        val f = File.createTempFile("test", ".zip")
         ZipOutputStream(f.outputStream()).use { z -> e.forEach { (n, c) -> z.putNextEntry(ZipEntry(n)); z.write(c.toByteArray()); z.closeEntry() } }
         return f
     }
@@ -26,10 +26,10 @@ class AnalyseLocaleTest {
         assertEquals(4, r.getInt("entries"))
         assertEquals(64, r.getString("sha256").length)
         assertTrue(r.getJSONArray("notes").length() >= 0)
-        val t = File.createTempFile("t", ".txt").apply { writeText("bonjour") }
+        val t = File.createTempFile("test", ".txt").apply { writeText("bonjour") }
         val rt = AnalyseLocale.inspecter(t)
         assertEquals("texte", rt.getString("kind")); assertEquals("bonjour", rt.getString("preview"))
-        val b = File.createTempFile("t", ".bin").apply { writeBytes(byteArrayOf(0, 1, 2, 3)) }
+        val b = File.createTempFile("test", ".bin").apply { writeBytes(byteArrayOf(0, 1, 2, 3)) }
         assertEquals("binaire", AnalyseLocale.inspecter(b).getString("kind"))
     }
 
@@ -53,5 +53,12 @@ class AnalyseLocaleTest {
         assertTrue(ReaProtocol.tools.containsAll(noms))
         assertTrue(ReaProtocol.consigne("[C]", local = true).contains("téléphone"))
         assertTrue(ReaProtocol.consigne("[C]").contains("PC"))
+    }
+
+    @Test fun manifesteAbimeLeveUneErreurSansAllocationGeante() {
+        val b = java.nio.ByteBuffer.allocate(64).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        b.putShort(0, 3).putShort(8, 1).putInt(12, 40).putInt(16, Int.MAX_VALUE)
+        val e = runCatching { com.codexlocal.studio.apk.ManifesteBinaire.lireChaines(b.array()) }.exceptionOrNull()
+        assertTrue(e is IllegalArgumentException)
     }
 }

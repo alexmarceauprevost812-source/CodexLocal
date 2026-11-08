@@ -77,6 +77,8 @@ object ManifesteBinaire {
         val debutChaines = b.getInt(debut + 20)
         require(nombreStyles == 0) { "Manifeste avec styles : non pris en charge" }
         require(tailleTable in 28..(octets.size - 8)) { "Table des chaines abimee" }
+        // Un manifeste abîmé ne doit pas provoquer une allocation géante : les décalages tiennent dans la table.
+        require(nombre in 0..((tailleTable - 28) / 4)) { "Nombre de chaines incoherent" }
         val utf8 = drapeaux and DRAPEAU_UTF8 != 0
 
         val chaines = ArrayList<String>(nombre)
