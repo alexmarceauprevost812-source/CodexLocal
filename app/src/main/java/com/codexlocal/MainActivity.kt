@@ -26,6 +26,9 @@ import com.codexlocal.agent.ActionsFichiers
 import com.codexlocal.agent.AgentProjet
 import com.codexlocal.agent.Annulation
 import com.codexlocal.agent.Bilan
+import com.codexlocal.agent.BonCodeur
+import com.codexlocal.agent.Probleme
+import com.codexlocal.agent.VerificateurCode
 import com.codexlocal.agent.DemandeCreation
 import com.codexlocal.agent.DetecteurBoucle
 import com.codexlocal.agent.AgentPrompts
@@ -1450,6 +1453,7 @@ class MainActivity : AppCompatActivity() {
 
         var tours = 0
         var relance = false
+        var reparations = 0
         var appelsRea = 0
         while (true) {
             val assistant = Message.assistant()
@@ -1540,6 +1544,25 @@ class MainActivity : AppCompatActivity() {
             val bilan = appliquerActions(projet, assistant, cfg, actions, coupee = bouclee)
             annulations += bilan.annulations
             tours++
+            // Relecture automatique : le code ecrit est verifie (sans rien executer) ; si elle trouve une
+            // erreur typique des petits modeles, l'IA est priee de corriger, deux fois au maximum.
+            if (rea == null && bilan.aEcrit && bilan.lectures.isEmpty() && prefs.verifierCode) {
+                val problemes = verifierEcritures(projet, bilan)
+                if (problemes.isNotEmpty()) {
+                    if (reparations < BonCodeur.MAX_REPARATIONS) {
+                        reparations++
+                        val correction = Message.user(BonCodeur.resume(problemes))
+                        correction.envoi = BonCodeur.demandeReparation(problemes)
+                        messages.add(correction)
+                        adapter.notifyItemInserted(messages.size - 1)
+                        continue
+                    }
+                    assistant.content += "\n\n" + BonCodeur.avertissement(problemes)
+                    val i = messages.indexOfFirst { it === assistant }
+                    if (i >= 0) adapter.notifyItemChanged(i)
+                    scrollToEnd()
+                }
+            }
             if (bilan.lectures.isEmpty() || tours >= MAX_TOURS_LECTURE) return
 
             val suite = Message.user(
@@ -1688,6 +1711,22 @@ class MainActivity : AppCompatActivity() {
         scrollToEnd()
         return bouclee
     }
+
+    /** Relit, dans le projet, les fichiers que l'IA vient d'ecrire (voir [VerificateurCode]). */
+    private suspend fun verifierEcritures(projet: Projet, bilan: Bilan): List<Probleme> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val ecrits = LinkedHashMap<String, String>()
+                for (chemin in bilan.crees + bilan.modifies) {
+                    val fichier = ProjectStore.trouverFichier(this@MainActivity, projet, chemin) ?: continue
+                    ecrits[chemin] = ProjectStore.lireTexte(this@MainActivity, fichier)
+                }
+                val anciens = bilan.annulations
+                    .mapNotNull { a -> a.ancien?.let { a.fichier.chemin to it } }.toMap()
+                val existants = ProjectStore.instantane(this@MainActivity, projet).keys
+                VerificateurCode.verifier(ecrits, existants, anciens)
+            }.getOrDefault(emptyList())
+        }
 
     private fun retirerMessage(message: Message) {
         val i = messages.indexOfFirst { it === message }

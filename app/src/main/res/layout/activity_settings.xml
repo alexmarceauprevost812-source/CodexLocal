@@ -28,6 +28,21 @@
             android:textColor="@color/grey"
             android:textSize="12sp" />
 
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swVerifierCode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/verif_code"
+            android:textColor="@color/white" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/verif_code_detail"
+            android:textColor="@color/grey"
+            android:textSize="12sp" />
+
         <!-- ================= MOTEUR ================= -->
         <TextView
             style="@style/TextAppearance.Material3.TitleMedium"
