@@ -293,6 +293,8 @@ class MainActivity : AppCompatActivity() {
         val dialog = MaterialAlertDialogBuilder(this).setTitle("🔍 Connexion REA")
             .setView(scroll).setPositiveButton("Enregistrer", null)
             .setNeutralButton("Effacer") { _, _ ->
+                // Mode effectif figé avant de changer l'adresse (le mode par défaut en dépend).
+                prefs.assistantMode = prefs.assistantMode
                 prefs.reaUrl = ""; prefs.reaToken = ""
                 if (prefs.assistantMode == AssistantMode.REA) changeMode(AssistantMode.CODEX)
             }
@@ -300,7 +302,11 @@ class MainActivity : AppCompatActivity() {
         dialog.setOnShowListener {
             dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
                 try {
-                    prefs.reaUrl = ReaProtocol.endpoint(adresse.text.toString())
+                    val url = ReaProtocol.endpoint(adresse.text.toString())
+                    // Mode effectif figé avant de changer l'adresse, pour que changeMode(REA) fasse
+                    // vraiment sa transition (bouton, nouvelle session) au lieu de rendre la main.
+                    prefs.assistantMode = prefs.assistantMode
+                    prefs.reaUrl = url
                     prefs.reaToken = jeton.text.toString().trim()
                     changeMode(AssistantMode.REA)
                     dialog.dismiss()

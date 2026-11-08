@@ -80,8 +80,11 @@ object UpdateChecker {
 
     /** null signifie uniquement qu'aucune version plus recente n'est disponible. */
     suspend fun verifier(context: Context): UpdateInfo? =
-        variante(BuildConfig.PERSO, BuildConfig.REA_APP)?.let { verifierVariante(context, it) }
-            ?: verifierStandard(context)
+        variante(BuildConfig.PERSO, BuildConfig.REA_APP).let { v ->
+            // On branche sur la variante, pas sur le résultat : « à jour » (null) ne doit jamais
+            // retomber sur les releases de l'appli standard.
+            if (v != null) verifierVariante(context, v) else verifierStandard(context)
+        }
 
     /** Dernière release de la variante (TVA LexOS, Codex REA) : mise à jour en un clic. */
     private suspend fun verifierVariante(context: Context, v: Variante): UpdateInfo? = withContext(Dispatchers.IO) {
