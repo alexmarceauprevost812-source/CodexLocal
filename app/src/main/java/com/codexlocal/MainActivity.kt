@@ -298,7 +298,11 @@ class MainActivity : AppCompatActivity() {
                 prefs.reaUrl = ""; prefs.reaToken = ""
                 if (prefs.assistantMode == AssistantMode.REA) changeMode(AssistantMode.CODEX)
             }
-            .setNegativeButton("Annuler", null).create()
+            .setNegativeButton("Annuler") { _, _ ->
+                if (prefs.reaUrl.isBlank()) {
+                    binding.status.text = "Mode Codex : REA n'est pas branché. Touche 🔍 quand ton PC est prêt."
+                }
+            }.create()
         dialog.setOnShowListener {
             dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
                 try {
