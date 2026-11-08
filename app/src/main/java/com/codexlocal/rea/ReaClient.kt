@@ -58,8 +58,12 @@ class ReaClient(address: String, private val token: String = "") {
         require(call.getString("name") in advertised) { "Outil absent du catalogue REA connecté." }
         val result = rpc("tools/call", call)
         val text = result.toString()
-        return if (text.length > maxChars) text.take(maxChars) +
+        val sortie = if (text.length > maxChars) text.take(maxChars) +
             "\n[Résultat tronqué : demande une vue plus ciblée; aucune conclusion sur la partie omise.]" else text
+        // Un outil qui répond isError:true est un échec : il est renvoyé au modèle comme erreur
+        // et compté dans la limite d'erreurs de suite (voir la boucle de MainActivity).
+        if (result.optBoolean("isError")) throw IllegalStateException("L'outil a renvoyé une erreur : $sortie")
+        return sortie
     }
 
     suspend fun close() {
