@@ -12,19 +12,15 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class CodexReaTest {
-    @Test fun modeParDefautDependDeLaVarianteEtDuPc() {
-        assertEquals(AssistantMode.REA, ModeParDefaut.choisir(true, "http://127.0.0.1:8766/mcp"))
-        assertEquals(AssistantMode.CODEX, ModeParDefaut.choisir(true, ""))
-        assertEquals(AssistantMode.CODEX, ModeParDefaut.choisir(true, "  "))
-        assertEquals(AssistantMode.CODEX, ModeParDefaut.choisir(false, "http://127.0.0.1:8766/mcp"))
+    @Test fun modeParDefautDependDeLaVariante() {
+        assertEquals(AssistantMode.REA, ModeParDefaut.choisir(true))
+        assertEquals(AssistantMode.CODEX, ModeParDefaut.choisir(false))
     }
 
-    @Test fun prefsReaAppSansPcResteEnCodexPuisPasseEnReaQuandLePcEstBranche() {
+    @Test fun prefsReaAppOuvreEnReaSansPcEtUnChoixEnregistreLEmporte() {
         val prefs = Prefs(RuntimeEnvironment.getApplication(), reaApp = true)
-        assertEquals(AssistantMode.CODEX, prefs.assistantMode)
-        prefs.reaUrl = "http://127.0.0.1:8766/mcp"
         assertEquals(AssistantMode.REA, prefs.assistantMode)
-        prefs.assistantMode = AssistantMode.CHAT // un choix enregistré l'emporte
+        prefs.assistantMode = AssistantMode.CHAT
         assertEquals(AssistantMode.CHAT, prefs.assistantMode)
     }
 

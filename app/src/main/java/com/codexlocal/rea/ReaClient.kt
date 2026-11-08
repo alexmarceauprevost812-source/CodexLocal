@@ -12,14 +12,14 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /** One stateful streamable-HTTP session for one user request; no redirects or retries of calls. */
-class ReaClient(address: String, private val token: String = "") {
+class ReaClient(address: String, private val token: String = "") : OutilsRea {
     private val endpoint = ReaProtocol.endpoint(address)
     private var session: String? = null
     private var version = "2025-03-26"
     private var nextId = 0
     private val advertised = mutableSetOf<String>()
 
-    suspend fun connect(): String {
+    override suspend fun connect(): String {
         val init = rpc("initialize", JSONObject()
             .put("protocolVersion", version).put("capabilities", JSONObject())
             .put("clientInfo", JSONObject().put("name", "CodexLocal").put("version", "1")))
@@ -54,7 +54,7 @@ class ReaClient(address: String, private val token: String = "") {
         return ReaProtocol.consigne(selected.toString())
     }
 
-    suspend fun call(call: JSONObject, maxChars: Int = 24_000): String {
+    override suspend fun call(call: JSONObject, maxChars: Int): String {
         require(call.getString("name") in advertised) { "Outil absent du catalogue REA connecté." }
         val result = rpc("tools/call", call)
         val text = result.toString()
@@ -66,7 +66,7 @@ class ReaClient(address: String, private val token: String = "") {
         return sortie
     }
 
-    suspend fun close() {
+    override suspend fun close() {
         if (session != null) {
             try { exchange("DELETE", null, timeout = 3000) } catch (_: Exception) { /* best effort */ }
             session = null

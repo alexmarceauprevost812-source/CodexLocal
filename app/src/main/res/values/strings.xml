@@ -3,7 +3,7 @@
 
     <string name="status_init">Prêt. Ouvre les Réglages pour choisir un modèle.</string>
     <string name="app_name_rea">Codex REA</string>
-    <string name="empty_subtitle_rea">Assistant de code qui analyse sur ton PC avec REA — ou sans PC, en mode Codex</string>
+    <string name="empty_subtitle_rea">Assistant de code et analyse REA sur le téléphone — sans PC ni connexion</string>
     <string name="empty_subtitle">Assistant de code avec IA locale — fonctionne sans réseau</string>
     <string name="empty_hint">Réglages → télécharge un modèle .gguf, ou ajoute une clé API\n(Claude, Gemini, OpenAI, OpenRouter…)</string>
     <string name="hint_input">Demande du code, une correction, une explication…</string>
@@ -348,6 +348,8 @@
     <!-- Bouton ＋ : images du projet -->
     <string name="plus_description">Ajouter une image ou une icône</string>
     <string name="plus_image">🖼️ Ajouter une image au projet</string>
+    <string name="plus_analyse">🔍 Ajouter un fichier à analyser (REA)</string>
+    <string name="plus_analyse_ajoute">🔍 Fichier ajouté : %1$s. Demande à REA de l\'analyser.</string>
     <string name="plus_icone">🎨 Choisir l\'icône de l\'appli</string>
     <string name="plus_besoin_projet">Ouvre d\'abord un projet (menu 📁 Projets) pour y ajouter des images.</string>
     <string name="plus_image_ajoutee">🖼️ Image ajoutée : %1$s</string>

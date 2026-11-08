@@ -58,7 +58,9 @@ import com.codexlocal.outils.AgendaStore
 import com.codexlocal.outils.NotifNouvelles
 import com.codexlocal.outils.OutilsActivity
 import com.codexlocal.web.ResultatWeb
+import com.codexlocal.rea.OutilsRea
 import com.codexlocal.rea.ReaClient
+import com.codexlocal.rea.ReaLocal
 import com.codexlocal.rea.ReaProtocol
 import com.codexlocal.project.ProjectStore
 import com.codexlocal.session.Session
@@ -110,6 +112,25 @@ class MainActivity : AppCompatActivity() {
     private val choisirDossier =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             uri?.let { ajouterProjet(it) }
+        }
+
+    /** Fichier à analyser avec REA local (APK, zip, JavaScript…) : copié dans le dossier analyse/ du projet. */
+    private val choisirAnalyse =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+            val projet = projetActif
+            if (uri != null && projet != null) lifecycleScope.launch {
+                try {
+                    val chemin = withContext(Dispatchers.IO) {
+                        val flux = contentResolver.openInputStream(uri) ?: error("Fichier illisible")
+                        ReaLocal.importer(this@MainActivity, projet, flux, nomAffiche(uri))
+                    }
+                    Toast.makeText(this@MainActivity, getString(R.string.plus_analyse_ajoute, chemin), Toast.LENGTH_LONG).show()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, e.message ?: "Ajout impossible", Toast.LENGTH_LONG).show()
+                }
+            }
         }
 
     private val choisirImage =
@@ -203,11 +224,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (savedInstanceState == null) {
             val cfg = prefs.config()
-            if (BuildConfig.REA_APP && prefs.reaUrl.isBlank() && !prefs.reaInvitationFaite) {
-                // Codex REA : on propose d'abord de brancher le PC ; « Annuler » laisse le mode Codex.
-                prefs.reaInvitationFaite = true
-                configurerRea()
-            } else if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
+            if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
         }
 
         // Verification silencieuse des mises a jour au demarrage
@@ -274,7 +291,8 @@ class MainActivity : AppCompatActivity() {
             setPadding(marge, marge, marge, marge)
         }
         panneau.addView(TextView(this).apply {
-            text = "REA fonctionne sur ton PC. Entre son adresse HTTPS ou celle du tunnel SSH local. " +
+            text = "Facultatif : sans adresse, REA analyse sur le téléphone (APK, signature, JavaScript). " +
+                "Avec un serveur REA sur ton PC, entre son adresse HTTPS ou celle du tunnel SSH local. " +
                 "Les fichiers analysés restent sur le PC; les résultats sont transmis au modèle choisi dans CodexLocal."
         })
         val adresse = EditText(this).apply {
@@ -293,16 +311,11 @@ class MainActivity : AppCompatActivity() {
         val dialog = MaterialAlertDialogBuilder(this).setTitle("🔍 Connexion REA")
             .setView(scroll).setPositiveButton("Enregistrer", null)
             .setNeutralButton("Effacer") { _, _ ->
-                // Mode effectif figé avant de changer l'adresse (le mode par défaut en dépend).
-                prefs.assistantMode = prefs.assistantMode
+                // Sans adresse, REA continue en analyse locale sur le téléphone.
                 prefs.reaUrl = ""; prefs.reaToken = ""
-                if (prefs.assistantMode == AssistantMode.REA) changeMode(AssistantMode.CODEX)
+                binding.status.text = "🔍 REA local : l'analyse se fait sur le téléphone."
             }
-            .setNegativeButton("Annuler") { _, _ ->
-                if (prefs.reaUrl.isBlank()) {
-                    binding.status.text = "Mode Codex : REA n'est pas branché. Touche 🔍 quand ton PC est prêt."
-                }
-            }.create()
+            .setNegativeButton("Annuler", null).create()
         dialog.setOnShowListener {
             dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
                 try {
@@ -323,8 +336,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun basculerRea() {
         if (isGenerating) return
-        if (prefs.reaUrl.isBlank()) configurerRea()
-        else changeMode(basculer(AssistantMode.REA))
+        changeMode(basculer(AssistantMode.REA))
     }
 
     private fun creerApplicationLocale() {
@@ -982,8 +994,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
         MaterialAlertDialogBuilder(this)
-            .setItems(arrayOf(getString(R.string.plus_image), getString(R.string.plus_icone))) { _, choix ->
-                if (choix == 0) choisirImage.launch("image/*") else choisirIcone.launch("image/*")
+            .setItems(arrayOf(
+                getString(R.string.plus_image), getString(R.string.plus_icone), getString(R.string.plus_analyse)
+            )) { _, choix ->
+                when (choix) {
+                    0 -> choisirImage.launch("image/*")
+                    1 -> choisirIcone.launch("image/*")
+                    else -> choisirAnalyse.launch(arrayOf("*/*"))
+                }
             }
             .show()
     }
@@ -1273,10 +1291,6 @@ class MainActivity : AppCompatActivity() {
         val text = binding.input.text.toString().trim()
         if (text.isEmpty()) return
         val mode = prefs.assistantMode
-        if (mode == AssistantMode.REA && prefs.reaUrl.isBlank()) {
-            configurerRea()
-            return
-        }
         val baseConfig = prefs.config().forMode(mode)
         var consignes = baseConfig.systemPrompt
         if (prefs.rechercheWebAuto) consignes += "\n\n" + RechercheWeb.CONSIGNE
@@ -1440,10 +1454,15 @@ class MainActivity : AppCompatActivity() {
         base: AppConfig,
         annulations: MutableList<Annulation>
     ) {
-        val rea = if (mode == AssistantMode.REA) ReaClient(prefs.reaUrl, prefs.reaToken) else null
+        // Sans adresse de PC, REA tourne sur le téléphone (analyse locale, hors-ligne).
+        val rea: OutilsRea? = when {
+            mode != AssistantMode.REA -> null
+            prefs.reaUrl.isBlank() -> ReaLocal(this, projetActif)
+            else -> ReaClient(prefs.reaUrl, prefs.reaToken)
+        }
         try {
             val consigne = if (rea != null) {
-                binding.status.text = "🔍 Connexion à REA…"
+                binding.status.text = if (rea is ReaLocal) "🔍 REA local (sur le téléphone)…" else "🔍 Connexion à REA…"
                 rea.connect()
             } else ""
             converserAvecOutils(user, mode, base, annulations, rea, consigne)
@@ -1454,7 +1473,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun converserAvecOutils(
         user: Message, mode: AssistantMode, base: AppConfig,
-        annulations: MutableList<Annulation>, rea: ReaClient?, consigneRea: String
+        annulations: MutableList<Annulation>, rea: OutilsRea?, consigneRea: String
     ) {
         val codex = mode == AssistantMode.CODEX || mode == AssistantMode.REA
         val projetDepart = if (codex) projetActif else null

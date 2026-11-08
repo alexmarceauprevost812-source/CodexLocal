@@ -31,7 +31,7 @@ sans déduire de relations. Ce moteur ne fournit pas de génération d’images 
 
 ## Connecter REA sur le PC
 
-> Une appli dédiée, **Codex REA** (`-Prea`), ouvre directement ce mode : voir la section « Codex REA » du README.
+> Une appli dédiée, **Codex REA** (`-Prea`), ouvre directement ce mode et fonctionne **sans PC** grâce à l'analyse locale du téléphone (sans adresse REA, le mode 🔍 utilise ce moteur local) : voir la section « Codex REA » du README.
 
 Le mode **🔍 REA** fonctionne depuis la version 1.6 comme une boucle d'agent façon Codex :
 le modèle planifie, appelle les outils d'analyse du PC, lit les résultats, corrige ses appels
