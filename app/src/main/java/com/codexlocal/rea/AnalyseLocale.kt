@@ -29,6 +29,10 @@ object AnalyseLocale {
         "Seuls les fichiers du projet ouvert (dossier analyse/) sont lisibles ; rien n'est exécuté ni installé."
     )
 
+    /** Lit au plus [max] octets : null si le flux en contient davantage (la taille annoncée par un zip peut mentir). */
+    private fun lireBorne(flux: java.io.InputStream, max: Int): ByteArray? =
+        flux.use { it.readNBytes(max + 1) }.takeIf { it.size <= max }
+
     fun sha256(f: File): String {
         val d = MessageDigest.getInstance("SHA-256")
         f.inputStream().use { s ->
@@ -94,8 +98,9 @@ object AnalyseLocale {
             o.put("dex_files", dex).put("native_abis", JSONArray(abis.toList()))
             try {
                 val e = z.getEntry("AndroidManifest.xml")
-                if (e.size > 5L * 1024 * 1024) notes.put("Manifeste trop gros : non lu.") else {
-                    val chaines = ManifesteBinaire.lireChaines(z.getInputStream(e).use { it.readBytes() })
+                val octets = lireBorne(z.getInputStream(e), 5 * 1024 * 1024)
+                if (octets == null) notes.put("Manifeste trop gros : non lu.") else {
+                    val chaines = ManifesteBinaire.lireChaines(octets)
                     o.put("permissions", JSONArray(chaines.filter { it.startsWith("android.permission.") || it.contains(".permission.") }.distinct().take(80)))
                     o.put("manifest_strings", JSONArray(chaines.filter { it.length in 3..120 }.distinct().take(60)))
                 }
@@ -137,14 +142,20 @@ object AnalyseLocale {
         if (estZip(f)) ZipFile(f).use { z ->
             var octets = 0L
             val en = z.entries()
-            while (en.hasMoreElements() && fichiers.size < MAX_FICHIERS_JS) {
+            while (en.hasMoreElements()) {
                 val e = en.nextElement()
                 val bas = e.name.lowercase()
                 if (e.isDirectory || !(bas.endsWith(".js") || bas.endsWith(".html") || bas.endsWith(".htm") || bas.endsWith(".mjs"))) continue
-                if (e.size > MAX_OCTETS_FICHIER_JS) { notes.put("${e.name} ignoré (plus de 1 Mo)."); continue }
-                if (octets + e.size > MAX_OCTETS_JS) { notes.put("Plafond de 8 Mo atteint : analyse partielle."); break }
-                octets += e.size
-                fichiers.add(e.name to String(z.getInputStream(e).use { it.readBytes() }, Charsets.UTF_8))
+                if (fichiers.size >= MAX_FICHIERS_JS) {
+                    notes.put("Plus de $MAX_FICHIERS_JS fichiers JavaScript/HTML : analyse partielle, les suivants sont ignorés.")
+                    break
+                }
+                // Les limites portent sur les octets réellement lus, pas sur la taille annoncée.
+                val contenu = lireBorne(z.getInputStream(e), MAX_OCTETS_FICHIER_JS)
+                if (contenu == null) { notes.put("${e.name} ignoré (plus de 1 Mo)."); continue }
+                if (octets + contenu.size > MAX_OCTETS_JS) { notes.put("Plafond de 8 Mo atteint : analyse partielle."); break }
+                octets += contenu.size
+                fichiers.add(e.name to String(contenu, Charsets.UTF_8))
             }
         } else if (estTexte(f) && f.length() <= MAX_OCTETS_FICHIER_JS) {
             fichiers.add(f.name to f.readText(Charsets.UTF_8))
