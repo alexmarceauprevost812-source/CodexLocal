@@ -61,4 +61,21 @@ class AnalyseLocaleTest {
         val e = runCatching { com.codexlocal.studio.apk.ManifesteBinaire.lireChaines(b.array()) }.exceptionOrNull()
         assertTrue(e is IllegalArgumentException)
     }
+
+    @Test fun chaineDeManifesteIncoherenteLeveUneErreur() {
+        val b = java.nio.ByteBuffer.allocate(80).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        // table UTF-16 avec une chaîne dont la longueur annoncée (0x7fffffff) dépasse la table
+        b.putShort(0, 3).putShort(8, 1).putInt(12, 60).putInt(16, 1).putInt(20, 0).putInt(24, 0).putInt(28, 36)
+        b.putInt(36, 0).putShort(44, 0xFFFF.toShort()).putShort(46, 0xFFFF.toShort())
+        val e = runCatching { com.codexlocal.studio.apk.ManifesteBinaire.lireChaines(b.array()) }.exceptionOrNull()
+        assertTrue(e is IllegalArgumentException)
+    }
+
+    @Test fun lesEntreesJsRefuseesComptentDansLeBudget() {
+        val gros = "a".repeat(1024 * 1024 + 10)
+        val entrees = (1..12).map { "w/$it.js" to gros }.toTypedArray()
+        val r = AnalyseLocale.javascript(zip(*entrees))
+        assertEquals(0, r.getInt("files_analyzed"))
+        assertTrue(r.getJSONArray("notes").toString().contains("Plafond"))
+    }
 }

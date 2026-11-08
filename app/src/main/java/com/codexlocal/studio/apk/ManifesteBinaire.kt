@@ -97,6 +97,8 @@ object ManifesteBinaire {
             longueur = ((longueur and 0x7FFF) shl 16) or (b.getShort(p).toInt() and 0xFFFF)
             p += 2
         }
+        // La longueur annoncée doit tenir dans ce qui reste : pas d'allocation géante sur un manifeste abîmé.
+        require(longueur >= 0 && longueur.toLong() * 2 <= b.limit() - p) { "Chaine du manifeste incoherente" }
         val tableau = CharArray(longueur) { b.getShort(p + 2 * it).toInt().toChar() }
         return String(tableau)
     }
@@ -111,6 +113,7 @@ object ManifesteBinaire {
             octets = ((octets and 0x7F) shl 8) or (b.get(p).toInt() and 0xFF)
             p += 1
         }
+        require(octets >= 0 && octets <= b.limit() - p) { "Chaine du manifeste incoherente" }
         val tableau = ByteArray(octets) { b.get(p + it) }
         return String(tableau, Charsets.UTF_8)
     }

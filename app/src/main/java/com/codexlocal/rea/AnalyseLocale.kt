@@ -104,7 +104,8 @@ object AnalyseLocale {
                     o.put("permissions", JSONArray(chaines.filter { it.startsWith("android.permission.") || it.contains(".permission.") }.distinct().take(80)))
                     o.put("manifest_strings", JSONArray(chaines.filter { it.length in 3..120 }.distinct().take(60)))
                 }
-            } catch (e: Exception) { notes.put("Manifeste non lisible : ${e.message}") }
+            } catch (e: Exception) { notes.put("Manifeste non lisible : ${e.message}")
+            } catch (e: OutOfMemoryError) { notes.put("Manifeste non lisible : trop volumineux pour la mémoire.") }
         }
     }
 
@@ -140,6 +141,7 @@ object AnalyseLocale {
         val fichiers = ArrayList<Pair<String, String>>()
         val notes = JSONArray()
         if (estZip(f)) ZipFile(f).use { z ->
+            // Budget de décompression : chaque lecture compte, y compris celles d'entrées refusées.
             var octets = 0L
             val en = z.entries()
             while (en.hasMoreElements()) {
@@ -152,9 +154,9 @@ object AnalyseLocale {
                 }
                 // Les limites portent sur les octets réellement lus, pas sur la taille annoncée.
                 val contenu = lireBorne(z.getInputStream(e), MAX_OCTETS_FICHIER_JS)
+                octets += contenu?.size ?: (MAX_OCTETS_FICHIER_JS + 1)
+                if (octets > MAX_OCTETS_JS) { notes.put("Plafond de 8 Mo lus atteint : analyse partielle."); break }
                 if (contenu == null) { notes.put("${e.name} ignoré (plus de 1 Mo)."); continue }
-                if (octets + contenu.size > MAX_OCTETS_JS) { notes.put("Plafond de 8 Mo atteint : analyse partielle."); break }
-                octets += contenu.size
                 fichiers.add(e.name to String(contenu, Charsets.UTF_8))
             }
         } else if (estTexte(f) && f.length() <= MAX_OCTETS_FICHIER_JS) {
