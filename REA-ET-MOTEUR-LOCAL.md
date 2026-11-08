@@ -31,10 +31,17 @@ sans déduire de relations. Ce moteur ne fournit pas de génération d’images 
 
 ## Connecter REA sur le PC
 
-Cette version ajoute le mode **🔍 REA**, avec les mêmes actions de fichiers que
-Codex et des appels d’analyse sur le PC. Le modèle choisi dans CodexLocal reçoit
-le catalogue réel des outils autorisés et leurs schémas. Six appels au maximum
-par demande, avec preuves et diagnostics renvoyés à l’IA.
+Le mode **🔍 REA** fonctionne depuis la version 1.6 comme une boucle d'agent façon Codex :
+le modèle planifie, appelle les outils d'analyse du PC, lit les résultats, corrige ses appels
+et conclut, avec les mêmes actions de fichiers que Codex sur le téléphone.
+
+- Jusqu'à **4 appels indépendants par réponse** et **24 appels par demande**; une phrase de plan est permise.
+- Un appel mal formé ou une erreur d'outil est **renvoyé au modèle** pour qu'il se corrige;
+  trois erreurs de suite arrêtent la demande. À la fin du budget, le modèle doit conclure.
+- Aucun fichier du téléphone n'est écrit dans une réponse qui contient un appel REA :
+  le modèle les renvoie après avoir reçu les résultats.
+- Le modèle reçoit le catalogue réel des outils autorisés et leurs schémas; preuves et
+  diagnostics lui sont renvoyés, les résultats trop longs sont tronqués et signalés.
 
 Le premier catalogue comprend uniquement les outils disponibles parmi :
 `inspect_artifact`, `inspect_apk_signature`, `analyze_javascript_application`,

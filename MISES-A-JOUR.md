@@ -1,6 +1,6 @@
 # Installer les mises à jour Android
 
-Dans CodexLocal 1.5, ouvrir les réglages et choisir **Installer un APK téléchargé**.
+Dans CodexLocal 1.6, ouvrir les réglages et choisir **Installer un APK téléchargé**.
 Sélectionner l’APK de la nouvelle version. Si Android demande l’autorisation
 d’installer des applications de cette source, l’activer et revenir dans CodexLocal :
 l’installation reprend. Android demande ensuite la confirmation finale.
@@ -14,7 +14,7 @@ Au démarrage, CodexLocal interroge `releases/latest` et propose la mise à jour
 (option « Vérifier automatiquement » dans les réglages, activée par défaut).
 
 Rien à modifier à la main : la version suit le numéro de compilation GitHub
-(`1.5.<numéro>`, `versionCode` = 100 + numéro). Chaque fusion dans `main` produit
+(`1.6.<numéro>`, `versionCode` = 100 + numéro). Chaque fusion dans `main` produit
 donc une nouvelle release plus récente que la précédente, et l'appli la propose.
 
 ## Condition nécessaire : garder la même clé de signature

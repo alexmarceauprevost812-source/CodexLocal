@@ -5,7 +5,7 @@ plugins {
 
 // Version automatique : sur GitHub Actions, chaque compilation a un numero
 // (GITHUB_RUN_NUMBER) toujours plus grand que le precedent, donc chaque mise a
-// jour suit la precedente sans modifier ce fichier. En local : version 1.5 / code 5.
+// jour suit la precedente sans modifier ce fichier. En local : version 1.6 / code 5.
 val ciRun: Int? = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
 
 // APK personnelle : `./gradlew :app:assembleDebug -Pperso` donne « CodexLocal Perso »,
@@ -38,7 +38,7 @@ android {
         minSdk = 33
         targetSdk = 36
         versionCode = if (ciRun != null) 100 + ciRun else 5
-        versionName = if (ciRun != null) "1.5.$ciRun" else "1.5"
+        versionName = if (ciRun != null) "1.6.$ciRun" else "1.6"
 
         vectorDrawables {
             useSupportLibrary = true

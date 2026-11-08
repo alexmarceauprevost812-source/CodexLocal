@@ -192,7 +192,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="1.5.${GITHUB_RUN_NUMBER}"
+          VERSION="1.6.${GITHUB_RUN_NUMBER}"
           TAG="v$VERSION"
           APK="$(ls app/build/outputs/apk/debug/*.apk | head -n1)"
           cp "$APK" "CodexLocal-$VERSION.apk"
@@ -211,7 +211,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="1.5.${GITHUB_RUN_NUMBER}"
+          VERSION="1.6.${GITHUB_RUN_NUMBER}"
           TAG="perso-v$VERSION"
           cp perso-apk/TVA-LexOS.apk "TVA-LexOS-$VERSION.apk"
           gh release create "$TAG" "TVA-LexOS-$VERSION.apk" \
