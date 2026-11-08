@@ -19,14 +19,32 @@ class ReaProtocolTest {
         }
     }
 
-    @Test fun toolRequestsCannotBeMixedWithFileWritesOrUnknownTools() {
-        val valid = "<rea>{\"name\":\"inspect_artifact\",\"arguments\":{\"path\":\"/tmp/app\"}}</rea>"
-        assertEquals("inspect_artifact", ReaProtocol.call(valid)!!.getString("name"))
-        assertNull(ReaProtocol.call("Voici mon explication."))
-        assertTrue(runCatching { ReaProtocol.call(valid + "\n=== FICHIER: x ===\nhello\n=== FIN ===") }.isFailure)
-        assertTrue(runCatching { ReaProtocol.call(valid + valid) }.isFailure)
-        assertTrue(runCatching { ReaProtocol.call(valid.replace("inspect_artifact", "execute_command")) }.isFailure)
-        assertTrue(runCatching { ReaProtocol.call("<rea>{broken}") }.isFailure)
+    @Test fun agentLoopAcceptsPlanTextAndSeveralCallsPerTurn() {
+        val a = "<rea>{\"name\":\"inspect_artifact\",\"arguments\":{\"path\":\"/tmp/app\"}}</rea>"
+        val b = "<rea>{\"name\":\"list_unknowns\",\"arguments\":{}}</rea>"
+        val d = ReaProtocol.demande("Je commence par l'artefact.\n$a\n$b")
+        assertEquals(listOf("inspect_artifact", "list_unknowns"), d.appels.map { it.getString("name") })
+        assertTrue(d.erreurs.isEmpty())
+        assertTrue(ReaProtocol.demande("Voici mon explication.").vide)
+    }
+
+    @Test fun invalidCallsBecomeFeedbackInsteadOfExceptions() {
+        val ok = "<rea>{\"name\":\"inspect_artifact\",\"arguments\":{}}</rea>"
+        val inconnu = ReaProtocol.demande("<rea>{\"name\":\"execute_command\",\"arguments\":{}}</rea>")
+        assertTrue(inconnu.appels.isEmpty()); assertEquals(1, inconnu.erreurs.size)
+        assertEquals(1, ReaProtocol.demande("<rea>{broken}</rea>").erreurs.size)
+        assertEquals(1, ReaProtocol.demande("<rea>{\"name\":\"list_unknowns\",\"arguments\":[]}</rea>").erreurs.size)
+        assertEquals(1, ReaProtocol.demande("<rea>{\"name\":\"list_unknowns\"}</rea>").erreurs.size)
+        val partiel = ReaProtocol.demande(ok + "<rea>{\"name\":\"list_unknowns\",\"arguments\":{}}")
+        assertEquals(1, partiel.appels.size); assertEquals(1, partiel.erreurs.size)
+        val trop = ReaProtocol.demande(ok.repeat(ReaProtocol.MAX_PER_TURN + 2))
+        assertEquals(ReaProtocol.MAX_PER_TURN, trop.appels.size); assertEquals(2, trop.erreurs.size)
+    }
+
+    @Test fun instructionMentionsBudgetAndCatalogue() {
+        val texte = ReaProtocol.consigne("[CATALOGUE]")
+        assertTrue(texte.contains("[CATALOGUE]"))
+        assertTrue(texte.contains(ReaProtocol.MAX_CALLS.toString()))
     }
 
     @Test fun jsonAndSseHandleNotificationsMultilineAndIncompleteFrames() {

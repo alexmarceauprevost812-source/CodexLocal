@@ -31,42 +31,75 @@ object UpdateChecker {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull() ?: "0"
 
-    /** TVA LexOS (APK perso) : ses versions sont dans les releases « perso-v… ». */
-    private const val API_PERSO =
+    /** Releases de toutes les variantes ; chacune reconnaît les siennes par son préfixe de tag. */
+    private const val API_RELEASES =
         "https://api.github.com/repos/alexmarceauprevost812-source/CodexLocal/releases?per_page=30"
+
+    /** Variante de l'appli : où sont ses releases et comment s'appelle son APK. */
+    data class Variante(
+        val prefixeTag: String,
+        val prefixeApk: String,
+        val nom: String,
+        val userAgent: String
+    )
+
+    val PERSO = Variante("perso-v", "TVA-LexOS", "TVA LexOS", "TVA-LexOS")
+    val REA = Variante("rea-v", "Codex-REA", "Codex REA", "Codex-REA")
+
+    /** null = appli standard (releases/latest). Perso et REA ne se combinent pas. */
+    fun variante(perso: Boolean, rea: Boolean): Variante? = when {
+        perso -> PERSO
+        rea -> REA
+        else -> null
+    }
+
+    /** Premier .apk dont le nom commence par [prefixe] (vide : n'importe quel .apk). */
+    fun choisirApk(assets: org.json.JSONArray?, prefixe: String): String? {
+        if (assets == null) return null
+        for (i in 0 until assets.length()) {
+            val a = assets.optJSONObject(i) ?: continue
+            val nom = a.optString("name")
+            if (nom.startsWith(prefixe) && nom.endsWith(".apk", ignoreCase = true)) {
+                return a.optString("browser_download_url")
+            }
+        }
+        return null
+    }
+
+    /** Première release publiée de la variante avec son APK : (version, lien, notes), ou null. */
+    fun choisirRelease(releases: org.json.JSONArray, v: Variante): Triple<String, String, String>? {
+        for (i in 0 until releases.length()) {
+            val r = releases.optJSONObject(i) ?: continue
+            val tag = r.optString("tag_name")
+            if (r.optBoolean("draft") || !tag.startsWith(v.prefixeTag)) continue
+            val apk = choisirApk(r.optJSONArray("assets"), v.prefixeApk) ?: continue
+            return Triple(tag.removePrefix(v.prefixeTag), apk, r.optString("body", ""))
+        }
+        return null
+    }
 
     /** null signifie uniquement qu'aucune version plus recente n'est disponible. */
     suspend fun verifier(context: Context): UpdateInfo? =
-        if (BuildConfig.PERSO) verifierPerso(context) else verifierStandard(context)
+        variante(BuildConfig.PERSO, BuildConfig.REA_APP).let { v ->
+            // On branche sur la variante, pas sur le résultat : « à jour » (null) ne doit jamais
+            // retomber sur les releases de l'appli standard.
+            if (v != null) verifierVariante(context, v) else verifierStandard(context)
+        }
 
-    /** Dernière release « perso-v… » avec son APK TVA-LexOS (mise à jour en un clic). */
-    private suspend fun verifierPerso(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
-        val conn = (URL(API_PERSO).openConnection() as HttpURLConnection).apply {
+    /** Dernière release de la variante (TVA LexOS, Codex REA) : mise à jour en un clic. */
+    private suspend fun verifierVariante(context: Context, v: Variante): UpdateInfo? = withContext(Dispatchers.IO) {
+        val conn = (URL(API_RELEASES).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 20_000
             setRequestProperty("Accept", "application/vnd.github+json")
-            setRequestProperty("User-Agent", "TVA-LexOS")
+            setRequestProperty("User-Agent", v.userAgent)
         }
         try {
             if (conn.responseCode != 200) throw IOException("Vérification impossible : HTTP ${conn.responseCode}")
             val releases = org.json.JSONArray(conn.inputStream.bufferedReader().use { it.readText() })
-            for (i in 0 until releases.length()) {
-                val r = releases.optJSONObject(i) ?: continue
-                val tag = r.optString("tag_name")
-                if (r.optBoolean("draft") || !tag.startsWith("perso-v")) continue
-                val assets = r.optJSONArray("assets") ?: continue
-                for (j in 0 until assets.length()) {
-                    val a = assets.optJSONObject(j) ?: continue
-                    val nom = a.optString("name")
-                    if (nom.startsWith("TVA-LexOS") && nom.endsWith(".apk", ignoreCase = true)) {
-                        val version = tag.removePrefix("perso-v")
-                        return@withContext if (plusRecente(version, versionInstallee(context))) {
-                            UpdateInfo(version, a.optString("browser_download_url"), r.optString("body", ""))
-                        } else null
-                    }
-                }
-            }
-            throw IOException("Aucune version de TVA LexOS publiée pour le moment.")
+            val (version, apk, notes) = choisirRelease(releases, v)
+                ?: throw IOException("Aucune version de ${v.nom} publiée pour le moment.")
+            if (plusRecente(version, versionInstallee(context))) UpdateInfo(version, apk, notes) else null
         } finally {
             conn.disconnect()
         }
@@ -92,14 +125,7 @@ object UpdateChecker {
 
             val tag = json.optString("tag_name").removePrefix("v").removePrefix("V")
             val assets = json.optJSONArray("assets") ?: throw IOException("Aucun APK dans cette version.")
-            var apk: String? = null
-            for (i in 0 until assets.length()) {
-                val a = assets.optJSONObject(i) ?: continue
-                if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
-                    apk = a.optString("browser_download_url")
-                    break
-                }
-            }
+            val apk = choisirApk(assets, "")
             val urlApk = apk ?: throw IOException("Aucun APK dans cette version.")
 
             if (plusRecente(tag, versionInstallee(context))) {
