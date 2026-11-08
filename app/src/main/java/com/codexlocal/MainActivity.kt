@@ -1503,6 +1503,9 @@ class MainActivity : AppCompatActivity() {
                     // (comme Codex) au lieu d'arrêter toute la demande.
                     val part = (24_000 / demande.appels.size.coerceAtLeast(1)).coerceAtLeast(6_000)
                     for (appel in demande.appels) {
+                        // Limite atteinte au milieu du lot : on n'exécute plus rien, un succès
+                        // tardif ne doit pas effacer les échecs déjà comptés.
+                        if (echecs >= ReaProtocol.MAX_ERREURS) break
                         if (appelsRea >= ReaProtocol.MAX_CALLS) {
                             retours.append("⚠️ Budget de ${ReaProtocol.MAX_CALLS} appels épuisé : ")
                                 .append(appel.getString("name")).append(" non exécuté.\n")
