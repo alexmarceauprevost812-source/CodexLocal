@@ -37,6 +37,29 @@ la simple sélection d’un fournisseur d’IA distant.
 Le mode local est le mode « chalet sans réseau » : une fois le fichier `.gguf`
 copié sur le téléphone, l'appli n'a plus besoin d'internet du tout.
 
+## Codex REA (appli Android séparée)
+
+**Codex REA** est CodexLocal ouvert en mode 🔍 REA : une appli distincte
+(`com.codexlocal.rea`) qui **s'installe à côté de CodexLocal et de TVA LexOS**, sans les remplacer.
+Au premier lancement, elle propose de brancher REA ; **Annuler** la laisse en mode Codex,
+donc elle reste utilisable sans PC. Une fois l'adresse REA enregistrée, elle s'ouvre en mode REA.
+
+**Compiler** (même principe que `-Pperso`; les deux options ne se combinent pas) :
+
+```bash
+./gradlew :app:assembleDebug -Prea
+```
+
+Sur GitHub, chaque PR fournit l'artefact `Codex-REA-APK`; chaque fusion dans `main` publie
+une release `rea-v1.6.<numéro>` (jamais « latest ») avec `Codex-REA-….apk`, et l'appli propose
+ses propres mises à jour.
+
+**Brancher REA sur le PC** : installe [morluto/rea](https://github.com/morluto/rea), lance
+`rea mcp --http --host 127.0.0.1 --port 8766`, ouvre un tunnel SSH
+(`ssh -N -L 8766:127.0.0.1:8766 marceau@ADRESSE_DU_PC`), puis entre
+`http://127.0.0.1:8766/mcp` dans **⋮ → Connexion REA**. Détails et règles de sécurité :
+[REA-ET-MOTEUR-LOCAL.md](REA-ET-MOTEUR-LOCAL.md).
+
 ## Créer des fichiers dans l'APK Android
 
 CodexLocal peut maintenant créer et modifier des fichiers de code dans un projet.

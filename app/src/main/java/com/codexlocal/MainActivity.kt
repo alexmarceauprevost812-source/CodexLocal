@@ -197,9 +197,17 @@ class MainActivity : AppCompatActivity() {
         binding.btnPlus.setOnClickListener { menuPlus() }
 
         // Premier lancement : on ouvre directement les reglages
+        if (BuildConfig.REA_APP) {
+            binding.accueilTitre.setText(R.string.app_name_rea)
+            binding.accueilSous.setText(R.string.empty_subtitle_rea)
+        }
         if (savedInstanceState == null) {
             val cfg = prefs.config()
-            if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
+            if (BuildConfig.REA_APP && prefs.reaUrl.isBlank() && !prefs.reaInvitationFaite) {
+                // Codex REA : on propose d'abord de brancher le PC ; « Annuler » laisse le mode Codex.
+                prefs.reaInvitationFaite = true
+                configurerRea()
+            } else if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
         }
 
         // Verification silencieuse des mises a jour au demarrage

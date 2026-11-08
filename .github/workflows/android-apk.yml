@@ -171,6 +171,19 @@ jobs:
           # L'APK standard reprend sa place pour les étapes de publication.
           cp "$RUNNER_TEMP/apk/CodexLocal.apk" "$(ls app/build/outputs/apk/debug/*.apk | head -n1)"
           ls -la perso-apk
+      # APK « Codex REA » (autre identifiant : s'installe à côté de CodexLocal et de TVA LexOS).
+      - name: Compiler APK rea (Codex REA)
+        run: |
+          set -o pipefail
+          JOURNAL="$RUNNER_TEMP/gradle.log"
+          mkdir -p "$RUNNER_TEMP/apk"
+          cp "$(ls app/build/outputs/apk/debug/*.apk | head -n1)" "$RUNNER_TEMP/apk/CodexLocal.apk"
+          ./gradlew :app:assembleDebug -Prea --stacktrace --no-daemon 2>&1 | tee -a "$JOURNAL"
+          mkdir -p rea-apk
+          cp "$(ls app/build/outputs/apk/debug/*.apk | head -n1)" rea-apk/Codex-REA.apk
+          # L'APK standard reprend sa place pour les étapes de publication.
+          cp "$RUNNER_TEMP/apk/CodexLocal.apk" "$(ls app/build/outputs/apk/debug/*.apk | head -n1)"
+          ls -la rea-apk
       - name: Resume des erreurs
         if: failure()
         run: |
@@ -221,6 +234,30 @@ jobs:
             --title "TVA LexOS $VERSION" \
             --notes "APK personnelle (recherche riche, agenda, outils, voix). S'installe a cote de CodexLocal." \
             || gh release upload "$TAG" "TVA-LexOS-$VERSION.apk" --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Publier l'APK Codex REA (release separee, jamais « latest »)
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="1.6.${GITHUB_RUN_NUMBER}"
+          TAG="rea-v$VERSION"
+          cp rea-apk/Codex-REA.apk "Codex-REA-$VERSION.apk"
+          gh release create "$TAG" "Codex-REA-$VERSION.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --latest=false \
+            --title "Codex REA $VERSION" \
+            --notes "Codex REA : CodexLocal ouvert en mode REA (analyse sur le PC). S'installe a cote de CodexLocal et de TVA LexOS." \
+            || gh release upload "$TAG" "Codex-REA-$VERSION.apk" --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Publier APK Codex REA de test (si le quota le permet)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: Codex-REA-APK
+          path: rea-apk/Codex-REA.apk
+          if-no-files-found: error
+          retention-days: 3
       - name: Publier APK perso de test (si le quota le permet)
         if: github.event_name == 'pull_request'
         continue-on-error: true

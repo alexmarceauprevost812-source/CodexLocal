@@ -31,6 +31,8 @@ sans déduire de relations. Ce moteur ne fournit pas de génération d’images 
 
 ## Connecter REA sur le PC
 
+> Une appli dédiée, **Codex REA** (`-Prea`), ouvre directement ce mode : voir la section « Codex REA » du README.
+
 Le mode **🔍 REA** fonctionne depuis la version 1.6 comme une boucle d'agent façon Codex :
 le modèle planifie, appelle les outils d'analyse du PC, lit les résultats, corrige ses appels
 et conclut, avec les mêmes actions de fichiers que Codex sur le téléphone.

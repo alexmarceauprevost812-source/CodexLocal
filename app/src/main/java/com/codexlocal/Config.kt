@@ -22,6 +22,12 @@ enum class AssistantMode {
     REA
 }
 
+/** Mode au premier lancement : Codex REA s'ouvre en REA si le PC est branché, sinon en Codex (utilisable sans PC). */
+object ModeParDefaut {
+    fun choisir(reaApp: Boolean, reaUrl: String): AssistantMode =
+        if (reaApp && reaUrl.isNotBlank()) AssistantMode.REA else AssistantMode.CODEX
+}
+
 const val CHAT_SYSTEM_PROMPT =
     "Tu es MARCEAU, un assistant conversationnel utile et naturel. " +
         "Reponds en francais, clairement, sans imposer de code. " +
@@ -80,7 +86,7 @@ data class AppConfig(
  * Preferences de l'application.
  * Chaque fournisseur distant garde sa propre cle / URL / modele.
  */
-class Prefs(context: Context) {
+class Prefs(context: Context, private val reaApp: Boolean = BuildConfig.REA_APP) {
 
     private val sp = context.applicationContext
         .getSharedPreferences("codexlocal", Context.MODE_PRIVATE)
@@ -88,6 +94,11 @@ class Prefs(context: Context) {
     var reaUrl: String
         get() = sp.getString("reaUrl", "") ?: ""
         set(v) { sp.edit().putString("reaUrl", v).apply() }
+
+    /** Codex REA : l'invitation à brancher REA n'est montrée qu'une fois. */
+    var reaInvitationFaite: Boolean
+        get() = sp.getBoolean("reaInvitationFaite", false)
+        set(v) { sp.edit().putBoolean("reaInvitationFaite", v).apply() }
 
     var reaToken: String
         get() = sp.getString("reaToken", "") ?: ""
@@ -105,9 +116,12 @@ class Prefs(context: Context) {
 
     /** Choix persistant entre assistant de code et discussion classique. */
     var assistantMode: AssistantMode
-        get() = runCatching {
-            AssistantMode.valueOf(sp.getString(KEY_ASSISTANT_MODE, AssistantMode.CODEX.name)!!)
-        }.getOrDefault(AssistantMode.CODEX)
+        get() {
+            val defaut = ModeParDefaut.choisir(reaApp, reaUrl)
+            return runCatching {
+                AssistantMode.valueOf(sp.getString(KEY_ASSISTANT_MODE, defaut.name)!!)
+            }.getOrDefault(defaut)
+        }
         set(v) {
             sp.edit().putString(KEY_ASSISTANT_MODE, v.name).apply()
         }

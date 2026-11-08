@@ -13,6 +13,11 @@ val ciRun: Int? = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
 // recherche riche (web, actualités, météo, vidéos, crypto), les schémas animés et le chat animé.
 val perso: Boolean = project.hasProperty("perso")
 
+// APK « Codex REA » : `./gradlew :app:assembleDebug -Prea` donne une appli séparée (autre identifiant)
+// qui s'ouvre en mode REA. Elle s'installe à côté de CodexLocal et de TVA LexOS.
+val reaApp: Boolean = project.hasProperty("rea")
+require(!(perso && reaApp)) { "Choisis une seule variante : -Pperso (TVA LexOS) ou -Prea (Codex REA), pas les deux." }
+
 // Modele d'application pour le Studio : la « coquille » (module :shell) est compilee puis copiee
 // dans les assets de CodexLocal sous le nom modele-shell.apk (voir ConstructeurApk).
 val dossierModeleApk = layout.buildDirectory.dir("generated/modeleApk/assets")
@@ -30,9 +35,18 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = if (perso) "com.codexlocal.perso" else "com.codexlocal"
+        applicationId = when {
+            perso -> "com.codexlocal.perso"
+            reaApp -> "com.codexlocal.rea"
+            else -> "com.codexlocal"
+        }
         buildConfigField("boolean", "PERSO", perso.toString())
-        manifestPlaceholders["appLabel"] = if (perso) "TVA LexOS" else "CodexLocal"
+        buildConfigField("boolean", "REA_APP", reaApp.toString())
+        manifestPlaceholders["appLabel"] = when {
+            perso -> "TVA LexOS"
+            reaApp -> "Codex REA"
+            else -> "CodexLocal"
+        }
         // Agenda, outils, schémas animés, nouvelles : présents seulement dans l'APK perso.
         manifestPlaceholders["persoActif"] = perso.toString()
         minSdk = 33
