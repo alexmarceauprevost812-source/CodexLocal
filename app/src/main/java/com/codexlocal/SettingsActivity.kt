@@ -311,6 +311,8 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.swAutoUpdate.isChecked = prefs.autoUpdate
         binding.swAutoUpdate.setOnCheckedChangeListener { _, coche -> prefs.autoUpdate = coche }
+        binding.swVerifierCode.isChecked = prefs.verifierCode
+        binding.swVerifierCode.setOnCheckedChangeListener { _, coche -> prefs.verifierCode = coche }
         binding.btnCheckUpdate.setOnClickListener {
             UpdateFlow.verifier(lifecycleScope, this, silencieux = false) { message ->
                 runOnUiThread { binding.tvLocalStatus.text = message }

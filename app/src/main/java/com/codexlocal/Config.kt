@@ -1,6 +1,7 @@
 package com.codexlocal
 
 import android.content.Context
+import com.codexlocal.agent.BonCodeur
 
 /** Fournisseurs d'IA disponibles. */
 enum class ProviderType(val label: String) {
@@ -36,9 +37,12 @@ const val DEFAULT_SYSTEM_PROMPT =
 /** Instructions adaptees sans changer les parametres API ni le modele choisi. */
 fun AppConfig.forMode(mode: AssistantMode): AppConfig = when (mode) {
     AssistantMode.CODEX, AssistantMode.REA -> copy(
+        // Un code qui compile demande peu de hasard : temperature plafonnee en mode code.
+        temperature = BonCodeur.temperature(temperature),
         systemPrompt = systemPrompt +
             "\n\nMode Codex : privilegie les solutions de programmation completes, " +
-            "les corrections expliquees et les blocs de code utilisables."
+            "les corrections expliquees et les blocs de code utilisables.\n\n" +
+            BonCodeur.METHODE
     )
     AssistantMode.CHAT -> copy(systemPrompt = CHAT_SYSTEM_PROMPT)
     // Chaque role de l'equipe a ses propres consignes (voir agent/Equipe.kt).
@@ -93,6 +97,11 @@ class Prefs(context: Context) {
     var rechercheWebAuto: Boolean
         get() = sp.getBoolean("rechercheWebAuto", true)
         set(v) { sp.edit().putBoolean("rechercheWebAuto", v).apply() }
+
+    /** Relecture automatique du code ecrit par l'IA en mode Codex, avec demande de correction. */
+    var verifierCode: Boolean
+        get() = sp.getBoolean("verifierCode", true)
+        set(v) { sp.edit().putBoolean("verifierCode", v).apply() }
 
     /** Choix persistant entre assistant de code et discussion classique. */
     var assistantMode: AssistantMode

@@ -357,6 +357,8 @@
     <string name="plus_echec_titre">Image impossible à ajouter</string>
     <string name="web_auto">Recherche Internet automatique</string>
     <string name="web_auto_detail">Consulte de la documentation quand une technologie connue est mentionnée avec une demande de recherche, de version ou d’aide technique. Seuls des termes techniques sont envoyés, jamais ton code ni la conversation. Les sources apparaissent dans le chat. Décoche pour rester hors ligne.</string>
+    <string name="verif_code">Relecture automatique du code</string>
+    <string name="verif_code_detail">En mode Codex, après chaque fichier écrit par l’IA, l’appli repère sans rien exécuter les erreurs fréquentes (fichier abrégé, accolade oubliée, JSON invalide, fichier référencé qui n’existe pas) et demande au modèle de corriger, deux fois au maximum. Chaque correction ajoute un tour de génération : décoche pour aller plus vite.</string>
     <string name="web_recherche">Recherche de documentation sur Internet…</string>
     <string name="ia_travaille">⚙️ L\'IA travaille…</string>
     <string name="crypto_recherche">💰 Je vérifie le prix en direct…</string>

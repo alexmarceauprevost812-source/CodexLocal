@@ -59,6 +59,20 @@ L'utilisateur confirme toujours le nom et le projet avant la création.
 - L'IA ne crée pas de fichiers toute seule sans action explicite de l'utilisateur.
 - Cette fonction nécessite un nouvel APK compilé depuis les dernières sources.
 
+## Aider le modèle local à bien coder (mode Codex)
+
+- **Méthode de travail** : le mode Codex ajoute cinq règles courtes aux consignes (lire un fichier
+  avant de le modifier, fichiers toujours complets, code simple, cas limites, ne jamais prétendre avoir
+  testé) — voir `BonCodeur.METHODE`.
+- **Température plafonnée à 0,2** en mode Codex (le réglage reste respecté s'il est plus bas).
+- **Relecture automatique** (Réglages → « Relecture automatique du code », activée par défaut) :
+  après chaque écriture, `VerificateurCode` relit les fichiers sans rien exécuter et repère un fichier
+  abrégé (« ... », « reste du code »), des parenthèses ou accolades mal fermées (JS, CSS, Python, Java,
+  Kotlin, Go, scripts et styles d'une page HTML), un JSON invalide, une page HTML qui référence un
+  fichier absent du projet, ou un fichier existant réécrit 3 fois plus court. Si elle trouve quelque
+  chose, le modèle reçoit la liste et doit réécrire les fichiers concernés (2 fois au maximum) ; sinon
+  un avertissement s'affiche sous la réponse. La relecture ne remplace pas un vrai test.
+
 ## Modes d'interface : Codex et Chat
 
 Dans l'ecran principal, le selecteur **Codex | Chat** permet de changer de mode.
