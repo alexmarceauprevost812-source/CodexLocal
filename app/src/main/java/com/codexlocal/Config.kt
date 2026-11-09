@@ -22,10 +22,9 @@ enum class AssistantMode {
     REA
 }
 
-/** Mode au premier lancement : Codex REA s'ouvre en REA si le PC est branché, sinon en Codex (utilisable sans PC). */
+/** Mode au premier lancement : Codex REA s'ouvre en REA (analyse locale sur le téléphone, PC facultatif). */
 object ModeParDefaut {
-    fun choisir(reaApp: Boolean, reaUrl: String): AssistantMode =
-        if (reaApp && reaUrl.isNotBlank()) AssistantMode.REA else AssistantMode.CODEX
+    fun choisir(reaApp: Boolean): AssistantMode = if (reaApp) AssistantMode.REA else AssistantMode.CODEX
 }
 
 const val CHAT_SYSTEM_PROMPT =
@@ -95,11 +94,6 @@ class Prefs(context: Context, private val reaApp: Boolean = BuildConfig.REA_APP)
         get() = sp.getString("reaUrl", "") ?: ""
         set(v) { sp.edit().putString("reaUrl", v).apply() }
 
-    /** Codex REA : l'invitation à brancher REA n'est montrée qu'une fois. */
-    var reaInvitationFaite: Boolean
-        get() = sp.getBoolean("reaInvitationFaite", false)
-        set(v) { sp.edit().putBoolean("reaInvitationFaite", v).apply() }
-
     var reaToken: String
         get() = sp.getString("reaToken", "") ?: ""
         set(v) { sp.edit().putString("reaToken", v).apply() }
@@ -117,7 +111,7 @@ class Prefs(context: Context, private val reaApp: Boolean = BuildConfig.REA_APP)
     /** Choix persistant entre assistant de code et discussion classique. */
     var assistantMode: AssistantMode
         get() {
-            val defaut = ModeParDefaut.choisir(reaApp, reaUrl)
+            val defaut = ModeParDefaut.choisir(reaApp)
             return runCatching {
                 AssistantMode.valueOf(sp.getString(KEY_ASSISTANT_MODE, defaut.name)!!)
             }.getOrDefault(defaut)

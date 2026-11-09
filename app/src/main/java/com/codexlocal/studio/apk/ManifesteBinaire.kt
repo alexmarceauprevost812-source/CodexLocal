@@ -77,6 +77,8 @@ object ManifesteBinaire {
         val debutChaines = b.getInt(debut + 20)
         require(nombreStyles == 0) { "Manifeste avec styles : non pris en charge" }
         require(tailleTable in 28..(octets.size - 8)) { "Table des chaines abimee" }
+        // Un manifeste abîmé ne doit pas provoquer une allocation géante : les décalages tiennent dans la table.
+        require(nombre in 0..((tailleTable - 28) / 4)) { "Nombre de chaines incoherent" }
         val utf8 = drapeaux and DRAPEAU_UTF8 != 0
 
         val chaines = ArrayList<String>(nombre)
@@ -95,6 +97,8 @@ object ManifesteBinaire {
             longueur = ((longueur and 0x7FFF) shl 16) or (b.getShort(p).toInt() and 0xFFFF)
             p += 2
         }
+        // La longueur annoncée doit tenir dans ce qui reste : pas d'allocation géante sur un manifeste abîmé.
+        require(longueur >= 0 && longueur.toLong() * 2 <= b.limit() - p) { "Chaine du manifeste incoherente" }
         val tableau = CharArray(longueur) { b.getShort(p + 2 * it).toInt().toChar() }
         return String(tableau)
     }
@@ -109,6 +113,7 @@ object ManifesteBinaire {
             octets = ((octets and 0x7F) shl 8) or (b.get(p).toInt() and 0xFF)
             p += 1
         }
+        require(octets >= 0 && octets <= b.limit() - p) { "Chaine du manifeste incoherente" }
         val tableau = ByteArray(octets) { b.get(p + it) }
         return String(tableau, Charsets.UTF_8)
     }
