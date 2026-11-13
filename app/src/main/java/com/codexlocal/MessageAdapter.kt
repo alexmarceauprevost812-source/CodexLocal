@@ -27,6 +27,10 @@ class MessageAdapter(
     // Par identité : Message est une data class dont le contenu change pendant l'écriture.
     private val animes: MutableSet<Message> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
 
+    /** Durée (ms) du dernier rendu de la dernière réponse (Markdown + couleurs), sur le fil d'affichage. */
+    var coutRenduMs: Long = 0L
+        private set
+
     /** APK perso : les nouvelles bulles glissent et rebondissent à leur arrivée. */
     private fun animerEntree(vue: android.view.View, msg: Message) {
         if (!BuildConfig.PERSO || !animes.add(msg)) return
@@ -74,6 +78,7 @@ class MessageAdapter(
                 )
             }
             is AssistantHolder -> {
+                val debutRendu = System.nanoTime()
                 val bulle = holder.binding.bubble
                 animerEntree(holder.itemView, msg)
                 val taille = (bulle.lineHeight * 1.25f).toInt().coerceAtLeast(24)
@@ -96,6 +101,8 @@ class MessageAdapter(
                     projection.appliquer(msg, bulle.text)
                     projection.animer(bulle)
                 }
+                // Coût du dernier rendu de la réponse en cours : règle le rythme de rafraîchissement.
+                if (msg === items.lastOrNull()) coutRenduMs = (System.nanoTime() - debutRendu) / 1_000_000
                 holder.binding.bubble.setBackgroundResource(
                     if (chatMode) R.drawable.bg_assistant_chat else R.drawable.bg_assistant
                 )
