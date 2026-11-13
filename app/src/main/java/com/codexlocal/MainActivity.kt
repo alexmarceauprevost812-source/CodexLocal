@@ -59,6 +59,8 @@ import com.codexlocal.outils.NotifNouvelles
 import com.codexlocal.outils.OutilsActivity
 import com.codexlocal.web.ResultatWeb
 import com.codexlocal.rea.OutilsRea
+import com.codexlocal.session.DernierArret
+import com.codexlocal.session.RythmeAffichage
 import com.codexlocal.rea.ReaClient
 import com.codexlocal.rea.ReaLocal
 import com.codexlocal.rea.ReaProtocol
@@ -227,6 +229,10 @@ class MainActivity : AppCompatActivity() {
             if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
         }
 
+        // Aussi quand Android restaure l'appli après l'avoir tuée (savedInstanceState non nul) :
+        // c'est justement le cas du manque de mémoire. dernierArretVu évite toute répétition.
+        signalerDernierArret()
+
         // Verification silencieuse des mises a jour au demarrage
         // TVA LexOS cherche ses propres versions (releases « perso-v… ») : mise à jour en un clic.
         if (prefs.autoUpdate) {
@@ -280,6 +286,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ------------------------------------------------------------------ UI
+
+    /** Si Android a fermé l'appli la dernière fois (mémoire, plantage, blocage), on le dit une fois. */
+    private fun signalerDernierArret() {
+        val arret = DernierArret.lire(this, prefs.dernierArretVu) ?: return
+        prefs.dernierArretVu = arret.quand
+        if (DernierArret.reduitLaMemoire(arret.cause)) prefs.memoirePrudente = true
+        Snackbar.make(binding.root, DernierArret.message(arret.cause), 12_000)
+            .setTextMaxLines(5)
+            .setAction("Copier") {
+                val texte = "CodexLocal ${UpdateChecker.versionInstallee(this)} — ${arret.cause} — ${arret.detail}"
+                (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                    .setPrimaryClip(ClipData.newPlainText("Dernier arrêt", texte))
+            }.show()
+    }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
 
@@ -1764,8 +1784,10 @@ class MainActivity : AppCompatActivity() {
             // Le rendu (Markdown + couleurs) refait tout le message : plus il est long,
             // moins on le rafraichit souvent, sinon l'ecran gele.
             // APK perso : écriture plus fluide (rafraîchi plus souvent), avec l'effet projection.
-            val intervalle = if (BuildConfig.PERSO) (33L + assistant.content.length / 80).coerceAtMost(260L)
-            else (80L + assistant.content.length / 40).coerceAtMost(500L)
+            // Si le rendu lui-même devient lent (long fichier de code), on espace encore plus.
+            val intervalle = RythmeAffichage.intervalle(
+                assistant.content.length, BuildConfig.PERSO, adapter.coutRenduMs
+            )
             if (now - lastUiUpdate > intervalle) {
                 lastUiUpdate = now
                 val i = messages.indexOfFirst { it === assistant }

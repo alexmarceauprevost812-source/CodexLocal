@@ -80,6 +80,28 @@ vont au fournisseur IA sélectionné (modèle local ou API distante).
 Une connexion MCP est initialisée par demande, puis fermée même sur erreur.
 Les erreurs et les résultats tronqués sont signalés; aucune réussite n’est simulée.
 
+## REA sur le téléphone avec Termux (sans PC)
+
+REA est un paquet Node.js (`rea-agents`). S'il est installé dans Termux, CodexLocal lui sert
+d'interface : l'adresse `127.0.0.1` du téléphone est acceptée, aucun tunnel SSH n'est nécessaire.
+
+1. Dans Termux, lance le serveur REA en HTTP sur le téléphone, si ta version le propose :
+   `rea mcp --http --host 127.0.0.1 --port 8766`
+2. Dans CodexLocal ou Codex REA : appui long sur 🔍, adresse `http://127.0.0.1:8766/mcp`.
+3. Donne à l'IA le chemin du fichier **dans Termux** (par exemple `/data/data/com.termux/files/home/app.apk`).
+
+Laisse Termux ouvert en arrière-plan. Si ta version de REA ne connaît que le mode stdio
+(pas d'option `--http`), cette connexion ne marche pas encore : l'analyse locale intégrée
+(sans adresse) reste disponible. Le modèle peut être un GGUF local ou une clé API
+(Réglages → Claude (Anthropic), OpenAI, Gemini…).
+
+## Si l'appli gèle ou se ferme
+
+Au lancement suivant, CodexLocal indique pourquoi Android l'a fermée (mémoire, moteur, blocage)
+et **Copier** met le détail dans le presse-papiers. Après une fermeture par manque de mémoire,
+le modèle local garde la mémoire de conversation sûre (8 192 jetons). Pendant l'écriture d'une
+longue réponse, l'écran est rafraîchi moins souvent si le rendu devient lent.
+
 ## Vérification
 
 Tests Android : `:app:testDebugUnitTest` (protocole JSON/SSE, session HTTP,

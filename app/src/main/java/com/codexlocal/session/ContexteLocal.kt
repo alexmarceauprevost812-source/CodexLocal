@@ -19,6 +19,7 @@ object ContexteLocal {
      * sinon 8 192. Le moteur plafonne de toute facon ce chiffre a ce que le modele sait faire,
      * et le reduit tout seul si la memoire manque finalement.
      */
-    fun tailleSouhaitee(ramDisponible: Long, tailleModele: Long): Int =
-        if (ramDisponible - tailleModele >= MARGE_GRANDE) GRANDE else BASE
+    fun tailleSouhaitee(ramDisponible: Long, tailleModele: Long, prudente: Boolean = false): Int =
+        // [prudente] : Android a déjà fermé l'appli par manque de mémoire, on reste sur la taille sûre.
+        if (!prudente && ramDisponible - tailleModele >= MARGE_GRANDE) GRANDE else BASE
 }

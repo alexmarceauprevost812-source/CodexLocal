@@ -187,6 +187,16 @@ class Prefs(context: Context, private val reaApp: Boolean = BuildConfig.REA_APP)
             sp.edit().putBoolean(KEY_AUTO_UPDATE, v).apply()
         }
 
+    /** Android a déjà fermé l'appli par manque de mémoire : le modèle local garde la mémoire sûre. */
+    var memoirePrudente: Boolean
+        get() = sp.getBoolean("memoirePrudente", false)
+        set(v) { sp.edit().putBoolean("memoirePrudente", v).apply() }
+
+    /** Date de la dernière fermeture anormale déjà signalée. */
+    var dernierArretVu: Long
+        get() = sp.getLong("dernierArretVu", 0L)
+        set(v) { sp.edit().putLong("dernierArretVu", v).apply() }
+
     /** Conversation en cours, pour la retrouver au prochain lancement. */
     var sessionActive: String
         get() = sp.getString(KEY_SESSION, "") ?: ""

@@ -99,7 +99,9 @@ object LocalEngine {
         try {
             // Plus la memoire du modele est grande, plus la session peut durer sans rien oublier.
             e.setContextSize(
-                ContexteLocal.tailleSouhaitee(memoireDisponible(context), File(modelPath).length())
+                ContexteLocal.tailleSouhaitee(
+                    memoireDisponible(context), File(modelPath).length(), Prefs(context).memoirePrudente
+                )
             )
             e.loadModel(modelPath)
             e.setSamplingParams(cfg.temperature, 0.95f, 40)
