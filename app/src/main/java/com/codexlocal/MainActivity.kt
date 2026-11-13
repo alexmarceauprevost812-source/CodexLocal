@@ -229,7 +229,9 @@ class MainActivity : AppCompatActivity() {
             if (cfg.provider == ProviderType.LOCAL && cfg.localModelPath.isBlank()) openSettings()
         }
 
-        if (savedInstanceState == null) signalerDernierArret()
+        // Aussi quand Android restaure l'appli après l'avoir tuée (savedInstanceState non nul) :
+        // c'est justement le cas du manque de mémoire. dernierArretVu évite toute répétition.
+        signalerDernierArret()
 
         // Verification silencieuse des mises a jour au demarrage
         // TVA LexOS cherche ses propres versions (releases « perso-v… ») : mise à jour en un clic.
